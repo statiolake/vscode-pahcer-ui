@@ -51,13 +51,13 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 	}
 
 	async setGroupingMode(mode: GroupingMode): Promise<void> {
-		const config = vscode.workspace.getConfiguration('pahcer');
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
 		await config.update('groupingMode', mode, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
 	getGroupingMode(): GroupingMode {
-		const config = vscode.workspace.getConfiguration('pahcer');
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
 		return config.get<GroupingMode>('groupingMode') || 'byExecution';
 	}
 
@@ -87,24 +87,24 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 	}
 
 	async setExecutionSortOrder(order: ExecutionSortOrder): Promise<void> {
-		const config = vscode.workspace.getConfiguration('pahcer');
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
 		await config.update('executionSortOrder', order, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
 	async setSeedSortOrder(order: SeedSortOrder): Promise<void> {
-		const config = vscode.workspace.getConfiguration('pahcer');
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
 		await config.update('seedSortOrder', order, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
 	getExecutionSortOrder(): ExecutionSortOrder {
-		const config = vscode.workspace.getConfiguration('pahcer');
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
 		return config.get<ExecutionSortOrder>('executionSortOrder') || 'seedAsc';
 	}
 
 	getSeedSortOrder(): SeedSortOrder {
-		const config = vscode.workspace.getConfiguration('pahcer');
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
 		return config.get<SeedSortOrder>('seedSortOrder') || 'executionDesc';
 	}
 
@@ -290,7 +290,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 			// Make clickable
 			item.command = {
-				command: 'vscode-pahcer-ui.showVisualizer',
+				command: 'pahcer-ui.showVisualizer',
 				title: 'Show Visualizer',
 				arguments: [testCase.seed, resultId],
 			};
@@ -456,7 +456,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 			// Make clickable
 			item.command = {
-				command: 'vscode-pahcer-ui.showVisualizer',
+				command: 'pahcer-ui.showVisualizer',
 				title: 'Show Visualizer',
 				arguments: [seed, resultId],
 			};

@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 	// Register refresh command
-	const refreshCommand = vscode.commands.registerCommand('vscode-pahcer-ui.refresh', () => {
+	const refreshCommand = vscode.commands.registerCommand('pahcer-ui.refresh', () => {
 		pahcerResultsProvider.refresh();
 	});
 
@@ -66,7 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	const switchToSeedCommand = vscode.commands.registerCommand(
-		'vscode-pahcer-ui.switchToSeed',
+		'pahcer-ui.switchToSeed',
 		async () => {
 			await pahcerResultsProvider.setGroupingMode('bySeed');
 			updateGroupingContext();
@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	const switchToExecutionCommand = vscode.commands.registerCommand(
-		'vscode-pahcer-ui.switchToExecution',
+		'pahcer-ui.switchToExecution',
 		async () => {
 			await pahcerResultsProvider.setGroupingMode('byExecution');
 			updateGroupingContext();
@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Toggle comparison mode command
 	const toggleComparisonModeCommand = vscode.commands.registerCommand(
-		'vscode-pahcer-ui.toggleComparisonMode',
+		'pahcer-ui.toggleComparisonMode',
 		() => {
 			const currentMode = pahcerResultsProvider.getComparisonMode();
 			pahcerResultsProvider.setComparisonMode(!currentMode);
@@ -94,7 +94,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Register run command
-	const runCommand = vscode.commands.registerCommand('vscode-pahcer-ui.run', async () => {
+	const runCommand = vscode.commands.registerCommand('pahcer-ui.run', async () => {
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		if (!workspaceFolder) {
 			vscode.window.showErrorMessage('ワークスペースが開かれていません');
@@ -112,7 +112,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register visualizer command
 	const showVisualizerCommand = vscode.commands.registerCommand(
-		'vscode-pahcer-ui.showVisualizer',
+		'pahcer-ui.showVisualizer',
 		async (seed: number, resultId?: string) => {
 			if (!visualizerManager || !workspaceRoot) {
 				vscode.window.showErrorMessage('ワークスペースが開かれていません');
@@ -155,7 +155,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register add comment command
 	const addCommentCommand = vscode.commands.registerCommand(
-		'vscode-pahcer-ui.addComment',
+		'pahcer-ui.addComment',
 		async (item: any) => {
 			if (!workspaceRoot || !item?.resultId) {
 				return;
@@ -194,7 +194,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register change sort order command
 	const changeSortOrderCommand = vscode.commands.registerCommand(
-		'vscode-pahcer-ui.changeSortOrder',
+		'pahcer-ui.changeSortOrder',
 		async () => {
 			const mode = pahcerResultsProvider.getGroupingMode();
 
