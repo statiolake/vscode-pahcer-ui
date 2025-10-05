@@ -9,29 +9,61 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:pahcerResults"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pahcer",
+          "title": "Pahcer",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "pahcer": [
+        {
+          "id": "pahcerResults",
+          "name": "Test Results"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "vscode-pahcer-ui.helloWorld",
-        "title": "Hello World"
+        "command": "vscode-pahcer-ui.run",
+        "title": "Pahcer: Run Tests",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vscode-pahcer-ui.refresh",
+        "title": "Pahcer: Refresh Results",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "vscode-pahcer-ui.run",
+          "when": "view == pahcerResults",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vscode-pahcer-ui.refresh",
+          "when": "view == pahcerResults",
+          "group": "navigation@2"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
     "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
-    "watch": "npm-run-all -p watch:*",
-    "watch:esbuild": "node esbuild.js --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "lint": "eslint src"
   },
   "devDependencies": {
     "@types/vscode": "^1.104.0",

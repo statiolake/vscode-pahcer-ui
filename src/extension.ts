@@ -1,26 +1,53 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
+import { PahcerResultsProvider } from "./pahcerResultsProvider";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "vscode-pahcer-ui" is now active!');
+  // Create TreeView provider
+  const pahcerResultsProvider = new PahcerResultsProvider(workspaceRoot);
+  const treeView = vscode.window.createTreeView("pahcerResults", {
+    treeDataProvider: pahcerResultsProvider,
+    showCollapseAll: true,
+  });
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('vscode-pahcer-ui.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Pahcer UI!');
-	});
+  // Register refresh command
+  const refreshCommand = vscode.commands.registerCommand(
+    "vscode-pahcer-ui.refresh",
+    () => {
+      pahcerResultsProvider.refresh();
+    }
+  );
 
-	context.subscriptions.push(disposable);
+  // Register run command
+  const runCommand = vscode.commands.registerCommand(
+    "vscode-pahcer-ui.run",
+    async () => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage("ワークスペースが開かれていません");
+        return;
+      }
+
+      const terminal = vscode.window.createTerminal({
+        name: "Pahcer Run",
+        cwd: workspaceFolder.uri.fsPath,
+      });
+
+      terminal.show();
+      terminal.sendText("pahcer run");
+
+      // Auto-refresh after terminal closes
+      const disposable = vscode.window.onDidCloseTerminal((t) => {
+        if (t === terminal) {
+          setTimeout(() => pahcerResultsProvider.refresh(), 1000);
+          disposable.dispose();
+        }
+      });
+    }
+  );
+
+  context.subscriptions.push(treeView, refreshCommand, runCommand);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
