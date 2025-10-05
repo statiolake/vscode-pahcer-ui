@@ -2,6 +2,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
+function getNonce() {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
+}
+
 interface PahcerResult {
 	start_time: string;
 	case_count: number;
@@ -51,6 +60,8 @@ export class ComparisonView {
 		if (this.panel) {
 			this.panel.reveal(vscode.ViewColumn.One);
 		} else {
+			const extensionUri = this.context.extensionUri;
+
 			this.panel = vscode.window.createWebviewPanel(
 				'pahcerComparison',
 				'Results Comparison',
@@ -58,6 +69,7 @@ export class ComparisonView {
 				{
 					enableScripts: true,
 					retainContextWhenHidden: true,
+					localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
 				},
 			);
 
@@ -83,10 +95,13 @@ export class ComparisonView {
 		}
 
 		// Generate HTML with Chart.js
-		this.panel.webview.html = this.getWebviewContent(results);
+		this.panel.webview.html = this.getWebviewContent(results, this.panel.webview);
 	}
 
-	private getWebviewContent(results: Array<{ id: string; data: PahcerResult }>): string {
+	private getWebviewContent(
+		results: Array<{ id: string; data: PahcerResult }>,
+		webview: vscode.Webview,
+	): string {
 		// Collect all seeds
 		const allSeeds = new Set<number>();
 		for (const result of results) {
@@ -137,13 +152,22 @@ export class ComparisonView {
 		const datasetsJson = JSON.stringify(datasets);
 		const seedsJson = JSON.stringify(seeds);
 
+		// Get Chart.js URI
+		const chartJsUri = webview.asWebviewUri(
+			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'chart.js'),
+		);
+
+		// Generate nonce for inline scripts
+		const nonce = getNonce();
+
 		return `<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${webview.cspSource} 'nonce-${nonce}'; style-src 'unsafe-inline';">
     <title>Results Comparison</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="${chartJsUri}"></script>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -187,7 +211,7 @@ export class ComparisonView {
         <canvas id="chart"></canvas>
     </div>
 
-    <script>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
         const datasets = ${datasetsJson};
         const seeds = ${seedsJson};
