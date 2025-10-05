@@ -11,7 +11,7 @@ export class VisualizerManager {
 		private context: vscode.ExtensionContext,
 		private workspaceRoot: string,
 	) {
-		VisualizerManager.visualizerDir = path.join(workspaceRoot, '.pahcer-ui');
+		VisualizerManager.visualizerDir = path.join(workspaceRoot, '.pahcer-ui', 'visualizer');
 	}
 
 	async showVisualizerForCase(seed: number, inputPath: string, outputPath: string) {

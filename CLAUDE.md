@@ -56,7 +56,7 @@ pahcer は AtCoder Heuristic Contest (AHC) のローカルテスト並列実行�
 
 ### 5. 出力ファイルの保存
 
-- 新しい実行結果が作成されると、`tools/out` と `tools/err` のディレクトリを `.pahcer-ui/result_${id}/` にコピー
+- 新しい実行結果が作成されると、`tools/out` と `tools/err` のディレクトリを `.pahcer-ui/results/result_${id}/` にコピー
 - 過去の実行結果のビジュアライズも可能
 
 ## ディレクトリ構造
@@ -71,10 +71,12 @@ pahcer は AtCoder Heuristic Contest (AHC) のローカルテスト並列実行�
 │   ├── out/                 # 出力ファイル（最新実行）
 │   └── err/                 # エラーファイル（最新実行）
 ├── .pahcer-ui/              # この拡張機能が作成するディレクトリ
-│   ├── result_*/
-│   │   ├── out/             # 各実行の出力ファイルのコピー
-│   │   └── err/             # 各実行のエラーファイルのコピー
-│   └── *.html               # ダウンロードしたビジュアライザファイル
+│   ├── results/             # 実行結果の保存先
+│   │   └── result_*/
+│   │       ├── out/         # 各実行の出力ファイルのコピー
+│   │       └── err/         # 各実行のエラーファイルのコピー
+│   └── visualizer/          # ビジュアライザのダウンロード先
+│       └── *.html           # ダウンロードしたビジュアライザファイル
 └── src/
     ├── extension.ts              # メインのエントリポイント
     ├── pahcerResultsProvider.ts  # TreeView プロバイダー

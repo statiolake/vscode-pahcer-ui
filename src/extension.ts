@@ -101,6 +101,7 @@ export function activate(context: vscode.ExtensionContext) {
 				? path.join(
 						workspaceRoot,
 						'.pahcer-ui',
+						'results',
 						`result_${resultId}`,
 						'out',
 						`${String(seed).padStart(4, '0')}.txt`,
@@ -143,7 +144,7 @@ function copyOutputFiles(workspaceRoot: string, resultJsonPath: string) {
 		}
 
 		const resultId = match[1];
-		const destDir = path.join(workspaceRoot, '.pahcer-ui', `result_${resultId}`);
+		const destDir = path.join(workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
 
 		// Create destination directory
 		if (!fs.existsSync(destDir)) {
