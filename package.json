@@ -89,7 +89,7 @@
 		"prepare": "husky"
 	},
 	"lint-staged": {
-		"*.{js,ts,json,md}": [
+		"*.{js,ts,json}": [
 			"biome format --write"
 		],
 		"*.{js,ts}": [
