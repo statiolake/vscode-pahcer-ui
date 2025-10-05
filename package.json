@@ -46,11 +46,11 @@
 			},
 			{
 				"command": "vscode-pahcer-ui.switchToSeed",
-				"title": "Seed ごと"
+				"title": "Seed"
 			},
 			{
 				"command": "vscode-pahcer-ui.switchToExecution",
-				"title": "実行ごと"
+				"title": "実行"
 			},
 			{
 				"command": "vscode-pahcer-ui.toggleComparisonMode",
@@ -75,18 +75,18 @@
 					"group": "navigation@2"
 				},
 				{
+					"command": "vscode-pahcer-ui.toggleComparisonMode",
+					"when": "view == pahcerResults",
+					"group": "navigation@3"
+				},
+				{
 					"command": "vscode-pahcer-ui.switchToSeed",
 					"when": "view == pahcerResults && pahcer.groupingMode == byExecution",
-					"group": "navigation@3"
+					"group": "navigation@4"
 				},
 				{
 					"command": "vscode-pahcer-ui.switchToExecution",
 					"when": "view == pahcerResults && pahcer.groupingMode == bySeed",
-					"group": "navigation@3"
-				},
-				{
-					"command": "vscode-pahcer-ui.toggleComparisonMode",
-					"when": "view == pahcerResults",
 					"group": "navigation@4"
 				}
 			],
