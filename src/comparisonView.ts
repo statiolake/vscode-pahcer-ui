@@ -237,6 +237,10 @@ export class ComparisonView {
                 };
             });
 
+            // Get computed CSS colors
+            const foregroundColor = getComputedStyle(document.body).getPropertyValue('--vscode-foreground') || '#cccccc';
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--vscode-panel-border') || '#454545';
+
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -264,7 +268,7 @@ export class ComparisonView {
                         legend: {
                             position: 'top',
                             labels: {
-                                color: 'var(--vscode-foreground)'
+                                color: foregroundColor
                             }
                         },
                         tooltip: {
@@ -281,26 +285,26 @@ export class ComparisonView {
                             title: {
                                 display: true,
                                 text: 'Seed',
-                                color: 'var(--vscode-foreground)'
+                                color: foregroundColor
                             },
                             ticks: {
-                                color: 'var(--vscode-foreground)'
+                                color: foregroundColor
                             },
                             grid: {
-                                color: 'var(--vscode-panel-border)'
+                                color: gridColor
                             }
                         },
                         y: {
                             title: {
                                 display: true,
                                 text: mode === 'absolute' ? 'スコア' : '相対スコア (%)',
-                                color: 'var(--vscode-foreground)'
+                                color: foregroundColor
                             },
                             ticks: {
-                                color: 'var(--vscode-foreground)'
+                                color: foregroundColor
                             },
                             grid: {
-                                color: 'var(--vscode-panel-border)'
+                                color: gridColor
                             }
                         }
                     }
