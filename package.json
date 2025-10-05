@@ -36,27 +36,27 @@
 		"commands": [
 			{
 				"command": "vscode-pahcer-ui.run",
-				"title": "Pahcer: Run Tests",
+				"title": "テストを実行",
 				"icon": "$(play)"
 			},
 			{
 				"command": "vscode-pahcer-ui.refresh",
-				"title": "Pahcer: Refresh Results",
+				"title": "結果を更新",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "vscode-pahcer-ui.switchToSeed",
-				"title": "Seed",
+				"title": "Seedごとにグルーピング",
 				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "vscode-pahcer-ui.switchToExecution",
-				"title": "実行",
+				"title": "実行ごとにグルーピング",
 				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "vscode-pahcer-ui.toggleComparisonMode",
-				"title": "Toggle Comparison Mode",
+				"title": "比較モードを切り替え",
 				"icon": "$(graph-line)"
 			},
 			{
