@@ -41,6 +41,14 @@
 				"command": "vscode-pahcer-ui.refresh",
 				"title": "Pahcer: Refresh Results",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "vscode-pahcer-ui.switchToSeed",
+				"title": "Seed ごと"
+			},
+			{
+				"command": "vscode-pahcer-ui.switchToExecution",
+				"title": "実行ごと"
 			}
 		],
 		"menus": {
@@ -54,6 +62,16 @@
 					"command": "vscode-pahcer-ui.refresh",
 					"when": "view == pahcerResults",
 					"group": "navigation@2"
+				},
+				{
+					"command": "vscode-pahcer-ui.switchToSeed",
+					"when": "view == pahcerResults && pahcer.groupingMode == byExecution",
+					"group": "navigation@3"
+				},
+				{
+					"command": "vscode-pahcer-ui.switchToExecution",
+					"when": "view == pahcerResults && pahcer.groupingMode == bySeed",
+					"group": "navigation@3"
 				}
 			]
 		}

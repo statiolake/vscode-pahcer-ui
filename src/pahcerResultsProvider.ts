@@ -21,16 +21,29 @@ interface PahcerResult {
 	}>;
 }
 
+export type GroupingMode = 'byExecution' | 'bySeed';
+
 export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<ResultItem | undefined | null> =
 		new vscode.EventEmitter<ResultItem | undefined | null>();
 	readonly onDidChangeTreeData: vscode.Event<ResultItem | undefined | null> =
 		this._onDidChangeTreeData.event;
 
+	private groupingMode: GroupingMode = 'byExecution';
+
 	constructor(private workspaceRoot: string | undefined) {}
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire(undefined);
+	}
+
+	setGroupingMode(mode: GroupingMode): void {
+		this.groupingMode = mode;
+		this.refresh();
+	}
+
+	getGroupingMode(): GroupingMode {
+		return this.groupingMode;
 	}
 
 	getTreeItem(element: ResultItem): vscode.TreeItem {
@@ -42,14 +55,27 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			return [];
 		}
 
-		if (!element) {
-			// Root level: show all results
-			return this.getResults();
-		} else if (element.contextValue === 'result' && element.result) {
-			// Show cases for a result
-			return this.getCases(element.result, element.resultId);
+		if (this.groupingMode === 'byExecution') {
+			if (!element) {
+				// Root level: show all results
+				return this.getResults();
+			} else if (element.contextValue === 'result' && element.result) {
+				// Show cases for a result
+				return this.getCases(element.result, element.resultId);
+			} else {
+				return [];
+			}
 		} else {
-			return [];
+			// bySeed mode
+			if (!element) {
+				// Root level: show all seeds
+				return this.getSeeds();
+			} else if (element.contextValue === 'seed') {
+				// Show executions for a seed
+				return this.getExecutionsForSeed(element.seed!);
+			} else {
+				return [];
+			}
 		}
 	}
 
@@ -161,6 +187,141 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			}
 
 			items.push(item);
+		}
+
+		return items;
+	}
+
+	private async getSeeds(): Promise<ResultItem[]> {
+		if (!this.workspaceRoot) {
+			return [new ResultItem('No workspace found', vscode.TreeItemCollapsibleState.None, 'info')];
+		}
+
+		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
+
+		if (!fs.existsSync(jsonDir)) {
+			return [new ResultItem('No results found', vscode.TreeItemCollapsibleState.None, 'info')];
+		}
+
+		const files = fs
+			.readdirSync(jsonDir)
+			.filter((f) => f.startsWith('result_') && f.endsWith('.json'))
+			.sort()
+			.reverse()
+			.slice(0, 10);
+
+		// Collect all seeds from all results
+		const seedMap = new Map<number, { count: number; totalScore: number; totalRel: number }>();
+
+		for (const file of files) {
+			try {
+				const content = fs.readFileSync(path.join(jsonDir, file), 'utf-8');
+				const result: PahcerResult = JSON.parse(content);
+
+				for (const testCase of result.cases) {
+					const existing = seedMap.get(testCase.seed) || { count: 0, totalScore: 0, totalRel: 0 };
+					seedMap.set(testCase.seed, {
+						count: existing.count + 1,
+						totalScore: existing.totalScore + testCase.score,
+						totalRel: existing.totalRel + testCase.relative_score,
+					});
+				}
+			} catch (e) {
+				console.error(`Failed to load ${file}:`, e);
+			}
+		}
+
+		// Create items for each seed
+		const items: ResultItem[] = [];
+		const sortedSeeds = Array.from(seedMap.entries()).sort((a, b) => a[0] - b[0]);
+
+		for (const [seed, stats] of sortedSeeds) {
+			const avgScore = (stats.totalScore / stats.count).toFixed(2);
+			const avgRel = (stats.totalRel / stats.count).toFixed(3);
+			const label = `Seed ${seed}`;
+			const description = `${stats.count} runs - Avg: ${avgScore} (${avgRel}%)`;
+
+			const item = new ResultItem(
+				label,
+				vscode.TreeItemCollapsibleState.Collapsed,
+				'seed',
+				description,
+			);
+			item.seed = seed;
+			item.iconPath = new vscode.ThemeIcon('symbol-number');
+
+			items.push(item);
+		}
+
+		return items;
+	}
+
+	private async getExecutionsForSeed(seed: number): Promise<ResultItem[]> {
+		if (!this.workspaceRoot) {
+			return [];
+		}
+
+		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
+
+		if (!fs.existsSync(jsonDir)) {
+			return [];
+		}
+
+		const files = fs
+			.readdirSync(jsonDir)
+			.filter((f) => f.startsWith('result_') && f.endsWith('.json'))
+			.sort()
+			.reverse()
+			.slice(0, 10);
+
+		const items: ResultItem[] = [];
+
+		for (const file of files) {
+			try {
+				const content = fs.readFileSync(path.join(jsonDir, file), 'utf-8');
+				const result: PahcerResult = JSON.parse(content);
+
+				// Find the test case for this seed
+				const testCase = result.cases.find((c) => c.seed === seed);
+				if (!testCase) {
+					continue;
+				}
+
+				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
+				const time = new Date(result.start_time).toLocaleString();
+				const label = `${time}: ${testCase.score.toLocaleString()} (${testCase.relative_score.toFixed(3)}%)`;
+				const description = `${(testCase.execution_time * 1000).toFixed(2)}ms`;
+
+				const item = new ResultItem(
+					label,
+					vscode.TreeItemCollapsibleState.None,
+					'execution',
+					description,
+				);
+				item.seed = seed;
+				item.resultId = resultId;
+
+				// Make clickable
+				item.command = {
+					command: 'vscode-pahcer-ui.showVisualizer',
+					title: 'Show Visualizer',
+					arguments: [seed, resultId],
+				};
+
+				if (testCase.score === 0 || testCase.error_message) {
+					item.iconPath = new vscode.ThemeIcon(
+						'error',
+						new vscode.ThemeColor('testing.iconFailed'),
+					);
+					item.tooltip = testCase.error_message || 'WA';
+				} else {
+					item.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
+				}
+
+				items.push(item);
+			} catch (e) {
+				console.error(`Failed to load ${file}:`, e);
+			}
 		}
 
 		return items;

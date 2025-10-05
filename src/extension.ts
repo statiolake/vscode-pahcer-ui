@@ -39,6 +39,31 @@ export function activate(context: vscode.ExtensionContext) {
 		pahcerResultsProvider.refresh();
 	});
 
+	// Update context for button visibility
+	const updateGroupingContext = () => {
+		const mode = pahcerResultsProvider.getGroupingMode();
+		vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
+	};
+
+	const switchToSeedCommand = vscode.commands.registerCommand(
+		'vscode-pahcer-ui.switchToSeed',
+		() => {
+			pahcerResultsProvider.setGroupingMode('bySeed');
+			updateGroupingContext();
+		},
+	);
+
+	const switchToExecutionCommand = vscode.commands.registerCommand(
+		'vscode-pahcer-ui.switchToExecution',
+		() => {
+			pahcerResultsProvider.setGroupingMode('byExecution');
+			updateGroupingContext();
+		},
+	);
+
+	// Initialize context
+	updateGroupingContext();
+
 	// Register run command
 	const runCommand = vscode.commands.registerCommand('vscode-pahcer-ui.run', async () => {
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -98,7 +123,14 @@ export function activate(context: vscode.ExtensionContext) {
 		},
 	);
 
-	context.subscriptions.push(treeView, refreshCommand, runCommand, showVisualizerCommand);
+	context.subscriptions.push(
+		treeView,
+		refreshCommand,
+		runCommand,
+		showVisualizerCommand,
+		switchToSeedCommand,
+		switchToExecutionCommand,
+	);
 }
 
 function copyOutputFiles(workspaceRoot: string, resultJsonPath: string) {
