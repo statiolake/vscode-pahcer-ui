@@ -6,7 +6,7 @@
 	"publisher": "statiolake",
 	"author": "statiolake",
 	"license": "MIT",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"engines": {
 		"vscode": "^1.104.0"
 	},
@@ -161,9 +161,9 @@
 				},
 				"pahcer-ui.visualizerZoomLevel": {
 					"type": "number",
-					"default": 1.0,
+					"default": 1,
 					"minimum": 0.5,
-					"maximum": 3.0,
+					"maximum": 3,
 					"description": "ビジュアライザのズームレベル"
 				}
 			}
