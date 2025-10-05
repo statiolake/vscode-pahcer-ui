@@ -67,16 +67,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const switchToSeedCommand = vscode.commands.registerCommand(
 		'vscode-pahcer-ui.switchToSeed',
-		() => {
-			pahcerResultsProvider.setGroupingMode('bySeed');
+		async () => {
+			await pahcerResultsProvider.setGroupingMode('bySeed');
 			updateGroupingContext();
 		},
 	);
 
 	const switchToExecutionCommand = vscode.commands.registerCommand(
 		'vscode-pahcer-ui.switchToExecution',
-		() => {
-			pahcerResultsProvider.setGroupingMode('byExecution');
+		async () => {
+			await pahcerResultsProvider.setGroupingMode('byExecution');
 			updateGroupingContext();
 		},
 	);
@@ -211,7 +211,7 @@ export function activate(context: vscode.ExtensionContext) {
 				});
 
 				if (selected) {
-					pahcerResultsProvider.setExecutionSortOrder(selected.value);
+					await pahcerResultsProvider.setExecutionSortOrder(selected.value);
 				}
 			} else {
 				const currentOrder = pahcerResultsProvider.getSeedSortOrder();
@@ -225,7 +225,7 @@ export function activate(context: vscode.ExtensionContext) {
 				});
 
 				if (selected) {
-					pahcerResultsProvider.setSeedSortOrder(selected.value);
+					await pahcerResultsProvider.setSeedSortOrder(selected.value);
 				}
 			}
 		},

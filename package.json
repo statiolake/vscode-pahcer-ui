@@ -46,11 +46,13 @@
 			},
 			{
 				"command": "vscode-pahcer-ui.switchToSeed",
-				"title": "Seed"
+				"title": "Seed",
+				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "vscode-pahcer-ui.switchToExecution",
-				"title": "実行"
+				"title": "実行",
+				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "vscode-pahcer-ui.toggleComparisonMode",
@@ -64,7 +66,7 @@
 			{
 				"command": "vscode-pahcer-ui.changeSortOrder",
 				"title": "並び順を変更",
-				"icon": "$(arrow-swap)"
+				"icon": "$(list-filter)"
 			}
 		],
 		"menus": {
@@ -106,6 +108,48 @@
 					"when": "view == pahcerResults && viewItem == execution"
 				}
 			]
+		},
+		"configuration": {
+			"title": "Pahcer UI",
+			"properties": {
+				"pahcer.groupingMode": {
+					"type": "string",
+					"enum": [
+						"byExecution",
+						"bySeed"
+					],
+					"default": "byExecution",
+					"description": "表示モード (実行ごと / Seedごと)"
+				},
+				"pahcer.executionSortOrder": {
+					"type": "string",
+					"enum": [
+						"seedAsc",
+						"relativeScoreDesc",
+						"absoluteScoreDesc"
+					],
+					"enumDescriptions": [
+						"シードの昇順",
+						"相対スコアの降順",
+						"絶対スコアの降順"
+					],
+					"default": "seedAsc",
+					"description": "実行ごと表示時のソート順"
+				},
+				"pahcer.seedSortOrder": {
+					"type": "string",
+					"enum": [
+						"executionDesc",
+						"absoluteScoreDesc"
+					],
+					"enumDescriptions": [
+						"実行の降順",
+						"絶対スコアの降順"
+					],
+					"default": "executionDesc",
+					"description": "Seedごと表示時のソート順"
+				}
+			}
 		}
 	},
 	"scripts": {

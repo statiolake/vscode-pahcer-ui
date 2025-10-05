@@ -25,45 +25,30 @@ export type GroupingMode = 'byExecution' | 'bySeed';
 export type ExecutionSortOrder = 'seedAsc' | 'relativeScoreDesc' | 'absoluteScoreDesc';
 export type SeedSortOrder = 'executionDesc' | 'absoluteScoreDesc';
 
-interface Config {
-	groupingMode: GroupingMode;
-	executionSortOrder: ExecutionSortOrder;
-	seedSortOrder: SeedSortOrder;
-}
-
 export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<ResultItem | undefined | null> =
 		new vscode.EventEmitter<ResultItem | undefined | null>();
 	readonly onDidChangeTreeData: vscode.Event<ResultItem | undefined | null> =
 		this._onDidChangeTreeData.event;
 
-	private groupingMode: GroupingMode = 'byExecution';
 	private checkedResults = new Set<string>();
 	private comparisonMode = false;
-	private config: Config = {
-		groupingMode: 'byExecution',
-		executionSortOrder: 'seedAsc',
-		seedSortOrder: 'executionDesc',
-	};
 
-	constructor(private workspaceRoot: string | undefined) {
-		this.loadConfig();
-		this.groupingMode = this.config.groupingMode;
-	}
+	constructor(private workspaceRoot: string | undefined) {}
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire(undefined);
 	}
 
-	setGroupingMode(mode: GroupingMode): void {
-		this.groupingMode = mode;
-		this.config.groupingMode = mode;
-		this.saveConfig();
+	async setGroupingMode(mode: GroupingMode): Promise<void> {
+		const config = vscode.workspace.getConfiguration('pahcer');
+		await config.update('groupingMode', mode, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
 	getGroupingMode(): GroupingMode {
-		return this.groupingMode;
+		const config = vscode.workspace.getConfiguration('pahcer');
+		return config.get<GroupingMode>('groupingMode') || 'byExecution';
 	}
 
 	getCheckedResults(): string[] {
@@ -91,64 +76,26 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		return this.comparisonMode;
 	}
 
-	private getConfigPath(): string | null {
-		if (!this.workspaceRoot) {
-			return null;
-		}
-		return path.join(this.workspaceRoot, '.pahcer-ui', 'config.json');
-	}
-
-	private loadConfig(): void {
-		const configPath = this.getConfigPath();
-		if (!configPath || !fs.existsSync(configPath)) {
-			return;
-		}
-
-		try {
-			const content = fs.readFileSync(configPath, 'utf-8');
-			const loadedConfig = JSON.parse(content);
-			this.config = { ...this.config, ...loadedConfig };
-		} catch (e) {
-			console.error('Failed to load config:', e);
-		}
-	}
-
-	private saveConfig(): void {
-		const configPath = this.getConfigPath();
-		if (!configPath) {
-			return;
-		}
-
-		const configDir = path.dirname(configPath);
-		if (!fs.existsSync(configDir)) {
-			fs.mkdirSync(configDir, { recursive: true });
-		}
-
-		try {
-			fs.writeFileSync(configPath, JSON.stringify(this.config, null, 2));
-		} catch (e) {
-			console.error('Failed to save config:', e);
-		}
-	}
-
-	setExecutionSortOrder(order: ExecutionSortOrder): void {
-		this.config.executionSortOrder = order;
-		this.saveConfig();
+	async setExecutionSortOrder(order: ExecutionSortOrder): Promise<void> {
+		const config = vscode.workspace.getConfiguration('pahcer');
+		await config.update('executionSortOrder', order, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
-	setSeedSortOrder(order: SeedSortOrder): void {
-		this.config.seedSortOrder = order;
-		this.saveConfig();
+	async setSeedSortOrder(order: SeedSortOrder): Promise<void> {
+		const config = vscode.workspace.getConfiguration('pahcer');
+		await config.update('seedSortOrder', order, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
 	getExecutionSortOrder(): ExecutionSortOrder {
-		return this.config.executionSortOrder;
+		const config = vscode.workspace.getConfiguration('pahcer');
+		return config.get<ExecutionSortOrder>('executionSortOrder') || 'seedAsc';
 	}
 
 	getSeedSortOrder(): SeedSortOrder {
-		return this.config.seedSortOrder;
+		const config = vscode.workspace.getConfiguration('pahcer');
+		return config.get<SeedSortOrder>('seedSortOrder') || 'executionDesc';
 	}
 
 	getTreeItem(element: ResultItem): vscode.TreeItem {
@@ -160,7 +107,8 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			return [];
 		}
 
-		if (this.groupingMode === 'byExecution') {
+		const groupingMode = this.getGroupingMode();
+		if (groupingMode === 'byExecution') {
 			if (!element) {
 				// Root level: show all results
 				return this.getResults();
@@ -300,7 +248,8 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 		// Sort cases based on execution sort order
 		const sortedCases = [...result.cases];
-		switch (this.config.executionSortOrder) {
+		const executionSortOrder = this.getExecutionSortOrder();
+		switch (executionSortOrder) {
 			case 'seedAsc':
 				sortedCases.sort((a, b) => a.seed - b.seed);
 				break;
@@ -448,7 +397,8 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		}
 
 		// Sort executions based on seed sort order
-		switch (this.config.seedSortOrder) {
+		const seedSortOrder = this.getSeedSortOrder();
+		switch (seedSortOrder) {
 			case 'executionDesc':
 				// Already sorted by file name (desc)
 				break;
@@ -461,7 +411,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		const isLatestExecution = (index: number) => {
 			// In executionDesc mode, first item is latest
 			// In absoluteScoreDesc mode, we need to find the actual latest
-			if (this.config.seedSortOrder === 'executionDesc') {
+			if (seedSortOrder === 'executionDesc') {
 				return index === 0;
 			} else {
 				// Find the latest by comparing file names (timestamps)
@@ -493,7 +443,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			};
 
 			// Highlight latest execution when sorted by absolute score
-			if (this.config.seedSortOrder === 'absoluteScoreDesc' && isLatestExecution(i)) {
+			if (seedSortOrder === 'absoluteScoreDesc' && isLatestExecution(i)) {
 				item.iconPath = new vscode.ThemeIcon(
 					'debug-stackframe-focused',
 					new vscode.ThemeColor('charts.blue'),
