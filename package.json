@@ -1,81 +1,97 @@
 {
-  "name": "vscode-pahcer-ui",
-  "displayName": "Pahcer UI",
-  "description": "",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.104.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onView:pahcerResults"
-  ],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "pahcer",
-          "title": "Pahcer",
-          "icon": "$(rocket)"
-        }
-      ]
-    },
-    "views": {
-      "pahcer": [
-        {
-          "id": "pahcerResults",
-          "name": "Test Results"
-        }
-      ]
-    },
-    "commands": [
-      {
-        "command": "vscode-pahcer-ui.run",
-        "title": "Pahcer: Run Tests",
-        "icon": "$(play)"
-      },
-      {
-        "command": "vscode-pahcer-ui.refresh",
-        "title": "Pahcer: Refresh Results",
-        "icon": "$(refresh)"
-      }
-    ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "vscode-pahcer-ui.run",
-          "when": "view == pahcerResults",
-          "group": "navigation@1"
-        },
-        {
-          "command": "vscode-pahcer-ui.refresh",
-          "when": "view == pahcerResults",
-          "group": "navigation@2"
-        }
-      ]
-    }
-  },
-  "scripts": {
-    "vscode:prepublish": "pnpm run package",
-    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
-    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
-    "check-types": "tsc --noEmit",
-    "lint": "eslint src"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.104.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "@typescript-eslint/eslint-plugin": "^8.45.0",
-    "@typescript-eslint/parser": "^8.45.0",
-    "eslint": "^9.36.0",
-    "esbuild": "^0.25.10",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
-  }
+	"name": "vscode-pahcer-ui",
+	"displayName": "Pahcer UI",
+	"description": "",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.104.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onView:pahcerResults"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "pahcer",
+					"title": "Pahcer",
+					"icon": "$(rocket)"
+				}
+			]
+		},
+		"views": {
+			"pahcer": [
+				{
+					"id": "pahcerResults",
+					"name": "Test Results"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "vscode-pahcer-ui.run",
+				"title": "Pahcer: Run Tests",
+				"icon": "$(play)"
+			},
+			{
+				"command": "vscode-pahcer-ui.refresh",
+				"title": "Pahcer: Refresh Results",
+				"icon": "$(refresh)"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "vscode-pahcer-ui.run",
+					"when": "view == pahcerResults",
+					"group": "navigation@1"
+				},
+				{
+					"command": "vscode-pahcer-ui.refresh",
+					"when": "view == pahcerResults",
+					"group": "navigation@2"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "pnpm run package",
+		"compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+		"package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+		"check-types": "tsc --noEmit",
+		"lint": "eslint src",
+		"format": "biome format --write .",
+		"format:check": "biome format .",
+		"biome:check": "biome check .",
+		"biome:fix": "biome check --write .",
+		"prepare": "husky"
+	},
+	"lint-staged": {
+		"*.{js,ts,json,md}": [
+			"biome format --write"
+		],
+		"*.{js,ts}": [
+			"biome check --write"
+		]
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.5",
+		"@types/mocha": "^10.0.10",
+		"@types/node": "22.x",
+		"@types/vscode": "^1.104.0",
+		"@typescript-eslint/eslint-plugin": "^8.45.0",
+		"@typescript-eslint/parser": "^8.45.0",
+		"@vscode/test-cli": "^0.0.11",
+		"@vscode/test-electron": "^2.5.2",
+		"esbuild": "^0.25.10",
+		"eslint": "^9.36.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.2.3",
+		"npm-run-all": "^4.1.5",
+		"typescript": "^5.9.3"
+	}
 }
