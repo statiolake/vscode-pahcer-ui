@@ -1,7 +1,9 @@
 {
 	"name": "vscode-pahcer-ui",
 	"displayName": "Pahcer UI",
-	"description": "",
+	"description": "UI for Pahcer",
+	"repository": "https://github.com/statiolake/vscode-pahcer-ui",
+	"license": "MIT",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.104.0"
@@ -9,9 +11,7 @@
 	"categories": [
 		"Other"
 	],
-	"activationEvents": [
-		"onView:pahcerResults"
-	],
+	"activationEvents": [],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"viewsContainers": {
@@ -87,9 +87,10 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "pnpm run package",
+		"vscode:prepublish": "pnpm run build",
 		"compile": "pnpm run check-types && pnpm run lint && node esbuild.js && node esbuild.chartjs.js",
-		"package": "pnpm run check-types && pnpm run lint && node esbuild.js --production && node esbuild.chartjs.js --production",
+		"build": "pnpm run check-types && pnpm run lint && node esbuild.js --production && node esbuild.chartjs.js --production",
+		"package": "vsce package",
 		"check-types": "tsc --noEmit",
 		"lint": "eslint src",
 		"format": "biome format --write .",
@@ -115,14 +116,13 @@
 		"@typescript-eslint/parser": "^8.45.0",
 		"@vscode/test-cli": "^0.0.11",
 		"@vscode/test-electron": "^2.5.2",
+		"@vscode/vsce": "^3.6.2",
+		"chart.js": "^4.5.0",
 		"esbuild": "^0.25.10",
 		"eslint": "^9.36.0",
 		"husky": "^9.1.7",
 		"lint-staged": "^16.2.3",
 		"npm-run-all": "^4.1.5",
 		"typescript": "^5.9.3"
-	},
-	"dependencies": {
-		"chart.js": "^4.5.0"
 	}
 }
