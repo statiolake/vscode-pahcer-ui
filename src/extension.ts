@@ -192,6 +192,45 @@ export function activate(context: vscode.ExtensionContext) {
 		},
 	);
 
+	// Register change sort order command
+	const changeSortOrderCommand = vscode.commands.registerCommand(
+		'vscode-pahcer-ui.changeSortOrder',
+		async () => {
+			const mode = pahcerResultsProvider.getGroupingMode();
+
+			if (mode === 'byExecution') {
+				const currentOrder = pahcerResultsProvider.getExecutionSortOrder();
+				const options = [
+					{ label: 'シードの昇順', value: 'seedAsc' as const },
+					{ label: '相対スコアの降順', value: 'relativeScoreDesc' as const },
+					{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
+				];
+
+				const selected = await vscode.window.showQuickPick(options, {
+					placeHolder: `現在: ${options.find((o) => o.value === currentOrder)?.label}`,
+				});
+
+				if (selected) {
+					pahcerResultsProvider.setExecutionSortOrder(selected.value);
+				}
+			} else {
+				const currentOrder = pahcerResultsProvider.getSeedSortOrder();
+				const options = [
+					{ label: '実行の降順', value: 'executionDesc' as const },
+					{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
+				];
+
+				const selected = await vscode.window.showQuickPick(options, {
+					placeHolder: `現在: ${options.find((o) => o.value === currentOrder)?.label}`,
+				});
+
+				if (selected) {
+					pahcerResultsProvider.setSeedSortOrder(selected.value);
+				}
+			}
+		},
+	);
+
 	context.subscriptions.push(
 		treeView,
 		refreshCommand,
@@ -201,6 +240,7 @@ export function activate(context: vscode.ExtensionContext) {
 		switchToExecutionCommand,
 		toggleComparisonModeCommand,
 		addCommentCommand,
+		changeSortOrderCommand,
 	);
 }
 

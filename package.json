@@ -60,6 +60,11 @@
 			{
 				"command": "vscode-pahcer-ui.addComment",
 				"title": "コメントを追加"
+			},
+			{
+				"command": "vscode-pahcer-ui.changeSortOrder",
+				"title": "並び順を変更",
+				"icon": "$(arrow-swap)"
 			}
 		],
 		"menus": {
@@ -80,14 +85,19 @@
 					"group": "navigation@3"
 				},
 				{
+					"command": "vscode-pahcer-ui.changeSortOrder",
+					"when": "view == pahcerResults",
+					"group": "navigation@4"
+				},
+				{
 					"command": "vscode-pahcer-ui.switchToSeed",
 					"when": "view == pahcerResults && pahcer.groupingMode == byExecution",
-					"group": "navigation@4"
+					"group": "navigation@5"
 				},
 				{
 					"command": "vscode-pahcer-ui.switchToExecution",
 					"when": "view == pahcerResults && pahcer.groupingMode == bySeed",
-					"group": "navigation@4"
+					"group": "navigation@5"
 				}
 			],
 			"view/item/context": [

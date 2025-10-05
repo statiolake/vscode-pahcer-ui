@@ -22,6 +22,14 @@ interface PahcerResult {
 }
 
 export type GroupingMode = 'byExecution' | 'bySeed';
+export type ExecutionSortOrder = 'seedAsc' | 'relativeScoreDesc' | 'absoluteScoreDesc';
+export type SeedSortOrder = 'executionDesc' | 'absoluteScoreDesc';
+
+interface Config {
+	groupingMode: GroupingMode;
+	executionSortOrder: ExecutionSortOrder;
+	seedSortOrder: SeedSortOrder;
+}
 
 export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<ResultItem | undefined | null> =
@@ -32,8 +40,16 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 	private groupingMode: GroupingMode = 'byExecution';
 	private checkedResults = new Set<string>();
 	private comparisonMode = false;
+	private config: Config = {
+		groupingMode: 'byExecution',
+		executionSortOrder: 'seedAsc',
+		seedSortOrder: 'executionDesc',
+	};
 
-	constructor(private workspaceRoot: string | undefined) {}
+	constructor(private workspaceRoot: string | undefined) {
+		this.loadConfig();
+		this.groupingMode = this.config.groupingMode;
+	}
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire(undefined);
@@ -41,6 +57,8 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 	setGroupingMode(mode: GroupingMode): void {
 		this.groupingMode = mode;
+		this.config.groupingMode = mode;
+		this.saveConfig();
 		this.refresh();
 	}
 
@@ -71,6 +89,66 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 	getComparisonMode(): boolean {
 		return this.comparisonMode;
+	}
+
+	private getConfigPath(): string | null {
+		if (!this.workspaceRoot) {
+			return null;
+		}
+		return path.join(this.workspaceRoot, '.pahcer-ui', 'config.json');
+	}
+
+	private loadConfig(): void {
+		const configPath = this.getConfigPath();
+		if (!configPath || !fs.existsSync(configPath)) {
+			return;
+		}
+
+		try {
+			const content = fs.readFileSync(configPath, 'utf-8');
+			const loadedConfig = JSON.parse(content);
+			this.config = { ...this.config, ...loadedConfig };
+		} catch (e) {
+			console.error('Failed to load config:', e);
+		}
+	}
+
+	private saveConfig(): void {
+		const configPath = this.getConfigPath();
+		if (!configPath) {
+			return;
+		}
+
+		const configDir = path.dirname(configPath);
+		if (!fs.existsSync(configDir)) {
+			fs.mkdirSync(configDir, { recursive: true });
+		}
+
+		try {
+			fs.writeFileSync(configPath, JSON.stringify(this.config, null, 2));
+		} catch (e) {
+			console.error('Failed to save config:', e);
+		}
+	}
+
+	setExecutionSortOrder(order: ExecutionSortOrder): void {
+		this.config.executionSortOrder = order;
+		this.saveConfig();
+		this.refresh();
+	}
+
+	setSeedSortOrder(order: SeedSortOrder): void {
+		this.config.seedSortOrder = order;
+		this.saveConfig();
+		this.refresh();
+	}
+
+	getExecutionSortOrder(): ExecutionSortOrder {
+		return this.config.executionSortOrder;
+	}
+
+	getSeedSortOrder(): SeedSortOrder {
+		return this.config.seedSortOrder;
 	}
 
 	getTreeItem(element: ResultItem): vscode.TreeItem {
@@ -220,8 +298,22 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		summaryItem.iconPath = new vscode.ThemeIcon('info');
 		items.push(summaryItem);
 
+		// Sort cases based on execution sort order
+		const sortedCases = [...result.cases];
+		switch (this.config.executionSortOrder) {
+			case 'seedAsc':
+				sortedCases.sort((a, b) => a.seed - b.seed);
+				break;
+			case 'relativeScoreDesc':
+				sortedCases.sort((a, b) => b.relative_score - a.relative_score);
+				break;
+			case 'absoluteScoreDesc':
+				sortedCases.sort((a, b) => b.score - a.score);
+				break;
+		}
+
 		// Cases
-		for (const testCase of result.cases) {
+		for (const testCase of sortedCases) {
 			const label = `Seed ${testCase.seed}: ${testCase.score.toLocaleString()} (${testCase.relative_score.toFixed(3)}%)`;
 			const description = `${(testCase.execution_time * 1000).toFixed(2)}ms`;
 
@@ -330,7 +422,12 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			.reverse()
 			.slice(0, 10);
 
-		const items: ResultItem[] = [];
+		const executions: Array<{
+			file: string;
+			result: PahcerResult;
+			testCase: PahcerResult['cases'][0];
+			resultId: string;
+		}> = [];
 
 		for (const file of files) {
 			try {
@@ -344,40 +441,71 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 				}
 
 				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
-				const time = new Date(result.start_time).toLocaleString();
-				const label = `${time}: ${testCase.score.toLocaleString()} (${testCase.relative_score.toFixed(3)}%)`;
-				const description = `${(testCase.execution_time * 1000).toFixed(2)}ms`;
-
-				const item = new ResultItem(
-					label,
-					vscode.TreeItemCollapsibleState.None,
-					'execution',
-					description,
-				);
-				item.seed = seed;
-				item.resultId = resultId;
-
-				// Make clickable
-				item.command = {
-					command: 'vscode-pahcer-ui.showVisualizer',
-					title: 'Show Visualizer',
-					arguments: [seed, resultId],
-				};
-
-				if (testCase.score === 0 || testCase.error_message) {
-					item.iconPath = new vscode.ThemeIcon(
-						'error',
-						new vscode.ThemeColor('testing.iconFailed'),
-					);
-					item.tooltip = testCase.error_message || 'WA';
-				} else {
-					item.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
-				}
-
-				items.push(item);
+				executions.push({ file, result, testCase, resultId });
 			} catch (e) {
 				console.error(`Failed to load ${file}:`, e);
 			}
+		}
+
+		// Sort executions based on seed sort order
+		switch (this.config.seedSortOrder) {
+			case 'executionDesc':
+				// Already sorted by file name (desc)
+				break;
+			case 'absoluteScoreDesc':
+				executions.sort((a, b) => b.testCase.score - a.testCase.score);
+				break;
+		}
+
+		const items: ResultItem[] = [];
+		const isLatestExecution = (index: number) => {
+			// In executionDesc mode, first item is latest
+			// In absoluteScoreDesc mode, we need to find the actual latest
+			if (this.config.seedSortOrder === 'executionDesc') {
+				return index === 0;
+			} else {
+				// Find the latest by comparing file names (timestamps)
+				const latestFile = [...executions].sort((a, b) => b.file.localeCompare(a.file))[0]?.file;
+				return executions[index].file === latestFile;
+			}
+		};
+
+		for (let i = 0; i < executions.length; i++) {
+			const { result, testCase, resultId } = executions[i];
+			const time = new Date(result.start_time).toLocaleString();
+			const label = `${time}: ${testCase.score.toLocaleString()} (${testCase.relative_score.toFixed(3)}%)`;
+			const description = `${(testCase.execution_time * 1000).toFixed(2)}ms`;
+
+			const item = new ResultItem(
+				label,
+				vscode.TreeItemCollapsibleState.None,
+				'execution',
+				description,
+			);
+			item.seed = seed;
+			item.resultId = resultId;
+
+			// Make clickable
+			item.command = {
+				command: 'vscode-pahcer-ui.showVisualizer',
+				title: 'Show Visualizer',
+				arguments: [seed, resultId],
+			};
+
+			// Highlight latest execution when sorted by absolute score
+			if (this.config.seedSortOrder === 'absoluteScoreDesc' && isLatestExecution(i)) {
+				item.iconPath = new vscode.ThemeIcon(
+					'debug-stackframe-focused',
+					new vscode.ThemeColor('charts.blue'),
+				);
+			} else if (testCase.score === 0 || testCase.error_message) {
+				item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
+				item.tooltip = testCase.error_message || 'WA';
+			} else {
+				item.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
+			}
+
+			items.push(item);
 		}
 
 		return items;
