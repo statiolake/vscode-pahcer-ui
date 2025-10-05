@@ -274,6 +274,10 @@ export class VisualizerManager {
 		const input = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf-8') : '';
 		const output = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
 
+		// Get current zoom level from settings
+		const config = vscode.workspace.getConfiguration('pahcer-ui');
+		const savedZoomLevel = config.get<number>('visualizerZoomLevel', 1.0);
+
 		// Reuse existing panel if available, otherwise create new one
 		if (VisualizerManager.currentPanel) {
 			// Update title
@@ -304,6 +308,18 @@ export class VisualizerManager {
 
 			VisualizerManager.currentPanel = panel;
 
+			// Listen for messages from the webview
+			panel.webview.onDidReceiveMessage(async (message) => {
+				if (message.type === 'saveZoomLevel') {
+					const config = vscode.workspace.getConfiguration('pahcer-ui');
+					await config.update(
+						'visualizerZoomLevel',
+						message.zoomLevel,
+						vscode.ConfigurationTarget.Global,
+					);
+				}
+			});
+
 			// Reset currentPanel when the panel is disposed
 			panel.onDidDispose(() => {
 				VisualizerManager.currentPanel = undefined;
@@ -316,7 +332,7 @@ export class VisualizerManager {
 			htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
 
 			// Inject input/output data and message listener
-			htmlContent = this.injectTestCaseData(htmlContent, seed, input, output);
+			htmlContent = this.injectTestCaseData(htmlContent, seed, input, output, savedZoomLevel);
 
 			panel.webview.html = htmlContent;
 		}
@@ -372,13 +388,22 @@ export class VisualizerManager {
 		return html;
 	}
 
-	private injectTestCaseData(html: string, seed: number, input: string, output: string): string {
+	private injectTestCaseData(
+		html: string,
+		seed: number,
+		input: string,
+		output: string,
+		initialZoomLevel: number,
+	): string {
 		// Inject seed, input, and output as global variables
 		const injection = `
             <script>
                 window.PAHCER_SEED = ${seed};
                 window.PAHCER_INPUT = ${JSON.stringify(input)};
                 window.PAHCER_OUTPUT = ${JSON.stringify(output)};
+
+                // Acquire VS Code API for messaging
+                const vscode = acquireVsCodeApi();
 
                 // Function to update test case data
                 function updateTestCaseData(seed, input, output) {
@@ -419,6 +444,133 @@ export class VisualizerManager {
                 // Auto-fill input and output when page loads
                 window.addEventListener('DOMContentLoaded', () => {
                     updateTestCaseData(window.PAHCER_SEED, window.PAHCER_INPUT, window.PAHCER_OUTPUT);
+                    createZoomUI();
+                    // Apply initial zoom level
+                    if (zoomLevel !== 1.0) {
+                        applyZoom();
+                    }
+                });
+
+                // Zoom functionality
+                let zoomLevel = ${initialZoomLevel};
+                const MIN_ZOOM = 0.5;
+                const MAX_ZOOM = 3.0;
+                const ZOOM_STEP = 0.1;
+
+                function applyZoom() {
+                    let contentWrapper = document.getElementById('pahcer-content-wrapper');
+                    if (!contentWrapper) {
+                        // Create wrapper on first zoom
+                        contentWrapper = document.createElement('div');
+                        contentWrapper.id = 'pahcer-content-wrapper';
+                        contentWrapper.style.transformOrigin = 'top left';
+
+                        // Move all existing body children (except zoom UI) into wrapper
+                        const zoomUI = document.getElementById('pahcer-zoom-controls');
+                        while (document.body.firstChild) {
+                            if (document.body.firstChild !== zoomUI) {
+                                contentWrapper.appendChild(document.body.firstChild);
+                            } else {
+                                break;
+                            }
+                        }
+                        document.body.insertBefore(contentWrapper, document.body.firstChild);
+                    }
+
+                    contentWrapper.style.transform = \`scale(\${zoomLevel})\`;
+                    contentWrapper.style.width = \`\${100 / zoomLevel}%\`;
+                    contentWrapper.style.height = \`\${100 / zoomLevel}%\`;
+                    updateZoomDisplay();
+
+                    // Save zoom level to settings
+                    vscode.postMessage({
+                        type: 'saveZoomLevel',
+                        zoomLevel: zoomLevel
+                    });
+                }
+
+                function updateZoomDisplay() {
+                    const display = document.getElementById('pahcer-zoom-display');
+                    if (display) {
+                        display.textContent = \`\${Math.round(zoomLevel * 100)}%\`;
+                    }
+                }
+
+                function updateZoomUITransform() {
+                    // No longer needed - zoom UI is now outside the zoomed content
+                }
+
+                function createZoomUI() {
+                    const container = document.createElement('div');
+                    container.id = 'pahcer-zoom-controls';
+                    container.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 10000; background: rgba(0,0,0,0.7); padding: 6px; border-radius: 4px; display: flex; gap: 4px; align-items: center; font-family: sans-serif; color: white; box-sizing: border-box;';
+
+                    const buttonStyle = 'background: #444; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; box-sizing: border-box; height: 24px; line-height: 14px; display: inline-flex; align-items: center; justify-content: center;';
+
+                    const zoomOut = document.createElement('button');
+                    zoomOut.textContent = '−';
+                    zoomOut.style.cssText = buttonStyle;
+                    zoomOut.onclick = () => {
+                        zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+                        applyZoom();
+                    };
+
+                    const display = document.createElement('span');
+                    display.id = 'pahcer-zoom-display';
+                    display.style.cssText = 'min-width: 45px; text-align: center; font-size: 12px; box-sizing: border-box;';
+                    display.textContent = '100%';
+
+                    const zoomIn = document.createElement('button');
+                    zoomIn.textContent = '+';
+                    zoomIn.style.cssText = buttonStyle;
+                    zoomIn.onclick = () => {
+                        zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+                        applyZoom();
+                    };
+
+                    const reset = document.createElement('button');
+                    reset.textContent = '100%';
+                    reset.style.cssText = buttonStyle;
+                    reset.onclick = () => {
+                        zoomLevel = 1.0;
+                        applyZoom();
+                    };
+
+                    container.appendChild(zoomOut);
+                    container.appendChild(display);
+                    container.appendChild(zoomIn);
+                    container.appendChild(reset);
+
+                    // Insert at the end of body (after content wrapper)
+                    document.body.appendChild(container);
+                }
+
+                window.addEventListener('wheel', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+                        zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
+                        applyZoom();
+                    }
+                }, { passive: false });
+
+                // Keyboard shortcuts for zoom
+                window.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+                        if (e.key === '=' || e.key === '+') {
+                            e.preventDefault();
+                            zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+                            applyZoom();
+                        } else if (e.key === '-') {
+                            e.preventDefault();
+                            zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+                            applyZoom();
+                        } else if (e.key === '0') {
+                            e.preventDefault();
+                            zoomLevel = 1.0;
+                            applyZoom();
+                        }
+                    }
                 });
             </script>
         `;

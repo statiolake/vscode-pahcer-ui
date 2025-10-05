@@ -158,6 +158,13 @@
 					],
 					"default": "executionDesc",
 					"description": "Seedごと表示時のソート順"
+				},
+				"pahcer-ui.visualizerZoomLevel": {
+					"type": "number",
+					"default": 1.0,
+					"minimum": 0.5,
+					"maximum": 3.0,
+					"description": "ビジュアライザのズームレベル"
 				}
 			}
 		}
