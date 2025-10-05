@@ -35,6 +35,16 @@ export type SeedSortOrder =
 	| 'absoluteScoreAsc'
 	| 'absoluteScoreDesc';
 
+function formatDate(date: Date): string {
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	const hour = String(date.getHours()).padStart(2, '0');
+	const minute = String(date.getMinutes()).padStart(2, '0');
+	const second = String(date.getSeconds()).padStart(2, '0');
+	return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+}
+
 export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<ResultItem | undefined | null> =
 		new vscode.EventEmitter<ResultItem | undefined | null>();
@@ -188,7 +198,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 					}
 				}
 
-				const time = new Date(result.start_time).toLocaleString();
+				const time = formatDate(new Date(result.start_time));
 				const acCount = result.case_count - result.wa_seeds.length;
 				const avgScore =
 					result.case_count > 0 ? (result.total_score / result.case_count).toFixed(2) : '0.00';
@@ -282,7 +292,8 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 		// Cases
 		for (const testCase of sortedCases) {
-			const label = `Seed ${testCase.seed}: ${testCase.score.toLocaleString()} (${testCase.relative_score.toFixed(3)}%)`;
+			const seedStr = String(testCase.seed).padStart(4, '0');
+			const label = `${seedStr}: ${testCase.score} (${testCase.relative_score.toFixed(3)}%)`;
 			const description = `${(testCase.execution_time * 1000).toFixed(2)}ms`;
 
 			const item = new ResultItem(label, vscode.TreeItemCollapsibleState.None, 'case', description);
@@ -354,7 +365,8 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		for (const [seed, stats] of sortedSeeds) {
 			const avgScore = (stats.totalScore / stats.count).toFixed(2);
 			const avgRel = (stats.totalRel / stats.count).toFixed(3);
-			const label = `Seed ${seed}`;
+			const seedStr = String(seed).padStart(4, '0');
+			const label = seedStr;
 			const description = `${stats.count} runs - Avg: ${avgScore} (${avgRel}%)`;
 
 			const item = new ResultItem(
@@ -441,7 +453,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 		for (let i = 0; i < executions.length; i++) {
 			const { result, testCase, resultId } = executions[i];
-			const time = new Date(result.start_time).toLocaleString();
+			const time = formatDate(new Date(result.start_time));
 			const label = `${time}: ${testCase.score.toLocaleString()} (${testCase.relative_score.toFixed(3)}%)`;
 			const description = `${(testCase.execution_time * 1000).toFixed(2)}ms`;
 
