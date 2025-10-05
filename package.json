@@ -125,12 +125,18 @@
 					"type": "string",
 					"enum": [
 						"seedAsc",
+						"seedDesc",
+						"relativeScoreAsc",
 						"relativeScoreDesc",
+						"absoluteScoreAsc",
 						"absoluteScoreDesc"
 					],
 					"enumDescriptions": [
 						"シードの昇順",
+						"シードの降順",
+						"相対スコアの昇順",
 						"相対スコアの降順",
+						"絶対スコアの昇順",
 						"絶対スコアの降順"
 					],
 					"default": "seedAsc",
@@ -139,11 +145,15 @@
 				"pahcer.seedSortOrder": {
 					"type": "string",
 					"enum": [
+						"executionAsc",
 						"executionDesc",
+						"absoluteScoreAsc",
 						"absoluteScoreDesc"
 					],
 					"enumDescriptions": [
+						"実行の昇順",
 						"実行の降順",
+						"絶対スコアの昇順",
 						"絶対スコアの降順"
 					],
 					"default": "executionDesc",

@@ -202,7 +202,10 @@ export function activate(context: vscode.ExtensionContext) {
 				const currentOrder = pahcerResultsProvider.getExecutionSortOrder();
 				const options = [
 					{ label: 'シードの昇順', value: 'seedAsc' as const },
+					{ label: 'シードの降順', value: 'seedDesc' as const },
+					{ label: '相対スコアの昇順', value: 'relativeScoreAsc' as const },
 					{ label: '相対スコアの降順', value: 'relativeScoreDesc' as const },
+					{ label: '絶対スコアの昇順', value: 'absoluteScoreAsc' as const },
 					{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
 				];
 
@@ -216,7 +219,9 @@ export function activate(context: vscode.ExtensionContext) {
 			} else {
 				const currentOrder = pahcerResultsProvider.getSeedSortOrder();
 				const options = [
+					{ label: '実行の昇順', value: 'executionAsc' as const },
 					{ label: '実行の降順', value: 'executionDesc' as const },
+					{ label: '絶対スコアの昇順', value: 'absoluteScoreAsc' as const },
 					{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
 				];
 

@@ -15,10 +15,6 @@
 
 ## 中優先度
 
-### 未実装機能
-- [ ] シードごとの並べ替え機能
-  - スコア順、シード順などでソートできるようにする
-
 ### グラフ機能の拡張
 参考: [AHC054 詳細順位表](https://img.atcoder.jp/ahc_standings/index.html?contest=ahc054)
 

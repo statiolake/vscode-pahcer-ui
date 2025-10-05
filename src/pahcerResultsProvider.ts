@@ -22,8 +22,18 @@ interface PahcerResult {
 }
 
 export type GroupingMode = 'byExecution' | 'bySeed';
-export type ExecutionSortOrder = 'seedAsc' | 'relativeScoreDesc' | 'absoluteScoreDesc';
-export type SeedSortOrder = 'executionDesc' | 'absoluteScoreDesc';
+export type ExecutionSortOrder =
+	| 'seedAsc'
+	| 'seedDesc'
+	| 'relativeScoreAsc'
+	| 'relativeScoreDesc'
+	| 'absoluteScoreAsc'
+	| 'absoluteScoreDesc';
+export type SeedSortOrder =
+	| 'executionAsc'
+	| 'executionDesc'
+	| 'absoluteScoreAsc'
+	| 'absoluteScoreDesc';
 
 export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem> {
 	private _onDidChangeTreeData: vscode.EventEmitter<ResultItem | undefined | null> =
@@ -253,8 +263,17 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			case 'seedAsc':
 				sortedCases.sort((a, b) => a.seed - b.seed);
 				break;
+			case 'seedDesc':
+				sortedCases.sort((a, b) => b.seed - a.seed);
+				break;
+			case 'relativeScoreAsc':
+				sortedCases.sort((a, b) => a.relative_score - b.relative_score);
+				break;
 			case 'relativeScoreDesc':
 				sortedCases.sort((a, b) => b.relative_score - a.relative_score);
+				break;
+			case 'absoluteScoreAsc':
+				sortedCases.sort((a, b) => a.score - b.score);
 				break;
 			case 'absoluteScoreDesc':
 				sortedCases.sort((a, b) => b.score - a.score);
@@ -399,8 +418,14 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		// Sort executions based on seed sort order
 		const seedSortOrder = this.getSeedSortOrder();
 		switch (seedSortOrder) {
+			case 'executionAsc':
+				executions.sort((a, b) => a.file.localeCompare(b.file));
+				break;
 			case 'executionDesc':
 				// Already sorted by file name (desc)
+				break;
+			case 'absoluteScoreAsc':
+				executions.sort((a, b) => a.testCase.score - b.testCase.score);
 				break;
 			case 'absoluteScoreDesc':
 				executions.sort((a, b) => b.testCase.score - a.testCase.score);
@@ -409,15 +434,9 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 		const items: ResultItem[] = [];
 		const isLatestExecution = (index: number) => {
-			// In executionDesc mode, first item is latest
-			// In absoluteScoreDesc mode, we need to find the actual latest
-			if (seedSortOrder === 'executionDesc') {
-				return index === 0;
-			} else {
-				// Find the latest by comparing file names (timestamps)
-				const latestFile = [...executions].sort((a, b) => b.file.localeCompare(a.file))[0]?.file;
-				return executions[index].file === latestFile;
-			}
+			// Find the latest by comparing file names (timestamps)
+			const latestFile = [...executions].sort((a, b) => b.file.localeCompare(a.file))[0]?.file;
+			return executions[index].file === latestFile;
 		};
 
 		for (let i = 0; i < executions.length; i++) {
@@ -443,7 +462,10 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			};
 
 			// Highlight latest execution when sorted by absolute score
-			if (seedSortOrder === 'absoluteScoreDesc' && isLatestExecution(i)) {
+			if (
+				(seedSortOrder === 'absoluteScoreAsc' || seedSortOrder === 'absoluteScoreDesc') &&
+				isLatestExecution(i)
+			) {
 				item.iconPath = new vscode.ThemeIcon(
 					'debug-stackframe-focused',
 					new vscode.ThemeColor('charts.blue'),
