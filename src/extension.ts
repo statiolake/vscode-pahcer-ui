@@ -17,15 +17,18 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Handle checkbox state changes
-	treeView.onDidChangeCheckboxState((e) => {
+	treeView.onDidChangeCheckboxState(async (e) => {
 		for (const [item] of e.items) {
 			if (item.resultId) {
 				pahcerResultsProvider.toggleCheckbox(item.resultId);
 			}
 		}
-		// Update context to show/hide compare button
-		const checkedCount = pahcerResultsProvider.getCheckedResults().length;
-		vscode.commands.executeCommand('setContext', 'pahcer.hasMultipleChecked', checkedCount >= 2);
+
+		// Auto-show comparison view when checkboxes change
+		const checkedResults = pahcerResultsProvider.getCheckedResults();
+		if (comparisonView) {
+			await comparisonView.showComparison(checkedResults);
+		}
 	});
 
 	// Create VisualizerManager
@@ -81,21 +84,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// Initialize context
 	updateGroupingContext();
 
-	// Compare command
-	const compareCommand = vscode.commands.registerCommand('vscode-pahcer-ui.compare', async () => {
-		if (!comparisonView) {
-			vscode.window.showErrorMessage('ワークスペースが開かれていません');
-			return;
-		}
-
-		const checkedResults = pahcerResultsProvider.getCheckedResults();
-		if (checkedResults.length < 2) {
-			vscode.window.showErrorMessage('比較するには2つ以上の実行結果を選択してください');
-			return;
-		}
-
-		await comparisonView.showComparison(checkedResults);
-	});
+	// Toggle comparison mode command
+	const toggleComparisonModeCommand = vscode.commands.registerCommand(
+		'vscode-pahcer-ui.toggleComparisonMode',
+		() => {
+			const currentMode = pahcerResultsProvider.getComparisonMode();
+			pahcerResultsProvider.setComparisonMode(!currentMode);
+		},
+	);
 
 	// Register run command
 	const runCommand = vscode.commands.registerCommand('vscode-pahcer-ui.run', async () => {
@@ -164,7 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
 		showVisualizerCommand,
 		switchToSeedCommand,
 		switchToExecutionCommand,
-		compareCommand,
+		toggleComparisonModeCommand,
 	);
 }
 

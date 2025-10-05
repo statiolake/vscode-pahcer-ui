@@ -11,6 +11,20 @@ function getNonce() {
 	return text;
 }
 
+// Generate consistent color from result ID
+function getColorForResultId(resultId: string): string {
+	let hash = 0;
+	for (let i = 0; i < resultId.length; i++) {
+		hash = resultId.charCodeAt(i) + ((hash << 5) - hash);
+	}
+
+	const hue = Math.abs(hash % 360);
+	const saturation = 70 + (Math.abs(hash >> 8) % 20); // 70-90%
+	const lightness = 50 + (Math.abs(hash >> 16) % 20); // 50-70%
+
+	return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
 interface PahcerResult {
 	start_time: string;
 	case_count: number;
@@ -51,8 +65,11 @@ export class ComparisonView {
 			}
 		}
 
-		if (results.length < 2) {
-			vscode.window.showErrorMessage('比較するには2つ以上の実行結果を選択してください');
+		if (results.length === 0) {
+			// Close panel if no results selected
+			if (this.panel) {
+				this.panel.dispose();
+			}
 			return;
 		}
 
@@ -119,18 +136,8 @@ export class ComparisonView {
 			backgroundColor: string;
 		}> = [];
 
-		const colors = [
-			'rgb(255, 99, 132)',
-			'rgb(54, 162, 235)',
-			'rgb(255, 206, 86)',
-			'rgb(75, 192, 192)',
-			'rgb(153, 102, 255)',
-			'rgb(255, 159, 64)',
-		];
-
-		for (let i = 0; i < results.length; i++) {
-			const result = results[i];
-			const color = colors[i % colors.length];
+		for (const result of results) {
+			const color = getColorForResultId(result.id);
 			const time = new Date(result.data.start_time).toLocaleString();
 
 			datasets.push({

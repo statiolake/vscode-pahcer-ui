@@ -51,9 +51,9 @@
 				"title": "実行ごと"
 			},
 			{
-				"command": "vscode-pahcer-ui.compare",
-				"title": "Compare Results",
-				"icon": "$(graph)"
+				"command": "vscode-pahcer-ui.toggleComparisonMode",
+				"title": "Toggle Comparison Mode",
+				"icon": "$(graph-line)"
 			}
 		],
 		"menus": {
@@ -79,8 +79,8 @@
 					"group": "navigation@3"
 				},
 				{
-					"command": "vscode-pahcer-ui.compare",
-					"when": "view == pahcerResults && pahcer.hasMultipleChecked",
+					"command": "vscode-pahcer-ui.toggleComparisonMode",
+					"when": "view == pahcerResults",
 					"group": "navigation@4"
 				}
 			]

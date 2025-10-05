@@ -31,6 +31,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 	private groupingMode: GroupingMode = 'byExecution';
 	private checkedResults = new Set<string>();
+	private comparisonMode = false;
 
 	constructor(private workspaceRoot: string | undefined) {}
 
@@ -58,6 +59,18 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			this.checkedResults.add(resultId);
 		}
 		this.refresh();
+	}
+
+	setComparisonMode(enabled: boolean): void {
+		this.comparisonMode = enabled;
+		if (!enabled) {
+			this.checkedResults.clear();
+		}
+		this.refresh();
+	}
+
+	getComparisonMode(): boolean {
+		return this.comparisonMode;
 	}
 
 	getTreeItem(element: ResultItem): vscode.TreeItem {
@@ -141,10 +154,12 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 				item.result = result;
 				item.resultId = resultId;
 
-				// Add checkbox
-				item.checkboxState = this.checkedResults.has(resultId)
-					? vscode.TreeItemCheckboxState.Checked
-					: vscode.TreeItemCheckboxState.Unchecked;
+				// Add checkbox only in comparison mode
+				if (this.comparisonMode) {
+					item.checkboxState = this.checkedResults.has(resultId)
+						? vscode.TreeItemCheckboxState.Checked
+						: vscode.TreeItemCheckboxState.Unchecked;
+				}
 
 				// Icon based on AC status
 				if (result.wa_seeds.length === 0) {
