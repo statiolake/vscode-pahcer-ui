@@ -47,7 +47,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			return this.getResults();
 		} else if (element.contextValue === 'result' && element.result) {
 			// Show cases for a result
-			return this.getCases(element.result);
+			return this.getCases(element.result, element.resultId);
 		} else {
 			return [];
 		}
@@ -89,6 +89,9 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 				const label = `${time} - AC:${acCount}/${result.case_count} Score:${avgScore} Rel:${avgRel}`;
 				const description = result.comment || (result.tag_name || '').replace('pahcer/', '');
 
+				// Extract result ID from filename
+				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
+
 				const item = new ResultItem(
 					label,
 					vscode.TreeItemCollapsibleState.Collapsed,
@@ -96,6 +99,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 					description,
 				);
 				item.result = result;
+				item.resultId = resultId;
 
 				// Icon based on AC status
 				if (result.wa_seeds.length === 0) {
@@ -121,7 +125,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		return results;
 	}
 
-	private getCases(result: PahcerResult): ResultItem[] {
+	private getCases(result: PahcerResult, resultId?: string): ResultItem[] {
 		const items: ResultItem[] = [];
 
 		// Summary
@@ -146,7 +150,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			item.command = {
 				command: 'vscode-pahcer-ui.showVisualizer',
 				title: 'Show Visualizer',
-				arguments: [testCase.seed],
+				arguments: [testCase.seed, resultId],
 			};
 
 			if (testCase.score === 0 || testCase.error_message) {
@@ -176,4 +180,5 @@ class ResultItem extends vscode.TreeItem {
 
 	result?: PahcerResult;
 	seed?: number;
+	resultId?: string;
 }
