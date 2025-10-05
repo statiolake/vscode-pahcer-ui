@@ -1,5 +1,7 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { PahcerResultsProvider } from './pahcerResultsProvider';
+import { VisualizerManager } from './visualizerManager';
 
 export function activate(context: vscode.ExtensionContext) {
 	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -10,6 +12,9 @@ export function activate(context: vscode.ExtensionContext) {
 		treeDataProvider: pahcerResultsProvider,
 		showCollapseAll: true,
 	});
+
+	// Create VisualizerManager
+	const visualizerManager = workspaceRoot ? new VisualizerManager(context, workspaceRoot) : null;
 
 	// Watch for changes in pahcer/json directory
 	if (workspaceRoot) {
@@ -46,7 +51,38 @@ export function activate(context: vscode.ExtensionContext) {
 		terminal.sendText('pahcer run');
 	});
 
-	context.subscriptions.push(treeView, refreshCommand, runCommand);
+	// Register visualizer command
+	const showVisualizerCommand = vscode.commands.registerCommand(
+		'vscode-pahcer-ui.showVisualizer',
+		async (seed: number) => {
+			if (!visualizerManager || !workspaceRoot) {
+				vscode.window.showErrorMessage('ワークスペースが開かれていません');
+				return;
+			}
+
+			// Find input and output files for this seed
+			const inputPath = path.join(
+				workspaceRoot,
+				'tools',
+				'in',
+				`${String(seed).padStart(4, '0')}.txt`,
+			);
+			const outputPath = path.join(
+				workspaceRoot,
+				'pahcer',
+				'out',
+				`${String(seed).padStart(4, '0')}.txt`,
+			);
+
+			try {
+				await visualizerManager.showVisualizerForCase(seed, inputPath, outputPath);
+			} catch (error) {
+				vscode.window.showErrorMessage(`ビジュアライザの表示に失敗しました: ${error}`);
+			}
+		},
+	);
+
+	context.subscriptions.push(treeView, refreshCommand, runCommand, showVisualizerCommand);
 }
 
 export function deactivate() {}
