@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 export class VisualizerManager {
 	private static visualizerDir: string | undefined;
 	private static htmlFileName: string | undefined;
+	private static currentPanel: vscode.WebviewPanel | undefined;
 
 	constructor(
 		private context: vscode.ExtensionContext,
@@ -269,31 +270,56 @@ export class VisualizerManager {
 			}
 		}
 
-		// Create a new webview panel for each case
-		const panel = vscode.window.createWebviewPanel(
-			'pahcerVisualizer',
-			`Seed ${seed}${executionTime}`,
-			vscode.ViewColumn.Two,
-			{
-				enableScripts: true,
-				localResourceRoots: [vscode.Uri.file(VisualizerManager.visualizerDir)],
-			},
-		);
-
-		// Read HTML content
-		let htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-
 		// Read test case input and output
 		const input = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf-8') : '';
 		const output = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
 
-		// Convert local paths to webview URIs
-		htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
+		// Reuse existing panel if available, otherwise create new one
+		if (VisualizerManager.currentPanel) {
+			// Update title
+			VisualizerManager.currentPanel.title = `Seed ${seed}${executionTime}`;
 
-		// Inject input/output data
-		htmlContent = this.injectTestCaseData(htmlContent, seed, input, output);
+			// Reveal panel if hidden
+			VisualizerManager.currentPanel.reveal(vscode.ViewColumn.Active);
 
-		panel.webview.html = htmlContent;
+			// Update only input/output without reloading WebView
+			// This preserves scroll position and zoom level
+			VisualizerManager.currentPanel.webview.postMessage({
+				type: 'updateTestCase',
+				seed,
+				input,
+				output,
+			});
+		} else {
+			// Create a new webview panel
+			const panel = vscode.window.createWebviewPanel(
+				'pahcerVisualizer',
+				`Seed ${seed}${executionTime}`,
+				vscode.ViewColumn.Active,
+				{
+					enableScripts: true,
+					localResourceRoots: [vscode.Uri.file(VisualizerManager.visualizerDir)],
+				},
+			);
+
+			VisualizerManager.currentPanel = panel;
+
+			// Reset currentPanel when the panel is disposed
+			panel.onDidDispose(() => {
+				VisualizerManager.currentPanel = undefined;
+			});
+
+			// Read HTML content
+			let htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+
+			// Convert local paths to webview URIs
+			htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
+
+			// Inject input/output data and message listener
+			htmlContent = this.injectTestCaseData(htmlContent, seed, input, output);
+
+			panel.webview.html = htmlContent;
+		}
 	}
 
 	private convertResourcePaths(html: string, webview: vscode.Webview): string {
@@ -354,28 +380,45 @@ export class VisualizerManager {
                 window.PAHCER_INPUT = ${JSON.stringify(input)};
                 window.PAHCER_OUTPUT = ${JSON.stringify(output)};
 
-                // Auto-fill input and output when page loads
-                window.addEventListener('DOMContentLoaded', () => {
+                // Function to update test case data
+                function updateTestCaseData(seed, input, output) {
+                    window.PAHCER_SEED = seed;
+                    window.PAHCER_INPUT = input;
+                    window.PAHCER_OUTPUT = output;
+
                     const seedInput = document.getElementById('seed');
                     const inputTextarea = document.getElementById('input');
                     const outputTextarea = document.getElementById('output');
 
-                    if (seedInput && window.PAHCER_SEED !== undefined) {
-                        seedInput.value = window.PAHCER_SEED;
+                    if (seedInput && seed !== undefined) {
+                        seedInput.value = seed;
                     }
 
-                    if (inputTextarea && window.PAHCER_INPUT) {
-                        inputTextarea.value = window.PAHCER_INPUT;
+                    if (inputTextarea && input) {
+                        inputTextarea.value = input;
                     }
 
-                    if (outputTextarea && window.PAHCER_OUTPUT) {
-                        outputTextarea.value = window.PAHCER_OUTPUT;
+                    if (outputTextarea && output) {
+                        outputTextarea.value = output;
                     }
 
                     // Trigger update to visualize
                     if (typeof updateOutput === 'function') {
                         updateOutput();
                     }
+                }
+
+                // Listen for messages from extension
+                window.addEventListener('message', (event) => {
+                    const message = event.data;
+                    if (message.type === 'updateTestCase') {
+                        updateTestCaseData(message.seed, message.input, message.output);
+                    }
+                });
+
+                // Auto-fill input and output when page loads
+                window.addEventListener('DOMContentLoaded', () => {
+                    updateTestCaseData(window.PAHCER_SEED, window.PAHCER_INPUT, window.PAHCER_OUTPUT);
                 });
             </script>
         `;
@@ -394,5 +437,6 @@ export class VisualizerManager {
 
 	static reset() {
 		VisualizerManager.htmlFileName = undefined;
+		VisualizerManager.currentPanel = undefined;
 	}
 }
