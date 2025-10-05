@@ -14,7 +14,12 @@ export class VisualizerManager {
 		VisualizerManager.visualizerDir = path.join(workspaceRoot, '.pahcer-ui', 'visualizer');
 	}
 
-	async showVisualizerForCase(seed: number, inputPath: string, outputPath: string) {
+	async showVisualizerForCase(
+		seed: number,
+		inputPath: string,
+		outputPath: string,
+		resultId?: string,
+	) {
 		// Check if visualizer is already downloaded
 		if (!VisualizerManager.htmlFileName && VisualizerManager.visualizerDir) {
 			// Check if visualizer directory exists and has HTML file
@@ -74,7 +79,7 @@ export class VisualizerManager {
 		}
 
 		// Open visualizer with test case data
-		await this.openVisualizer(seed, inputPath, outputPath);
+		await this.openVisualizer(seed, inputPath, outputPath, resultId);
 	}
 
 	private async downloadVisualizer(url: string) {
@@ -232,7 +237,12 @@ export class VisualizerManager {
 		});
 	}
 
-	private async openVisualizer(seed: number, inputPath: string, outputPath: string) {
+	private async openVisualizer(
+		seed: number,
+		inputPath: string,
+		outputPath: string,
+		resultId?: string,
+	) {
 		if (!VisualizerManager.htmlFileName || !VisualizerManager.visualizerDir) {
 			return;
 		}
@@ -244,10 +254,25 @@ export class VisualizerManager {
 			return;
 		}
 
+		// Get execution time from result file if resultId is provided
+		let executionTime = '';
+		if (resultId) {
+			const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
+			if (fs.existsSync(jsonPath)) {
+				try {
+					const content = fs.readFileSync(jsonPath, 'utf-8');
+					const result = JSON.parse(content);
+					executionTime = ` (${new Date(result.start_time).toLocaleString()})`;
+				} catch (e) {
+					// Ignore error
+				}
+			}
+		}
+
 		// Create a new webview panel for each case
 		const panel = vscode.window.createWebviewPanel(
 			'pahcerVisualizer',
-			`Visualizer - Seed ${seed}`,
+			`Seed ${seed}${executionTime}`,
 			vscode.ViewColumn.Two,
 			{
 				enableScripts: true,

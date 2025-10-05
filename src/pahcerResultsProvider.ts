@@ -30,6 +30,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 		this._onDidChangeTreeData.event;
 
 	private groupingMode: GroupingMode = 'byExecution';
+	private checkedResults = new Set<string>();
 
 	constructor(private workspaceRoot: string | undefined) {}
 
@@ -44,6 +45,19 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 
 	getGroupingMode(): GroupingMode {
 		return this.groupingMode;
+	}
+
+	getCheckedResults(): string[] {
+		return Array.from(this.checkedResults);
+	}
+
+	toggleCheckbox(resultId: string): void {
+		if (this.checkedResults.has(resultId)) {
+			this.checkedResults.delete(resultId);
+		} else {
+			this.checkedResults.add(resultId);
+		}
+		this.refresh();
 	}
 
 	getTreeItem(element: ResultItem): vscode.TreeItem {
@@ -126,6 +140,11 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 				);
 				item.result = result;
 				item.resultId = resultId;
+
+				// Add checkbox
+				item.checkboxState = this.checkedResults.has(resultId)
+					? vscode.TreeItemCheckboxState.Checked
+					: vscode.TreeItemCheckboxState.Unchecked;
 
 				// Icon based on AC status
 				if (result.wa_seeds.length === 0) {
