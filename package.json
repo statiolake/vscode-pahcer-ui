@@ -3,6 +3,8 @@
 	"displayName": "Pahcer UI",
 	"description": "UI for Pahcer",
 	"repository": "https://github.com/statiolake/vscode-pahcer-ui",
+	"publisher": "statiolake",
+	"author": "statiolake",
 	"license": "MIT",
 	"version": "0.0.1",
 	"engines": {
