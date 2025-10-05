@@ -1,71 +1,82 @@
-# vscode-pahcer-ui README
+# Pahcer UI for VS Code
 
-This is the README for your extension "vscode-pahcer-ui". After writing up a brief description, we recommend including the following sections.
+AtCoder Heuristic Contest (AHC) のローカルテスト並列実行ツール「pahcer」の VS Code 拡張機能です。
 
-## Features
+## 機能
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### テスト実行結果の表示
 
-For example if there is an image subfolder under your extension project workspace:
+- pahcer で実行したテストケースの結果をツリービューで表示
+- 最新 10 件の実行結果を自動取得
+- AC/WA の状態、スコア、相対スコア、実行時間を表示
+- 実行結果は自動的にリフレッシュ
 
-\!\[feature X\]\(images/feature-x.png\)
+### 表示モードの切り替え
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+ツールバーのトグルボタンで 2 つの表示モードを切り替え可能:
 
-## Requirements
+- **実行ごと**: 各実行をグループ化し、その下に個別のテストケースを表示
+- **Seed ごと**: 各 Seed をグループ化し、その下に複数回の実行結果を表示
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+### テスト実行
 
-## Extension Settings
+- ツールバーの「Run」ボタンから `pahcer run` を実行
+- VS Code のターミナルで実行過程を確認可能
+- 実行結果は自動的にパネルに反映
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+### ビジュアライザ連携
 
-For example:
+- テストケースをクリックすると AtCoder 公式ビジュアライザで表示
+- 初回クリック時にビジュアライザの URL を入力
+- ビジュアライザと依存ファイルを自動ダウンロード・キャッシュ
+- seed、input、output を自動セット
+- 各実行の出力ファイルを `.pahcer-ui/result_${id}/` に保存し、過去の実行結果も確認可能
 
-This extension contributes the following settings:
+## 必要要件
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+- [pahcer](https://github.com/terry-u16/pahcer) がインストールされていること
+- `pahcer init` が実行済みであること
+- pnpm がインストールされていること（開発時）
 
-## Known Issues
+## 使い方
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+1. AtCoder のコンテストディレクトリで VS Code を開く
+2. サイドバーに表示される Pahcer アイコンをクリック
+3. ツールバーの「Run」ボタンでテストを実行
+4. テストケースをクリックしてビジュアライザで確認
+5. トグルボタンで表示モードを切り替え
 
-## Release Notes
+## ディレクトリ構造
 
-Users appreciate release notes as you update your extension.
+```
+.
+├── pahcer/
+│   └── json/
+│       └── result_*.json    # テスト実行結果
+├── tools/
+│   ├── in/                  # 入力ファイル
+│   ├── out/                 # 出力ファイル（最新実行）
+│   └── err/                 # エラーファイル（最新実行）
+└── .pahcer-ui/
+    ├── result_*/
+    │   ├── out/             # 各実行の出力ファイル
+    │   └── err/             # 各実行のエラーファイル
+    └── *.html               # ビジュアライザファイル
+```
 
-### 1.0.0
+## 開発
 
-Initial release of ...
+```bash
+# 依存関係のインストール
+pnpm install
 
-### 1.0.1
+# ビルド
+pnpm run compile
 
-Fixed issue #.
+# 拡張機能のデバッグ実行
+F5 キーを押す
+```
 
-### 1.1.0
+## ライセンス
 
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+MIT
