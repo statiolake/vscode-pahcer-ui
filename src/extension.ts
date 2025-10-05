@@ -69,7 +69,7 @@ export function activate(context: vscode.ExtensionContext) {
 			);
 			const outputPath = path.join(
 				workspaceRoot,
-				'pahcer',
+				'tools',
 				'out',
 				`${String(seed).padStart(4, '0')}.txt`,
 			);

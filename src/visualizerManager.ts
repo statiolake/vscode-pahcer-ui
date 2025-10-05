@@ -4,8 +4,8 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 export class VisualizerManager {
-	private static visualizerUrl: string | undefined;
 	private static visualizerDir: string | undefined;
+	private static htmlFileName: string | undefined;
 
 	constructor(
 		private context: vscode.ExtensionContext,
@@ -15,8 +15,20 @@ export class VisualizerManager {
 	}
 
 	async showVisualizerForCase(seed: number, inputPath: string, outputPath: string) {
-		// Get visualizer URL if not set
-		if (!VisualizerManager.visualizerUrl) {
+		// Check if visualizer is already downloaded
+		if (!VisualizerManager.htmlFileName && VisualizerManager.visualizerDir) {
+			// Check if visualizer directory exists and has HTML file
+			if (fs.existsSync(VisualizerManager.visualizerDir)) {
+				const files = fs.readdirSync(VisualizerManager.visualizerDir);
+				const htmlFile = files.find((f) => f.endsWith('.html'));
+				if (htmlFile) {
+					VisualizerManager.htmlFileName = htmlFile;
+				}
+			}
+		}
+
+		// Get visualizer URL if HTML file not found
+		if (!VisualizerManager.htmlFileName) {
 			const url = await vscode.window.showInputBox({
 				prompt: 'AtCoder公式ビジュアライザのURLを入力してください',
 				placeHolder: 'https://img.atcoder.jp/ahc054/YDAxDRZr_v2.html?lang=ja',
@@ -40,19 +52,25 @@ export class VisualizerManager {
 				return;
 			}
 
-			VisualizerManager.visualizerUrl = url;
-
 			// Download visualizer files
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'ビジュアライザをダウンロード中...',
-					cancellable: false,
-				},
-				async (progress) => {
-					await this.downloadVisualizer(url);
-				},
-			);
+			const urlObj = new URL(url);
+			VisualizerManager.htmlFileName = path.basename(urlObj.pathname);
+			const htmlPath = VisualizerManager.visualizerDir
+				? path.join(VisualizerManager.visualizerDir, VisualizerManager.htmlFileName)
+				: '';
+
+			if (!htmlPath || !fs.existsSync(htmlPath)) {
+				await vscode.window.withProgress(
+					{
+						location: vscode.ProgressLocation.Notification,
+						title: 'ビジュアライザをダウンロード中...',
+						cancellable: false,
+					},
+					async (progress) => {
+						await this.downloadVisualizer(url);
+					},
+				);
+			}
 		}
 
 		// Open visualizer with test case data
@@ -215,20 +233,18 @@ export class VisualizerManager {
 	}
 
 	private async openVisualizer(seed: number, inputPath: string, outputPath: string) {
-		if (!VisualizerManager.visualizerUrl || !VisualizerManager.visualizerDir) {
+		if (!VisualizerManager.htmlFileName || !VisualizerManager.visualizerDir) {
 			return;
 		}
 
-		const urlObj = new URL(VisualizerManager.visualizerUrl);
-		const htmlFileName = path.basename(urlObj.pathname);
-		const htmlPath = path.join(VisualizerManager.visualizerDir, htmlFileName);
+		const htmlPath = path.join(VisualizerManager.visualizerDir, VisualizerManager.htmlFileName);
 
 		if (!fs.existsSync(htmlPath)) {
 			vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
 			return;
 		}
 
-		// Create a webview panel
+		// Create a new webview panel for each case
 		const panel = vscode.window.createWebviewPanel(
 			'pahcerVisualizer',
 			`Visualizer - Seed ${seed}`,
@@ -322,14 +338,16 @@ export class VisualizerManager {
                     if (seedInput && window.PAHCER_SEED !== undefined) {
                         seedInput.value = window.PAHCER_SEED;
                     }
+
                     if (inputTextarea && window.PAHCER_INPUT) {
                         inputTextarea.value = window.PAHCER_INPUT;
                     }
+
                     if (outputTextarea && window.PAHCER_OUTPUT) {
                         outputTextarea.value = window.PAHCER_OUTPUT;
                     }
 
-                    // Trigger update
+                    // Trigger update to visualize
                     if (typeof updateOutput === 'function') {
                         updateOutput();
                     }
@@ -350,6 +368,6 @@ export class VisualizerManager {
 	}
 
 	static reset() {
-		VisualizerManager.visualizerUrl = undefined;
+		VisualizerManager.htmlFileName = undefined;
 	}
 }
