@@ -56,6 +56,10 @@
 				"command": "vscode-pahcer-ui.toggleComparisonMode",
 				"title": "Toggle Comparison Mode",
 				"icon": "$(graph-line)"
+			},
+			{
+				"command": "vscode-pahcer-ui.addComment",
+				"title": "コメントを追加"
 			}
 		],
 		"menus": {
@@ -84,6 +88,12 @@
 					"command": "vscode-pahcer-ui.toggleComparisonMode",
 					"when": "view == pahcerResults",
 					"group": "navigation@4"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "vscode-pahcer-ui.addComment",
+					"when": "view == pahcerResults && viewItem == execution"
 				}
 			]
 		}

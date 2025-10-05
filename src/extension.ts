@@ -153,6 +153,45 @@ export function activate(context: vscode.ExtensionContext) {
 		},
 	);
 
+	// Register add comment command
+	const addCommentCommand = vscode.commands.registerCommand(
+		'vscode-pahcer-ui.addComment',
+		async (item: any) => {
+			if (!workspaceRoot || !item?.resultId) {
+				return;
+			}
+
+			const comment = await vscode.window.showInputBox({
+				prompt: 'コメントを入力してください',
+				placeHolder: 'この実行についてのメモ...',
+				value: item.comment || '',
+			});
+
+			if (comment === undefined) {
+				return;
+			}
+
+			// Save comment to meta.json
+			const resultDir = path.join(
+				workspaceRoot,
+				'.pahcer-ui',
+				'results',
+				`result_${item.resultId}`,
+			);
+			if (!fs.existsSync(resultDir)) {
+				fs.mkdirSync(resultDir, { recursive: true });
+			}
+
+			const metaPath = path.join(resultDir, 'meta.json');
+			const meta = { comment };
+			fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+
+			// Refresh tree view
+			pahcerResultsProvider.refresh();
+			vscode.window.showInformationMessage('コメントを保存しました');
+		},
+	);
+
 	context.subscriptions.push(
 		treeView,
 		refreshCommand,
@@ -161,6 +200,7 @@ export function activate(context: vscode.ExtensionContext) {
 		switchToSeedCommand,
 		switchToExecutionCommand,
 		toggleComparisonModeCommand,
+		addCommentCommand,
 	);
 }
 

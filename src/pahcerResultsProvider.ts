@@ -86,7 +86,7 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 			if (!element) {
 				// Root level: show all results
 				return this.getResults();
-			} else if (element.contextValue === 'result' && element.result) {
+			} else if (element.contextValue === 'execution' && element.result) {
 				// Show cases for a result
 				return this.getCases(element.result, element.resultId);
 			} else {
@@ -130,6 +130,28 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 				const content = fs.readFileSync(path.join(jsonDir, file), 'utf-8');
 				const result: PahcerResult = JSON.parse(content);
 
+				// Extract result ID from filename
+				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
+
+				// Load comment from meta.json
+				let comment = '';
+				const metaPath = path.join(
+					this.workspaceRoot!,
+					'.pahcer-ui',
+					'results',
+					`result_${resultId}`,
+					'meta.json',
+				);
+				if (fs.existsSync(metaPath)) {
+					try {
+						const metaContent = fs.readFileSync(metaPath, 'utf-8');
+						const meta = JSON.parse(metaContent);
+						comment = meta.comment || '';
+					} catch (e) {
+						// Ignore meta.json read errors
+					}
+				}
+
 				const time = new Date(result.start_time).toLocaleString();
 				const acCount = result.case_count - result.wa_seeds.length;
 				const avgScore =
@@ -139,20 +161,20 @@ export class PahcerResultsProvider implements vscode.TreeDataProvider<ResultItem
 						? (result.total_relative_score / result.case_count).toFixed(3)
 						: '0.000';
 
-				const label = `${time} - AC:${acCount}/${result.case_count} Score:${avgScore} Rel:${avgRel}`;
+				const label = comment
+					? `[${comment}] ${time} - AC:${acCount}/${result.case_count} Score:${avgScore} Rel:${avgRel}`
+					: `${time} - AC:${acCount}/${result.case_count} Score:${avgScore} Rel:${avgRel}`;
 				const description = result.comment || (result.tag_name || '').replace('pahcer/', '');
-
-				// Extract result ID from filename
-				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
 
 				const item = new ResultItem(
 					label,
 					vscode.TreeItemCollapsibleState.Collapsed,
-					'result',
+					'execution',
 					description,
 				);
 				item.result = result;
 				item.resultId = resultId;
+				item.comment = comment;
 
 				// Add checkbox only in comparison mode
 				if (this.comparisonMode) {
@@ -376,4 +398,5 @@ class ResultItem extends vscode.TreeItem {
 	result?: PahcerResult;
 	seed?: number;
 	resultId?: string;
+	comment?: string;
 }
