@@ -1,17 +1,42 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { ComparisonView } from './comparisonView';
-import { PahcerResultsProvider } from './pahcerResultsProvider';
-import { VisualizerManager } from './visualizerManager';
+import { addCommentCommand } from './controller/commands/addCommentCommand';
+import { changeSortOrderCommand } from './controller/commands/changeSortOrderCommand';
+import { refreshCommand } from './controller/commands/refreshCommand';
+import { runCommand } from './controller/commands/runCommand';
+import {
+	switchToExecutionCommand,
+	switchToSeedCommand,
+} from './controller/commands/switchModeCommand';
+import { ComparisonViewController } from './controller/comparisonViewController';
+import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
+import { VisualizerViewController } from './controller/visualizerViewController';
+import { FileWatcher } from './infrastructure/fileWatcher';
+import { MetadataRepository } from './infrastructure/metadataRepository';
+import { OutputFileRepository } from './infrastructure/outputFileRepository';
+import { TerminalAdapter } from './infrastructure/terminalAdapter';
+import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
 export function activate(context: vscode.ExtensionContext) {
-	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+	const workspaceAdapter = new WorkspaceAdapter();
+	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
 
-	// Create TreeView provider
-	const pahcerResultsProvider = new PahcerResultsProvider(workspaceRoot);
+	if (!workspaceRoot) {
+		return;
+	}
+
+	// Create controllers
+	const treeViewController = new PahcerTreeViewController(workspaceRoot);
+	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
+	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
+
+	// Create infrastructure components
+	const terminalAdapter = new TerminalAdapter();
+	const metadataRepository = new MetadataRepository(workspaceRoot);
+	const outputFileRepository = new OutputFileRepository(workspaceRoot);
+
+	// Create TreeView
 	const treeView = vscode.window.createTreeView('pahcerResults', {
-		treeDataProvider: pahcerResultsProvider,
+		treeDataProvider: treeViewController,
 		showCollapseAll: true,
 		canSelectMany: false,
 	});
@@ -19,271 +44,77 @@ export function activate(context: vscode.ExtensionContext) {
 	// Handle checkbox state changes
 	treeView.onDidChangeCheckboxState(async (e) => {
 		for (const [item] of e.items) {
-			if (item.resultId) {
-				pahcerResultsProvider.toggleCheckbox(item.resultId);
+			if ((item as any).resultId) {
+				treeViewController.toggleCheckbox((item as any).resultId);
 			}
 		}
 
 		// Auto-show comparison view when checkboxes change
-		const checkedResults = pahcerResultsProvider.getCheckedResults();
-		if (comparisonView) {
-			await comparisonView.showComparison(checkedResults);
-		}
+		const checkedResults = treeViewController.getCheckedResults();
+		await comparisonViewController.showComparison(checkedResults);
 	});
 
-	// Create VisualizerManager
-	const visualizerManager = workspaceRoot ? new VisualizerManager(context, workspaceRoot) : null;
-
-	// Create ComparisonView
-	const comparisonView = workspaceRoot ? new ComparisonView(context, workspaceRoot) : null;
-
 	// Watch for changes in pahcer/json directory
-	if (workspaceRoot) {
-		const watcher = vscode.workspace.createFileSystemWatcher(
-			new vscode.RelativePattern(workspaceRoot, 'pahcer/json/result_*.json'),
-		);
-
-		watcher.onDidCreate((uri) => {
-			// Copy tools/out and tools/err to .pahcer-ui/result_${id}/
-			copyOutputFiles(workspaceRoot, uri.fsPath);
-			pahcerResultsProvider.refresh();
-		});
-		watcher.onDidChange(() => pahcerResultsProvider.refresh());
-		watcher.onDidDelete(() => pahcerResultsProvider.refresh());
-
-		context.subscriptions.push(watcher);
-	}
-
-	// Register refresh command
-	const refreshCommand = vscode.commands.registerCommand('pahcer-ui.refresh', () => {
-		pahcerResultsProvider.refresh();
+	const watcher = new FileWatcher(workspaceRoot, 'pahcer/json/result_*.json', {
+		onCreate: async (uri) => {
+			// Extract result ID from path
+			const fileName = uri.fsPath.split('/').pop();
+			const match = fileName?.match(/^result_(.+)\.json$/);
+			if (match) {
+				const resultId = match[1];
+				await outputFileRepository.copyOutputFiles(resultId);
+			}
+			treeViewController.refresh();
+		},
+		onChange: () => treeViewController.refresh(),
+		onDelete: () => treeViewController.refresh(),
 	});
 
 	// Update context for button visibility
 	const updateGroupingContext = () => {
-		const mode = pahcerResultsProvider.getGroupingMode();
+		const mode = treeViewController.getGroupingMode();
 		vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
 	};
-
-	const switchToSeedCommand = vscode.commands.registerCommand(
-		'pahcer-ui.switchToSeed',
-		async () => {
-			await pahcerResultsProvider.setGroupingMode('bySeed');
-			updateGroupingContext();
-		},
-	);
-
-	const switchToExecutionCommand = vscode.commands.registerCommand(
-		'pahcer-ui.switchToExecution',
-		async () => {
-			await pahcerResultsProvider.setGroupingMode('byExecution');
-			updateGroupingContext();
-		},
-	);
 
 	// Initialize context
 	updateGroupingContext();
 
-	// Toggle comparison mode command
-	const toggleComparisonModeCommand = vscode.commands.registerCommand(
-		'pahcer-ui.toggleComparisonMode',
-		() => {
-			const currentMode = pahcerResultsProvider.getComparisonMode();
-			pahcerResultsProvider.setComparisonMode(!currentMode);
-		},
-	);
+	// Register commands
+	const commands = [
+		vscode.commands.registerCommand('pahcer-ui.run', () =>
+			runCommand(workspaceAdapter, terminalAdapter),
+		),
+		vscode.commands.registerCommand('pahcer-ui.refresh', () => refreshCommand(treeViewController)),
+		vscode.commands.registerCommand('pahcer-ui.switchToSeed', () =>
+			switchToSeedCommand(treeViewController, updateGroupingContext),
+		),
+		vscode.commands.registerCommand('pahcer-ui.switchToExecution', () =>
+			switchToExecutionCommand(treeViewController, updateGroupingContext),
+		),
+		vscode.commands.registerCommand('pahcer-ui.toggleComparisonMode', () => {
+			const currentMode = treeViewController.getComparisonMode();
+			treeViewController.setComparisonMode(!currentMode);
+		}),
+		vscode.commands.registerCommand(
+			'pahcer-ui.showVisualizer',
+			async (seed: number, resultId?: string) => {
+				const inputPath = `${workspaceRoot}/tools/in/${String(seed).padStart(4, '0')}.txt`;
+				const outputPath = resultId
+					? `${workspaceRoot}/.pahcer-ui/results/result_${resultId}/out/${String(seed).padStart(4, '0')}.txt`
+					: `${workspaceRoot}/tools/out/${String(seed).padStart(4, '0')}.txt`;
 
-	// Register run command
-	const runCommand = vscode.commands.registerCommand('pahcer-ui.run', async () => {
-		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-		if (!workspaceFolder) {
-			vscode.window.showErrorMessage('ワークスペースが開かれていません');
-			return;
-		}
+				await visualizerViewController.showVisualizerForCase(seed, inputPath, outputPath, resultId);
+			},
+		),
+		vscode.commands.registerCommand('pahcer-ui.addComment', (item: any) =>
+			addCommentCommand(item, metadataRepository, treeViewController),
+		),
+		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
+			changeSortOrderCommand(treeViewController),
+		),
+	];
 
-		const terminal = vscode.window.createTerminal({
-			name: 'Pahcer Run',
-			cwd: workspaceFolder.uri.fsPath,
-		});
-
-		terminal.show();
-		terminal.sendText('pahcer run');
-	});
-
-	// Register visualizer command
-	const showVisualizerCommand = vscode.commands.registerCommand(
-		'pahcer-ui.showVisualizer',
-		async (seed: number, resultId?: string) => {
-			if (!visualizerManager || !workspaceRoot) {
-				vscode.window.showErrorMessage('ワークスペースが開かれていません');
-				return;
-			}
-
-			// Find input and output files for this seed
-			const inputPath = path.join(
-				workspaceRoot,
-				'tools',
-				'in',
-				`${String(seed).padStart(4, '0')}.txt`,
-			);
-			const outputPath = resultId
-				? path.join(
-						workspaceRoot,
-						'.pahcer-ui',
-						'results',
-						`result_${resultId}`,
-						'out',
-						`${String(seed).padStart(4, '0')}.txt`,
-					)
-				: path.join(workspaceRoot, 'tools', 'out', `${String(seed).padStart(4, '0')}.txt`);
-
-			// Check if output file exists
-			if (!fs.existsSync(outputPath)) {
-				vscode.window.showErrorMessage(
-					'出力が見つかりません。Pahcer UI 以外で実行された可能性があります。',
-				);
-				return;
-			}
-
-			try {
-				await visualizerManager.showVisualizerForCase(seed, inputPath, outputPath, resultId);
-			} catch (error) {
-				vscode.window.showErrorMessage(`ビジュアライザの表示に失敗しました: ${error}`);
-			}
-		},
-	);
-
-	// Register add comment command
-	const addCommentCommand = vscode.commands.registerCommand(
-		'pahcer-ui.addComment',
-		async (item: any) => {
-			if (!workspaceRoot || !item?.resultId) {
-				return;
-			}
-
-			const comment = await vscode.window.showInputBox({
-				prompt: 'コメントを入力してください',
-				placeHolder: 'この実行についてのメモ...',
-				value: item.comment || '',
-			});
-
-			if (comment === undefined) {
-				return;
-			}
-
-			// Save comment to meta.json
-			const resultDir = path.join(
-				workspaceRoot,
-				'.pahcer-ui',
-				'results',
-				`result_${item.resultId}`,
-			);
-			if (!fs.existsSync(resultDir)) {
-				fs.mkdirSync(resultDir, { recursive: true });
-			}
-
-			const metaPath = path.join(resultDir, 'meta.json');
-			const meta = { comment };
-			fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
-
-			// Refresh tree view
-			pahcerResultsProvider.refresh();
-			vscode.window.showInformationMessage('コメントを保存しました');
-		},
-	);
-
-	// Register change sort order command
-	const changeSortOrderCommand = vscode.commands.registerCommand(
-		'pahcer-ui.changeSortOrder',
-		async () => {
-			const mode = pahcerResultsProvider.getGroupingMode();
-
-			if (mode === 'byExecution') {
-				const currentOrder = pahcerResultsProvider.getExecutionSortOrder();
-				const options = [
-					{ label: 'シードの昇順', value: 'seedAsc' as const },
-					{ label: 'シードの降順', value: 'seedDesc' as const },
-					{ label: '相対スコアの昇順', value: 'relativeScoreAsc' as const },
-					{ label: '相対スコアの降順', value: 'relativeScoreDesc' as const },
-					{ label: '絶対スコアの昇順', value: 'absoluteScoreAsc' as const },
-					{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
-				];
-
-				const selected = await vscode.window.showQuickPick(options, {
-					placeHolder: `現在: ${options.find((o) => o.value === currentOrder)?.label}`,
-				});
-
-				if (selected) {
-					await pahcerResultsProvider.setExecutionSortOrder(selected.value);
-				}
-			} else {
-				const currentOrder = pahcerResultsProvider.getSeedSortOrder();
-				const options = [
-					{ label: '実行の昇順', value: 'executionAsc' as const },
-					{ label: '実行の降順', value: 'executionDesc' as const },
-					{ label: '絶対スコアの昇順', value: 'absoluteScoreAsc' as const },
-					{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
-				];
-
-				const selected = await vscode.window.showQuickPick(options, {
-					placeHolder: `現在: ${options.find((o) => o.value === currentOrder)?.label}`,
-				});
-
-				if (selected) {
-					await pahcerResultsProvider.setSeedSortOrder(selected.value);
-				}
-			}
-		},
-	);
-
-	context.subscriptions.push(
-		treeView,
-		refreshCommand,
-		runCommand,
-		showVisualizerCommand,
-		switchToSeedCommand,
-		switchToExecutionCommand,
-		toggleComparisonModeCommand,
-		addCommentCommand,
-		changeSortOrderCommand,
-	);
-}
-
-function copyOutputFiles(workspaceRoot: string, resultJsonPath: string) {
-	try {
-		// Extract result ID from filename (e.g., result_20241005_123456.json -> 20241005_123456)
-		const fileName = path.basename(resultJsonPath);
-		const match = fileName.match(/^result_(.+)\.json$/);
-		if (!match) {
-			return;
-		}
-
-		const resultId = match[1];
-		const destDir = path.join(workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
-
-		// Create destination directory
-		if (!fs.existsSync(destDir)) {
-			fs.mkdirSync(destDir, { recursive: true });
-		}
-
-		// Copy tools/out directory
-		const toolsOutDir = path.join(workspaceRoot, 'tools', 'out');
-		if (fs.existsSync(toolsOutDir)) {
-			const outDestDir = path.join(destDir, 'out');
-			fs.cpSync(toolsOutDir, outDestDir, { recursive: true });
-		}
-
-		// Copy tools/err directory
-		const toolsErrDir = path.join(workspaceRoot, 'tools', 'err');
-		if (fs.existsSync(toolsErrDir)) {
-			const errDestDir = path.join(destDir, 'err');
-			fs.cpSync(toolsErrDir, errDestDir, { recursive: true });
-		}
-
-		console.log(`Copied output files to ${destDir}`);
-	} catch (error) {
-		console.error('Failed to copy output files:', error);
-	}
+	context.subscriptions.push(treeView, watcher, ...commands);
 }
 
 export function deactivate() {}

@@ -1,40 +1,52 @@
-import * as fs from 'node:fs';
-import * as https from 'node:https';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { ConfigAdapter } from '../infrastructure/configAdapter';
+import { InputFileRepository } from '../infrastructure/inputFileRepository';
+import { OutputFileRepository } from '../infrastructure/outputFileRepository';
+import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
+import { VisualizerCache } from '../infrastructure/visualizerCache';
+import { VisualizerDownloader } from '../infrastructure/visualizerDownloader';
 
-export class VisualizerManager {
-	private static visualizerDir: string | undefined;
-	private static htmlFileName: string | undefined;
+/**
+ * ビジュアライザのWebViewコントローラ
+ */
+export class VisualizerViewController {
 	private static currentPanel: vscode.WebviewPanel | undefined;
+
+	private inputFileRepository: InputFileRepository;
+	private outputFileRepository: OutputFileRepository;
+	private resultRepository: PahcerResultRepository;
+	private visualizerDownloader: VisualizerDownloader;
+	private visualizerCache: VisualizerCache;
+	private configAdapter: ConfigAdapter;
 
 	constructor(
 		private context: vscode.ExtensionContext,
 		private workspaceRoot: string,
 	) {
-		VisualizerManager.visualizerDir = path.join(workspaceRoot, '.pahcer-ui', 'visualizer');
+		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
+
+		this.inputFileRepository = new InputFileRepository(workspaceRoot);
+		this.outputFileRepository = new OutputFileRepository(workspaceRoot);
+		this.resultRepository = new PahcerResultRepository(workspaceRoot);
+		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
+		this.visualizerCache = new VisualizerCache(visualizerDir);
+		this.configAdapter = new ConfigAdapter();
 	}
 
+	/**
+	 * ビジュアライザを表示
+	 */
 	async showVisualizerForCase(
 		seed: number,
 		inputPath: string,
 		outputPath: string,
 		resultId?: string,
-	) {
+	): Promise<void> {
 		// Check if visualizer is already downloaded
-		if (!VisualizerManager.htmlFileName && VisualizerManager.visualizerDir) {
-			// Check if visualizer directory exists and has HTML file
-			if (fs.existsSync(VisualizerManager.visualizerDir)) {
-				const files = fs.readdirSync(VisualizerManager.visualizerDir);
-				const htmlFile = files.find((f) => f.endsWith('.html'));
-				if (htmlFile) {
-					VisualizerManager.htmlFileName = htmlFile;
-				}
-			}
-		}
+		let htmlFileName = this.visualizerCache.getCachedHtmlFileName();
 
 		// Get visualizer URL if HTML file not found
-		if (!VisualizerManager.htmlFileName) {
+		if (!htmlFileName) {
 			const url = await vscode.window.showInputBox({
 				prompt: 'AtCoder公式ビジュアライザのURLを入力してください',
 				placeHolder: 'https://img.atcoder.jp/ahc054/YDAxDRZr_v2.html?lang=ja',
@@ -45,7 +57,6 @@ export class VisualizerManager {
 					if (!value.startsWith('https://img.atcoder.jp/')) {
 						return 'AtCoderの公式URLを入力してください';
 					}
-					// Remove query params for validation
 					const urlWithoutQuery = value.split('?')[0];
 					if (!urlWithoutQuery.endsWith('.html')) {
 						return 'HTMLファイルのURLを入力してください';
@@ -59,236 +70,63 @@ export class VisualizerManager {
 			}
 
 			// Download visualizer files
-			const urlObj = new URL(url);
-			VisualizerManager.htmlFileName = path.basename(urlObj.pathname);
-			const htmlPath = VisualizerManager.visualizerDir
-				? path.join(VisualizerManager.visualizerDir, VisualizerManager.htmlFileName)
-				: '';
-
-			if (!htmlPath || !fs.existsSync(htmlPath)) {
-				await vscode.window.withProgress(
-					{
-						location: vscode.ProgressLocation.Notification,
-						title: 'ビジュアライザをダウンロード中...',
-						cancellable: false,
-					},
-					async (progress) => {
-						await this.downloadVisualizer(url);
-					},
-				);
-			}
+			await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: 'ビジュアライザをダウンロード中...',
+					cancellable: false,
+				},
+				async () => {
+					htmlFileName = await this.visualizerDownloader.download(url);
+				},
+			);
 		}
 
-		// Open visualizer with test case data
-		await this.openVisualizer(seed, inputPath, outputPath, resultId);
-	}
-
-	private async downloadVisualizer(url: string) {
-		if (!VisualizerManager.visualizerDir) {
-			throw new Error('Visualizer directory not set');
-		}
-
-		// Create directory
-		if (!fs.existsSync(VisualizerManager.visualizerDir)) {
-			fs.mkdirSync(VisualizerManager.visualizerDir, { recursive: true });
-		}
-
-		// Remove query parameters for file operations
-		const urlObj = new URL(url);
-		const cleanUrl = `${urlObj.origin}${urlObj.pathname}`;
-
-		// Download main HTML
-		const htmlContent = await this.fetchUrl(cleanUrl);
-		const htmlFileName = path.basename(urlObj.pathname);
-		const htmlPath = path.join(VisualizerManager.visualizerDir, htmlFileName);
-		fs.writeFileSync(htmlPath, htmlContent);
-
-		// Parse and download dependencies
-		await this.downloadDependencies(htmlContent, cleanUrl);
-	}
-
-	private async downloadDependencies(htmlContent: string, baseUrl: string) {
-		if (!VisualizerManager.visualizerDir) {
-			return;
-		}
-
-		const baseUrlObj = new URL(baseUrl);
-		const baseDir = baseUrlObj.pathname.substring(0, baseUrlObj.pathname.lastIndexOf('/'));
-
-		// Find script and link tags
-		const scriptRegex = /<script[^>]+src=["']([^"']+)["']/g;
-		const linkRegex = /<link[^>]+href=["']([^"']+)["']/g;
-		const imgRegex = /<img[^>]+src=["']([^"']+)["']/g;
-		// Also look for ES module imports
-		const importRegex = /from\s+["']([^"']+\.js)["']/g;
-
-		const dependencies = new Set<string>();
-
-		let match: RegExpExecArray | null;
-		match = scriptRegex.exec(htmlContent);
-		while (match !== null) {
-			dependencies.add(match[1]);
-			match = scriptRegex.exec(htmlContent);
-		}
-		match = linkRegex.exec(htmlContent);
-		while (match !== null) {
-			dependencies.add(match[1]);
-			match = linkRegex.exec(htmlContent);
-		}
-		match = imgRegex.exec(htmlContent);
-		while (match !== null) {
-			dependencies.add(match[1]);
-			match = imgRegex.exec(htmlContent);
-		}
-		match = importRegex.exec(htmlContent);
-		while (match !== null) {
-			dependencies.add(match[1]);
-			match = importRegex.exec(htmlContent);
-		}
-
-		// Download each dependency
-		for (const dep of dependencies) {
-			try {
-				// Skip protocol-relative and absolute external URLs
-				if (dep.startsWith('//') || dep.startsWith('http://') || dep.startsWith('https://')) {
-					// Handle protocol-relative URLs (//img.atcoder.jp/...)
-					if (dep.startsWith('//img.atcoder.jp/')) {
-						const fullUrl = `https:${dep}`;
-						const fileName = path.basename(new URL(fullUrl).pathname);
-						const depPath = path.join(VisualizerManager.visualizerDir, fileName);
-
-						if (!fs.existsSync(depPath)) {
-							console.log(`Downloading ${fullUrl}`);
-							const depContent = await this.fetchUrl(fullUrl);
-							fs.writeFileSync(depPath, depContent);
-						}
-					}
-					continue;
-				}
-
-				// Handle relative paths
-				const depUrl = dep.startsWith('./')
-					? `${baseUrlObj.origin}${baseDir}/${dep.substring(2)}`
-					: `${baseUrlObj.origin}${baseDir}/${dep}`;
-
-				console.log(`Downloading ${depUrl}`);
-				const depContent = await this.fetchUrl(depUrl);
-
-				const depPath = path.join(VisualizerManager.visualizerDir, path.basename(dep));
-				fs.writeFileSync(depPath, depContent);
-
-				// If it's a .js file, also try to download the .wasm file
-				if (dep.endsWith('.js')) {
-					const wasmFile = dep.replace('.js', '_bg.wasm');
-					const wasmUrl = wasmFile.startsWith('./')
-						? `${baseUrlObj.origin}${baseDir}/${wasmFile.substring(2)}`
-						: `${baseUrlObj.origin}${baseDir}/${wasmFile}`;
-
-					try {
-						console.log(`Trying to download ${wasmUrl}`);
-						const wasmContent = await this.fetchUrlBinary(wasmUrl);
-						const wasmPath = path.join(VisualizerManager.visualizerDir, path.basename(wasmFile));
-						fs.writeFileSync(wasmPath, wasmContent);
-					} catch (e) {
-						// WASM file might not exist, that's ok
-						console.log(`WASM file not found: ${wasmUrl}`);
-					}
-				}
-			} catch (e) {
-				console.error(`Failed to download dependency ${dep}:`, e);
-			}
-		}
-	}
-
-	private fetchUrl(url: string): Promise<string> {
-		return new Promise((resolve, reject) => {
-			https
-				.get(url, (res) => {
-					if (res.statusCode === 301 || res.statusCode === 302) {
-						if (res.headers.location) {
-							return this.fetchUrl(res.headers.location).then(resolve).catch(reject);
-						}
-					}
-
-					let data = '';
-					res.on('data', (chunk) => {
-						data += chunk;
-					});
-					res.on('end', () => resolve(data));
-				})
-				.on('error', reject);
-		});
-	}
-
-	private fetchUrlBinary(url: string): Promise<Buffer> {
-		return new Promise((resolve, reject) => {
-			https
-				.get(url, (res) => {
-					if (res.statusCode === 301 || res.statusCode === 302) {
-						if (res.headers.location) {
-							return this.fetchUrlBinary(res.headers.location).then(resolve).catch(reject);
-						}
-					}
-
-					const chunks: Buffer[] = [];
-					res.on('data', (chunk) => chunks.push(chunk));
-					res.on('end', () => resolve(Buffer.concat(chunks)));
-				})
-				.on('error', reject);
-		});
-	}
-
-	private async openVisualizer(
-		seed: number,
-		inputPath: string,
-		outputPath: string,
-		resultId?: string,
-	) {
-		if (!VisualizerManager.htmlFileName || !VisualizerManager.visualizerDir) {
-			return;
-		}
-
-		const htmlPath = path.join(VisualizerManager.visualizerDir, VisualizerManager.htmlFileName);
-
-		if (!fs.existsSync(htmlPath)) {
+		if (!htmlFileName) {
 			vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
 			return;
 		}
 
+		// Open visualizer with test case data
+		await this.openVisualizer(seed, inputPath, outputPath, resultId, htmlFileName);
+	}
+
+	/**
+	 * ビジュアライザを開く
+	 */
+	private async openVisualizer(
+		seed: number,
+		inputPath: string,
+		outputPath: string,
+		resultId: string | undefined,
+		htmlFileName: string,
+	): Promise<void> {
 		// Get execution time from result file if resultId is provided
 		let executionTime = '';
 		if (resultId) {
-			const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
-			if (fs.existsSync(jsonPath)) {
-				try {
-					const content = fs.readFileSync(jsonPath, 'utf-8');
-					const result = JSON.parse(content);
-					executionTime = ` (${new Date(result.start_time).toLocaleString()})`;
-				} catch (e) {
-					// Ignore error
-				}
+			const result = await this.resultRepository.loadResult(resultId);
+			if (result) {
+				executionTime = ` (${new Date(result.startTime).toLocaleString()})`;
 			}
 		}
 
 		// Read test case input and output
-		const input = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf-8') : '';
-		const output = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf-8') : '';
+		const input = (await this.inputFileRepository.load(seed)) || '';
+		const output = (await this.outputFileRepository.load(seed, resultId)) || '';
 
 		// Get current zoom level from settings
-		const config = vscode.workspace.getConfiguration('pahcer-ui');
-		const savedZoomLevel = config.get<number>('visualizerZoomLevel', 1.0);
+		const savedZoomLevel = this.configAdapter.getVisualizerZoomLevel();
 
 		// Reuse existing panel if available, otherwise create new one
-		if (VisualizerManager.currentPanel) {
+		if (VisualizerViewController.currentPanel) {
 			// Update title
-			VisualizerManager.currentPanel.title = `Seed ${seed}${executionTime}`;
+			VisualizerViewController.currentPanel.title = `Seed ${seed}${executionTime}`;
 
 			// Reveal panel if hidden
-			VisualizerManager.currentPanel.reveal(vscode.ViewColumn.Active);
+			VisualizerViewController.currentPanel.reveal(vscode.ViewColumn.Active);
 
 			// Update only input/output without reloading WebView
-			// This preserves scroll position and zoom level
-			VisualizerManager.currentPanel.webview.postMessage({
+			VisualizerViewController.currentPanel.webview.postMessage({
 				type: 'updateTestCase',
 				seed,
 				input,
@@ -302,31 +140,26 @@ export class VisualizerManager {
 				vscode.ViewColumn.Active,
 				{
 					enableScripts: true,
-					localResourceRoots: [vscode.Uri.file(VisualizerManager.visualizerDir)],
+					localResourceRoots: [vscode.Uri.file(this.visualizerCache.getVisualizerDir())],
 				},
 			);
 
-			VisualizerManager.currentPanel = panel;
+			VisualizerViewController.currentPanel = panel;
 
 			// Listen for messages from the webview
 			panel.webview.onDidReceiveMessage(async (message) => {
 				if (message.type === 'saveZoomLevel') {
-					const config = vscode.workspace.getConfiguration('pahcer-ui');
-					await config.update(
-						'visualizerZoomLevel',
-						message.zoomLevel,
-						vscode.ConfigurationTarget.Global,
-					);
+					await this.configAdapter.setVisualizerZoomLevel(message.zoomLevel);
 				}
 			});
 
 			// Reset currentPanel when the panel is disposed
 			panel.onDidDispose(() => {
-				VisualizerManager.currentPanel = undefined;
+				VisualizerViewController.currentPanel = undefined;
 			});
 
 			// Read HTML content
-			let htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+			let htmlContent = this.visualizerCache.readHtml(htmlFileName);
 
 			// Convert local paths to webview URIs
 			htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
@@ -338,19 +171,18 @@ export class VisualizerManager {
 		}
 	}
 
+	/**
+	 * リソースパスをWebView URIに変換
+	 */
 	private convertResourcePaths(html: string, webview: vscode.Webview): string {
-		if (!VisualizerManager.visualizerDir) {
-			return html;
-		}
+		const visualizerDir = this.visualizerCache.getVisualizerDir();
 
 		// Convert relative paths to webview URIs
 		html = html.replace(/src=["']\.\/([^"']+)["']/g, (match, fileName) => {
-			if (!VisualizerManager.visualizerDir) {
-				return match;
-			}
-			const resourcePath = path.join(VisualizerManager.visualizerDir, fileName);
-			if (fs.existsSync(resourcePath)) {
-				const resourceUri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
+			if (this.visualizerCache.resourceExists(fileName)) {
+				const resourceUri = webview.asWebviewUri(
+					vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+				);
 				return `src="${resourceUri}"`;
 			}
 			return match;
@@ -360,12 +192,10 @@ export class VisualizerManager {
 		html = html.replace(
 			/src=["']\/\/img\.atcoder\.jp\/[^"']*\/([^"'/]+)["']/g,
 			(match, fileName) => {
-				if (!VisualizerManager.visualizerDir) {
-					return match;
-				}
-				const resourcePath = path.join(VisualizerManager.visualizerDir, fileName);
-				if (fs.existsSync(resourcePath)) {
-					const resourceUri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
+				if (this.visualizerCache.resourceExists(fileName)) {
+					const resourceUri = webview.asWebviewUri(
+						vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+					);
 					return `src="${resourceUri}"`;
 				}
 				return match;
@@ -374,12 +204,10 @@ export class VisualizerManager {
 
 		// Handle imports from ES modules
 		html = html.replace(/from\s+["']\.\/([^"']+\.js)["']/g, (match, fileName) => {
-			if (!VisualizerManager.visualizerDir) {
-				return match;
-			}
-			const resourcePath = path.join(VisualizerManager.visualizerDir, fileName);
-			if (fs.existsSync(resourcePath)) {
-				const resourceUri = webview.asWebviewUri(vscode.Uri.file(resourcePath));
+			if (this.visualizerCache.resourceExists(fileName)) {
+				const resourceUri = webview.asWebviewUri(
+					vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+				);
 				return `from "${resourceUri}"`;
 			}
 			return match;
@@ -388,6 +216,9 @@ export class VisualizerManager {
 		return html;
 	}
 
+	/**
+	 * テストケースデータを注入
+	 */
 	private injectTestCaseData(
 		html: string,
 		seed: number,
@@ -395,17 +226,14 @@ export class VisualizerManager {
 		output: string,
 		initialZoomLevel: number,
 	): string {
-		// Inject seed, input, and output as global variables
 		const injection = `
             <script>
                 window.PAHCER_SEED = ${seed};
                 window.PAHCER_INPUT = ${JSON.stringify(input)};
                 window.PAHCER_OUTPUT = ${JSON.stringify(output)};
 
-                // Acquire VS Code API for messaging
                 const vscode = acquireVsCodeApi();
 
-                // Function to update test case data
                 function updateTestCaseData(seed, input, output) {
                     window.PAHCER_SEED = seed;
                     window.PAHCER_INPUT = input;
@@ -427,13 +255,11 @@ export class VisualizerManager {
                         outputTextarea.value = output;
                     }
 
-                    // Trigger update to visualize
                     if (typeof updateOutput === 'function') {
                         updateOutput();
                     }
                 }
 
-                // Listen for messages from extension
                 window.addEventListener('message', (event) => {
                     const message = event.data;
                     if (message.type === 'updateTestCase') {
@@ -441,17 +267,14 @@ export class VisualizerManager {
                     }
                 });
 
-                // Auto-fill input and output when page loads
                 window.addEventListener('DOMContentLoaded', () => {
                     updateTestCaseData(window.PAHCER_SEED, window.PAHCER_INPUT, window.PAHCER_OUTPUT);
                     createZoomUI();
-                    // Apply initial zoom level
                     if (zoomLevel !== 1.0) {
                         applyZoom();
                     }
                 });
 
-                // Zoom functionality
                 let zoomLevel = ${initialZoomLevel};
                 const MIN_ZOOM = 0.5;
                 const MAX_ZOOM = 3.0;
@@ -460,12 +283,10 @@ export class VisualizerManager {
                 function applyZoom() {
                     let contentWrapper = document.getElementById('pahcer-content-wrapper');
                     if (!contentWrapper) {
-                        // Create wrapper on first zoom
                         contentWrapper = document.createElement('div');
                         contentWrapper.id = 'pahcer-content-wrapper';
                         contentWrapper.style.transformOrigin = 'top left';
 
-                        // Move all existing body children (except zoom UI) into wrapper
                         const zoomUI = document.getElementById('pahcer-zoom-controls');
                         while (document.body.firstChild) {
                             if (document.body.firstChild !== zoomUI) {
@@ -482,7 +303,6 @@ export class VisualizerManager {
                     contentWrapper.style.height = \`\${100 / zoomLevel}%\`;
                     updateZoomDisplay();
 
-                    // Save zoom level to settings
                     vscode.postMessage({
                         type: 'saveZoomLevel',
                         zoomLevel: zoomLevel
@@ -494,10 +314,6 @@ export class VisualizerManager {
                     if (display) {
                         display.textContent = \`\${Math.round(zoomLevel * 100)}%\`;
                     }
-                }
-
-                function updateZoomUITransform() {
-                    // No longer needed - zoom UI is now outside the zoomed content
                 }
 
                 function createZoomUI() {
@@ -541,7 +357,6 @@ export class VisualizerManager {
                     container.appendChild(zoomIn);
                     container.appendChild(reset);
 
-                    // Insert at the end of body (after content wrapper)
                     document.body.appendChild(container);
                 }
 
@@ -554,7 +369,6 @@ export class VisualizerManager {
                     }
                 }, { passive: false });
 
-                // Keyboard shortcuts for zoom
                 window.addEventListener('keydown', (e) => {
                     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
                         if (e.key === '=' || e.key === '+') {
@@ -575,7 +389,6 @@ export class VisualizerManager {
             </script>
         `;
 
-		// Insert before closing head tag or at the beginning of body
 		if (html.includes('</head>')) {
 			html = html.replace('</head>', `${injection}</head>`);
 		} else if (html.includes('<body>')) {
@@ -587,8 +400,10 @@ export class VisualizerManager {
 		return html;
 	}
 
-	static reset() {
-		VisualizerManager.htmlFileName = undefined;
-		VisualizerManager.currentPanel = undefined;
+	/**
+	 * リセット（テスト用）
+	 */
+	static reset(): void {
+		VisualizerViewController.currentPanel = undefined;
 	}
 }

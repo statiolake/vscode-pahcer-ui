@@ -1,7 +1,7 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { ConfigManager } from './configManager';
+import { ConfigRepository } from '../infrastructure/configRepository';
+import { InputFileRepository } from '../infrastructure/inputFileRepository';
+import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 
 function getNonce() {
 	let text = '';
@@ -12,75 +12,36 @@ function getNonce() {
 	return text;
 }
 
-interface PahcerResult {
-	start_time: string;
-	case_count: number;
-	total_score: number;
-	total_score_log10: number;
-	total_relative_score: number;
-	max_execution_time: number;
-	comment: string;
-	tag_name: string | null;
-	wa_seeds: number[];
-	cases: Array<{
-		seed: number;
-		score: number;
-		relative_score: number;
-		execution_time: number;
-		error_message: string;
-	}>;
-}
-
-export class ComparisonView {
+/**
+ * 比較ビューのコントローラ
+ */
+export class ComparisonViewController {
 	private panel: vscode.WebviewPanel | undefined;
 	private messageDisposable: vscode.Disposable | undefined;
-	private configManager: ConfigManager;
+
+	private resultRepository: PahcerResultRepository;
+	private inputFileRepository: InputFileRepository;
+	private configRepository: ConfigRepository;
 
 	constructor(
 		private context: vscode.ExtensionContext,
 		private workspaceRoot: string,
 	) {
-		this.configManager = new ConfigManager(workspaceRoot);
+		this.resultRepository = new PahcerResultRepository(workspaceRoot);
+		this.inputFileRepository = new InputFileRepository(workspaceRoot);
+		this.configRepository = new ConfigRepository(workspaceRoot);
 	}
 
-	private loadInputData(results: Array<{ id: string; data: PahcerResult }>): Map<number, string> {
-		const inputMap = new Map<number, string>();
-		const inputDir = path.join(this.workspaceRoot, 'tools', 'in');
-
-		// Collect all seeds
-		const seeds = new Set<number>();
-		for (const result of results) {
-			for (const testCase of result.data.cases) {
-				seeds.add(testCase.seed);
-			}
-		}
-
-		// Load first line of each input file
-		for (const seed of seeds) {
-			const inputPath = path.join(inputDir, `${String(seed).padStart(4, '0')}.txt`);
-			if (fs.existsSync(inputPath)) {
-				try {
-					const content = fs.readFileSync(inputPath, 'utf-8');
-					const firstLine = content.split('\n')[0].trim();
-					inputMap.set(seed, firstLine);
-				} catch (e) {
-					console.error(`Failed to read input file for seed ${seed}:`, e);
-				}
-			}
-		}
-
-		return inputMap;
-	}
-
-	async showComparison(resultIds: string[]) {
+	/**
+	 * 比較ビューを表示
+	 */
+	async showComparison(resultIds: string[]): Promise<void> {
 		// Load result data
-		const results: Array<{ id: string; data: PahcerResult }> = [];
+		const results: Array<{ id: string; data: any }> = [];
 		for (const resultId of resultIds) {
-			const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
-			if (fs.existsSync(jsonPath)) {
-				const content = fs.readFileSync(jsonPath, 'utf-8');
-				const data = JSON.parse(content);
-				results.push({ id: resultId, data });
+			const result = await this.resultRepository.loadResult(resultId);
+			if (result) {
+				results.push({ id: resultId, data: result });
 			}
 		}
 
@@ -92,8 +53,16 @@ export class ComparisonView {
 			return;
 		}
 
+		// Collect all seeds
+		const allSeeds = new Set<number>();
+		for (const result of results) {
+			for (const testCase of result.data.cases) {
+				allSeeds.add(testCase.seed);
+			}
+		}
+
 		// Load input files and extract first line for features
-		const inputData = this.loadInputData(results);
+		const inputData = await this.inputFileRepository.loadFirstLines(Array.from(allSeeds));
 
 		// Create or show panel
 		if (this.panel) {
@@ -120,20 +89,20 @@ export class ComparisonView {
 				}
 			});
 
-			// Handle messages from webview (only register once)
+			// Handle messages from webview
 			this.messageDisposable = this.panel.webview.onDidReceiveMessage(
 				async (message) => {
 					if (message.command === 'showVisualizer') {
 						const { resultId, seed } = message;
-						await vscode.commands.executeCommand('vscode-pahcer-ui.showVisualizer', seed, resultId);
+						await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
 					} else if (message.command === 'saveFeatures') {
-						this.configManager.setFeatures(message.features);
+						await this.configRepository.saveFeatures(message.features);
 					} else if (message.command === 'saveXAxis') {
-						this.configManager.setXAxis(message.xAxis);
+						await this.configRepository.saveXAxis(message.xAxis);
 					} else if (message.command === 'saveYAxis') {
-						this.configManager.setYAxis(message.yAxis);
+						await this.configRepository.saveYAxis(message.yAxis);
 					} else if (message.command === 'getConfig') {
-						const config = this.configManager.getConfig();
+						const config = await this.configRepository.load();
 						this.panel?.webview.postMessage({
 							command: 'configLoaded',
 							config,
@@ -145,16 +114,18 @@ export class ComparisonView {
 			);
 		}
 
-		// Generate HTML with Chart.js
+		// Generate HTML
 		this.panel.webview.html = this.getWebviewContent(results, inputData, this.panel.webview);
 	}
 
+	/**
+	 * WebViewのHTMLを生成
+	 */
 	private getWebviewContent(
-		results: Array<{ id: string; data: PahcerResult }>,
+		results: Array<{ id: string; data: any }>,
 		inputData: Map<number, string>,
 		webview: vscode.Webview,
 	): string {
-		// Format execution time
 		function formatDate(date: Date): string {
 			const year = date.getFullYear();
 			const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -174,7 +145,7 @@ export class ComparisonView {
 		}
 		const seeds = Array.from(allSeeds).sort((a, b) => a - b);
 
-		// Convert inputData Map to object for JSON serialization
+		// Convert inputData Map to object
 		const inputDataObj: Record<number, string> = {};
 		for (const [seed, firstLine] of inputData.entries()) {
 			inputDataObj[seed] = firstLine;
@@ -184,16 +155,16 @@ export class ComparisonView {
 		const comparisonData = {
 			results: results.map((r) => ({
 				id: r.id,
-				time: formatDate(new Date(r.data.start_time)),
-				cases: r.data.cases.map((c) => ({
+				time: formatDate(new Date(r.data.startTime)),
+				cases: r.data.cases.map((c: any) => ({
 					seed: c.seed,
 					score: c.score,
-					relativeScore: c.relative_score,
+					relativeScore: c.relativeScore,
 				})),
 			})),
 			seeds,
 			inputData: inputDataObj,
-			config: this.configManager.getConfig(),
+			config: {}, // Will be loaded from webview
 		};
 
 		// Get script URI
@@ -201,7 +172,6 @@ export class ComparisonView {
 			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'comparison.js'),
 		);
 
-		// Generate nonce for inline scripts
 		const nonce = getNonce();
 
 		return `<!DOCTYPE html>

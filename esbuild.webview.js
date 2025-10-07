@@ -4,8 +4,7 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 const entries = {
-	comparison: 'webview/comparison/index.tsx',
-	// visualizer: 'webview/visualizer/index.tsx', // TODO: migrate to React
+	comparison: 'src/view/webview/comparison/index.tsx',
 };
 
 async function build() {
