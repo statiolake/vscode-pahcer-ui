@@ -91,10 +91,6 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('pahcer-ui.switchToExecution', () =>
 			switchToExecutionCommand(treeViewController, updateGroupingContext),
 		),
-		vscode.commands.registerCommand('pahcer-ui.toggleComparisonMode', () => {
-			const currentMode = treeViewController.getComparisonMode();
-			treeViewController.setComparisonMode(!currentMode);
-		}),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showVisualizer',
 			async (seed: number, resultId?: string) => {

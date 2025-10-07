@@ -129,6 +129,8 @@ export class TreeItemBuilder {
 		seed: number,
 		resultId: string,
 		isLatest: boolean,
+		comparisonMode: boolean,
+		isChecked: boolean,
 	): vscode.TreeItem {
 		const label = `${time}: ${testCase.score.toLocaleString()} (${testCase.relativeScore.toFixed(3)}%)`;
 		const description = `${(testCase.executionTime * 1000).toFixed(2)}ms`;
@@ -136,6 +138,13 @@ export class TreeItemBuilder {
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
 		item.contextValue = 'execution';
 		item.description = description;
+
+		// Add checkbox for comparison mode
+		if (comparisonMode) {
+			item.checkboxState = isChecked
+				? vscode.TreeItemCheckboxState.Checked
+				: vscode.TreeItemCheckboxState.Unchecked;
+		}
 
 		// Make clickable
 		item.command = {

@@ -42,7 +42,6 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
 	private checkedResults = new Set<string>();
-	private comparisonMode = false;
 
 	private resultRepository: PahcerResultRepository;
 	private metadataRepository: MetadataRepository;
@@ -95,24 +94,6 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 			this.checkedResults.add(resultId);
 		}
 		this.refresh();
-	}
-
-	/**
-	 * 比較モードを設定
-	 */
-	setComparisonMode(enabled: boolean): void {
-		this.comparisonMode = enabled;
-		if (!enabled) {
-			this.checkedResults.clear();
-		}
-		this.refresh();
-	}
-
-	/**
-	 * 比較モードを取得
-	 */
-	getComparisonMode(): boolean {
-		return this.comparisonMode;
 	}
 
 	/**
@@ -221,7 +202,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 			const builtItem = this.treeItemBuilder.buildExecutionItem(
 				resultWithId,
 				comment,
-				this.comparisonMode,
+				true, // Always show checkbox
 				this.checkedResults.has(resultWithId.id),
 			);
 
@@ -359,6 +340,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 				seed,
 				execution.resultId,
 				isLatest,
+				true, // Show checkbox
+				this.checkedResults.has(execution.resultId),
 			);
 
 			const item = new PahcerTreeItem(
@@ -370,6 +353,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 			item.seed = seed;
 			item.resultId = execution.resultId;
 			item.command = builtItem.command;
+			item.checkboxState = builtItem.checkboxState;
 			item.iconPath = builtItem.iconPath;
 			item.tooltip = builtItem.tooltip;
 

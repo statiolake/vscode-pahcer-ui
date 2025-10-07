@@ -55,11 +55,6 @@
 				"icon": "$(arrow-swap)"
 			},
 			{
-				"command": "pahcer-ui.toggleComparisonMode",
-				"title": "比較モードを切り替え",
-				"icon": "$(graph-line)"
-			},
-			{
 				"command": "pahcer-ui.addComment",
 				"title": "コメントを追加"
 			},
@@ -82,24 +77,19 @@
 					"group": "navigation@2"
 				},
 				{
-					"command": "pahcer-ui.toggleComparisonMode",
+					"command": "pahcer-ui.changeSortOrder",
 					"when": "view == pahcerResults",
 					"group": "navigation@3"
 				},
 				{
-					"command": "pahcer-ui.changeSortOrder",
-					"when": "view == pahcerResults",
-					"group": "navigation@4"
-				},
-				{
 					"command": "pahcer-ui.switchToSeed",
 					"when": "view == pahcerResults && pahcer.groupingMode == byExecution",
-					"group": "navigation@5"
+					"group": "navigation@4"
 				},
 				{
 					"command": "pahcer-ui.switchToExecution",
 					"when": "view == pahcerResults && pahcer.groupingMode == bySeed",
-					"group": "navigation@5"
+					"group": "navigation@4"
 				}
 			],
 			"view/item/context": [
