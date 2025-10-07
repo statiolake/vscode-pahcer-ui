@@ -29,8 +29,8 @@ interface Props {
 
 export function ComparisonChart({ data, featureString, xAxis, yAxis, chartType, skipFailed }: Props) {
 	const { chartData, xAxisLabel, yAxisLabel } = useMemo(
-		() => prepareChartData(data, featureString, xAxis, yAxis, skipFailed),
-		[data, featureString, xAxis, yAxis, skipFailed],
+		() => prepareChartData(data, featureString, xAxis, yAxis, chartType, skipFailed),
+		[data, featureString, xAxis, yAxis, chartType, skipFailed],
 	);
 
 	const options = {
@@ -103,6 +103,7 @@ function prepareChartData(
 	featuresStr: string,
 	xAxis: string,
 	yAxis: string,
+	chartType: 'line' | 'scatter',
 	skipFailed: boolean,
 ) {
 	const features = parseFeatures(featuresStr);
@@ -153,7 +154,7 @@ function prepareChartData(
 			data: chartData,
 			borderColor: color,
 			backgroundColor: color,
-			showLine: true,
+			showLine: chartType === 'line',
 			pointRadius: 3,
 		};
 	});
