@@ -10,15 +10,18 @@ export interface ResultData {
 	cases: TestCase[];
 }
 
+export interface ComparisonConfig {
+	featureString: string;
+	xAxis: string;
+	yAxis: string;
+	chartType: 'line' | 'scatter';
+}
+
 export interface ComparisonData {
 	results: ResultData[];
 	seeds: number[];
 	inputData: Record<number, string>;
-	config: {
-		features?: string;
-		xAxis?: string;
-		yAxis?: string;
-	};
+	config: ComparisonConfig;
 }
 
 export interface ChartDataPoint {

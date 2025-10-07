@@ -10,26 +10,24 @@ interface Props {
 }
 
 export function ComparisonView({ initialData }: Props) {
-	const [featureString, setFeatureString] = useState(initialData.config.features || '');
-	const [xAxis, setXAxis] = useState(initialData.config.xAxis || 'seed');
-	const [yAxis, setYAxis] = useState(initialData.config.yAxis || 'absScore');
-	const [chartType, setChartType] = useState<'line' | 'scatter'>('line');
+	const [featureString, setFeatureString] = useState(initialData.config.featureString);
+	const [xAxis, setXAxis] = useState(initialData.config.xAxis);
+	const [yAxis, setYAxis] = useState(initialData.config.yAxis);
+	const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
 	const [skipFailed, setSkipFailed] = useState(true);
 
-	// Auto-save features
+	// Auto-save comparison config
 	useEffect(() => {
-		postMessage({ command: 'saveFeatures', features: featureString });
-	}, [featureString]);
-
-	// Auto-save xAxis
-	useEffect(() => {
-		postMessage({ command: 'saveXAxis', xAxis });
-	}, [xAxis]);
-
-	// Auto-save yAxis
-	useEffect(() => {
-		postMessage({ command: 'saveYAxis', yAxis });
-	}, [yAxis]);
+		postMessage({
+			command: 'saveComparisonConfig',
+			config: {
+				featureString,
+				xAxis,
+				yAxis,
+				chartType,
+			},
+		});
+	}, [featureString, xAxis, yAxis, chartType]);
 
 	return (
 		<div style={{ padding: '20px' }}>

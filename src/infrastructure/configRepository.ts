@@ -1,6 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ComparisonConfig } from '../domain/models/comparisonConfig';
+import {
+	type ComparisonConfig,
+	DEFAULT_COMPARISON_CONFIG,
+} from '../domain/models/comparisonConfig';
 
 /**
  * 比較設定のリポジトリ
@@ -23,12 +26,17 @@ export class ConfigRepository {
 		if (fs.existsSync(this.configPath)) {
 			try {
 				const content = fs.readFileSync(this.configPath, 'utf-8');
-				return JSON.parse(content);
+				const loaded = JSON.parse(content);
+				// Merge with defaults to handle missing keys
+				return {
+					...DEFAULT_COMPARISON_CONFIG,
+					...loaded,
+				};
 			} catch (e) {
 				console.error('Failed to load config:', e);
 			}
 		}
-		return {};
+		return { ...DEFAULT_COMPARISON_CONFIG };
 	}
 
 	/**
@@ -41,32 +49,5 @@ export class ConfigRepository {
 			console.error('Failed to save config:', e);
 			throw e;
 		}
-	}
-
-	/**
-	 * Featuresを更新
-	 */
-	async saveFeatures(features: string): Promise<void> {
-		const config = await this.load();
-		config.features = features;
-		await this.save(config);
-	}
-
-	/**
-	 * X軸を更新
-	 */
-	async saveXAxis(xAxis: string): Promise<void> {
-		const config = await this.load();
-		config.xAxis = xAxis;
-		await this.save(config);
-	}
-
-	/**
-	 * Y軸を更新
-	 */
-	async saveYAxis(yAxis: string): Promise<void> {
-		const config = await this.load();
-		config.yAxis = yAxis;
-		await this.save(config);
 	}
 }

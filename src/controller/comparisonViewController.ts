@@ -95,18 +95,8 @@ export class ComparisonViewController {
 					if (message.command === 'showVisualizer') {
 						const { resultId, seed } = message;
 						await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
-					} else if (message.command === 'saveFeatures') {
-						await this.configRepository.saveFeatures(message.features);
-					} else if (message.command === 'saveXAxis') {
-						await this.configRepository.saveXAxis(message.xAxis);
-					} else if (message.command === 'saveYAxis') {
-						await this.configRepository.saveYAxis(message.yAxis);
-					} else if (message.command === 'getConfig') {
-						const config = await this.configRepository.load();
-						this.panel?.webview.postMessage({
-							command: 'configLoaded',
-							config,
-						});
+					} else if (message.command === 'saveComparisonConfig') {
+						await this.configRepository.save(message.config);
 					}
 				},
 				undefined,
@@ -115,17 +105,17 @@ export class ComparisonViewController {
 		}
 
 		// Generate HTML
-		this.panel.webview.html = this.getWebviewContent(results, inputData, this.panel.webview);
+		this.panel.webview.html = await this.getWebviewContent(results, inputData, this.panel.webview);
 	}
 
 	/**
 	 * WebViewのHTMLを生成
 	 */
-	private getWebviewContent(
+	private async getWebviewContent(
 		results: Array<{ id: string; data: any }>,
 		inputData: Map<number, string>,
 		webview: vscode.Webview,
-	): string {
+	): Promise<string> {
 		function formatDate(date: Date): string {
 			const year = date.getFullYear();
 			const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -151,6 +141,9 @@ export class ComparisonViewController {
 			inputDataObj[seed] = firstLine;
 		}
 
+		// Load config
+		const config = await this.configRepository.load();
+
 		// Prepare data for React
 		const comparisonData = {
 			results: results.map((r) => ({
@@ -164,7 +157,7 @@ export class ComparisonViewController {
 			})),
 			seeds,
 			inputData: inputDataObj,
-			config: {}, // Will be loaded from webview
+			config,
 		};
 
 		// Get script URI
