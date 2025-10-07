@@ -12,9 +12,7 @@ interface Props {
 export function ComparisonView({ initialData }: Props) {
 	const [featureString, setFeatureString] = useState(initialData.config.features || '');
 	const [xAxis, setXAxis] = useState(initialData.config.xAxis || 'seed');
-	const [yAxis, setYAxis] = useState<'absolute' | 'relative'>(
-		(initialData.config.yAxis as 'absolute' | 'relative') || 'absolute',
-	);
+	const [yAxis, setYAxis] = useState(initialData.config.yAxis || 'absScore');
 	const [chartType, setChartType] = useState<'line' | 'scatter'>('line');
 	const [skipFailed, setSkipFailed] = useState(true);
 

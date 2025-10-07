@@ -5,12 +5,12 @@ import { parseFeatures } from '../../shared/utils/features';
 interface Props {
 	featureString: string;
 	xAxis: string;
-	yAxis: 'absolute' | 'relative';
+	yAxis: string;
 	chartType: 'line' | 'scatter';
 	skipFailed: boolean;
 	onFeatureStringChange: (value: string) => void;
 	onXAxisChange: (value: string) => void;
-	onYAxisChange: (value: 'absolute' | 'relative') => void;
+	onYAxisChange: (value: string) => void;
 	onChartTypeChange: (value: 'line' | 'scatter') => void;
 	onSkipFailedChange: (value: boolean) => void;
 }
@@ -28,7 +28,7 @@ export function ControlPanel({
 	onSkipFailedChange,
 }: Props) {
 	const features = parseFeatures(featureString);
-	const variableNames = ['seed', ...features];
+	const variableNames = ['seed', 'absScore', 'relScore', ...features];
 
 	const sectionStyle = {
 		marginBottom: '20px',
@@ -57,11 +57,22 @@ export function ControlPanel({
 	};
 
 	const isXAxisValid = isValidExpression(xAxis, variableNames);
+	const isYAxisValid = isValidExpression(yAxis, variableNames);
+
 	const xAxisInputStyle = {
 		...inputStyle,
 		width: '200px',
 		outline: isXAxisValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
 		backgroundColor: isXAxisValid
+			? 'var(--vscode-input-background)'
+			: 'var(--vscode-inputValidation-errorBackground)',
+	};
+
+	const yAxisInputStyle = {
+		...inputStyle,
+		width: '200px',
+		outline: isYAxisValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
+		backgroundColor: isYAxisValid
 			? 'var(--vscode-input-background)'
 			: 'var(--vscode-inputValidation-errorBackground)',
 	};
@@ -107,10 +118,14 @@ export function ControlPanel({
 					</label>
 					<label style={labelStyle}>
 						Y軸:
-						<select style={inputStyle} value={yAxis} onChange={(e) => onYAxisChange(e.target.value as 'absolute' | 'relative')}>
-							<option value="absolute">絶対スコア</option>
-							<option value="relative">相対スコア</option>
-						</select>
+						<input
+							type="text"
+							value={yAxis}
+							onChange={(e) => onYAxisChange(e.target.value)}
+							placeholder="例: absScore, relScore"
+							style={yAxisInputStyle}
+							title={isYAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+						/>
 					</label>
 					<label style={labelStyle}>
 						<input type="checkbox" checked={skipFailed} onChange={(e) => onSkipFailedChange(e.target.checked)} />
@@ -118,7 +133,9 @@ export function ControlPanel({
 					</label>
 				</div>
 				<p style={{ fontSize: '0.9em', color: 'var(--vscode-descriptionForeground)', marginTop: '5px' }}>
-					X軸には式を使用できます (例: seed, N, log(N), N^2, 2*N)
+					X軸・Y軸には式を使用できます。利用可能な変数: seed (シード), absScore (絶対スコア), relScore (相対スコア), および Features で定義した変数
+					<br />
+					例: seed, N, log(N), N^2, 2*N, absScore/1000, relScore*100
 				</p>
 			</div>
 		</>

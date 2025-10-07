@@ -22,7 +22,7 @@ interface Props {
 	data: ComparisonData;
 	featureString: string;
 	xAxis: string;
-	yAxis: 'absolute' | 'relative';
+	yAxis: string;
 	chartType: 'line' | 'scatter';
 	skipFailed: boolean;
 }
@@ -102,7 +102,7 @@ function prepareChartData(
 	data: ComparisonData,
 	featuresStr: string,
 	xAxis: string,
-	yAxis: 'absolute' | 'relative',
+	yAxis: string,
 	skipFailed: boolean,
 ) {
 	const features = parseFeatures(featuresStr);
@@ -123,13 +123,17 @@ function prepareChartData(
 
 				// Parse input line to get variables
 				const variables = populateVariables(seed, features, inputData[seed] || '');
+				// Add score variables
+				variables.absScore = testCase.score;
+				variables.relScore = testCase.relativeScore;
 
-				// Evaluate X axis expression
+				// Evaluate X axis and Y axis expressions
 				try {
 					const xValue = evaluateExpression(xAxis, variables);
+					const yValue = evaluateExpression(yAxis, variables);
 					return {
 						x: xValue,
-						y: yAxis === 'absolute' ? testCase.score : testCase.relativeScore,
+						y: yValue,
 						resultId: result.id,
 						seed,
 						variables,
@@ -157,7 +161,7 @@ function prepareChartData(
 	return {
 		chartData: { datasets },
 		xAxisLabel: xAxis,
-		yAxisLabel: yAxis === 'absolute' ? 'スコア' : '相対スコア (%)',
+		yAxisLabel: yAxis,
 	};
 }
 
