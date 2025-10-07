@@ -28,6 +28,8 @@ export function ControlPanel({
 	onSkipFailedChange,
 }: Props) {
 	const features = parseFeatures(featureString);
+	const variableNames = ['seed', ...features];
+
 	const sectionStyle = {
 		marginBottom: '20px',
 		padding: '10px',
@@ -54,7 +56,7 @@ export function ControlPanel({
 		border: '1px solid var(--vscode-input-border)',
 	};
 
-	const isXAxisValid = isValidExpression(xAxis, features);
+	const isXAxisValid = isValidExpression(xAxis, variableNames);
 	const xAxisInputStyle = {
 		...inputStyle,
 		width: '200px',
