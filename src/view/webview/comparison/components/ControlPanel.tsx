@@ -78,8 +78,8 @@ export function ControlPanel({
 	};
 
 	return (
-		<>
-			<div style={sectionStyle}>
+		<div style={sectionStyle}>
+			<div style={controlsStyle}>
 				<label style={labelStyle}>
 					Features:
 					<input
@@ -90,54 +90,71 @@ export function ControlPanel({
 						style={{ ...inputStyle, width: '300px' }}
 					/>
 				</label>
-				<p style={{ fontSize: '0.9em', color: 'var(--vscode-descriptionForeground)', marginTop: '5px' }}>
-					入力ファイルの先頭行を空白区切りで解釈します (例: N M K)。変更すると自動保存されます。
-				</p>
+				<label style={labelStyle}>
+					<select style={inputStyle} value={chartType} onChange={(e) => onChartTypeChange(e.target.value as 'line' | 'scatter')}>
+						<option value="line">折れ線</option>
+						<option value="scatter">散布図</option>
+					</select>
+				</label>
+				<label style={labelStyle}>
+					X軸:
+					<input
+						type="text"
+						value={xAxis}
+						onChange={(e) => onXAxisChange(e.target.value)}
+						placeholder="例: seed, N, log(N)"
+						style={xAxisInputStyle}
+						title={isXAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+					/>
+				</label>
+				<label style={labelStyle}>
+					Y軸:
+					<input
+						type="text"
+						value={yAxis}
+						onChange={(e) => onYAxisChange(e.target.value)}
+						placeholder="例: absScore, relScore"
+						style={yAxisInputStyle}
+						title={isYAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+					/>
+				</label>
+				<label style={labelStyle}>
+					<input type="checkbox" checked={skipFailed} onChange={(e) => onSkipFailedChange(e.target.checked)} />
+					WA を無視
+				</label>
 			</div>
-
-			<div style={sectionStyle}>
-				<h3>グラフ設定</h3>
-				<div style={controlsStyle}>
-					<label style={labelStyle}>
-						Type:
-						<select style={inputStyle} value={chartType} onChange={(e) => onChartTypeChange(e.target.value as 'line' | 'scatter')}>
-							<option value="line">Line</option>
-							<option value="scatter">Scatter</option>
-						</select>
-					</label>
-					<label style={labelStyle}>
-						X軸:
-						<input
-							type="text"
-							value={xAxis}
-							onChange={(e) => onXAxisChange(e.target.value)}
-							placeholder="例: seed, N, log(N)"
-							style={xAxisInputStyle}
-							title={isXAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
-						/>
-					</label>
-					<label style={labelStyle}>
-						Y軸:
-						<input
-							type="text"
-							value={yAxis}
-							onChange={(e) => onYAxisChange(e.target.value)}
-							placeholder="例: absScore, relScore"
-							style={yAxisInputStyle}
-							title={isYAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
-						/>
-					</label>
-					<label style={labelStyle}>
-						<input type="checkbox" checked={skipFailed} onChange={(e) => onSkipFailedChange(e.target.checked)} />
-						Skip Failed
-					</label>
+			<details style={{ marginTop: '10px' }}>
+				<summary style={{
+					fontSize: '0.9em',
+					color: 'var(--vscode-descriptionForeground)',
+					cursor: 'pointer',
+					userSelect: 'none'
+				}}>
+					設定の詳細
+				</summary>
+				<div style={{
+					fontSize: '0.9em',
+					color: 'var(--vscode-descriptionForeground)',
+					marginTop: '8px',
+					paddingLeft: '20px'
+				}}>
+					<p style={{ marginTop: '5px', marginBottom: '10px' }}>
+						<strong>Features:</strong> 入力ファイルの先頭行を空白区切りで解釈 (例: N M K)
+					</p>
+					<p style={{ marginTop: '0', marginBottom: '10px' }}>
+						<strong>X軸・Y軸:</strong> 式を使用できます
+					</p>
+					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
+						<li><code>seed</code> - シード番号</li>
+						<li><code>absScore</code> - 絶対スコア</li>
+						<li><code>relScore</code> - 相対スコア (%)</li>
+						<li>Features で定義した変数 (例: <code>N</code>, <code>M</code>, <code>K</code>)</li>
+					</ul>
+					<p style={{ marginTop: '0', marginBottom: '5px' }}>
+						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>, <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>, <code>relScore*100</code>
+					</p>
 				</div>
-				<p style={{ fontSize: '0.9em', color: 'var(--vscode-descriptionForeground)', marginTop: '5px' }}>
-					X軸・Y軸には式を使用できます。利用可能な変数: seed (シード), absScore (絶対スコア), relScore (相対スコア), および Features で定義した変数
-					<br />
-					例: seed, N, log(N), N^2, 2*N, absScore/1000, relScore*100
-				</p>
-			</div>
-		</>
+			</details>
+		</div>
 	);
 }

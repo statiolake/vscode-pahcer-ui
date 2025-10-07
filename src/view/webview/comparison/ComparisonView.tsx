@@ -31,8 +31,6 @@ export function ComparisonView({ initialData }: Props) {
 
 	return (
 		<div style={{ padding: '20px' }}>
-			<h1>実行結果の比較</h1>
-
 			<ControlPanel
 				featureString={featureString}
 				xAxis={xAxis}

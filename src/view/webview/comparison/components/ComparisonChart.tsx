@@ -33,6 +33,10 @@ export function ComparisonChart({ data, featureString, xAxis, yAxis, chartType, 
 		[data, featureString, xAxis, yAxis, chartType, skipFailed],
 	);
 
+	// Get VSCode theme colors
+	const textColor = getComputedStyle(document.body).getPropertyValue('--vscode-foreground') || '#cccccc';
+	const gridColor = getComputedStyle(document.body).getPropertyValue('--vscode-panel-border') || '#3e3e3e';
+
 	const options = {
 		responsive: true,
 		maintainAspectRatio: false,
@@ -52,8 +56,16 @@ export function ComparisonChart({ data, featureString, xAxis, yAxis, chartType, 
 		plugins: {
 			legend: {
 				position: 'top' as const,
+				labels: {
+					color: textColor,
+				},
 			},
 			tooltip: {
+				backgroundColor: 'rgba(0, 0, 0, 0.8)',
+				titleColor: '#ffffff',
+				bodyColor: '#ffffff',
+				borderColor: gridColor,
+				borderWidth: 1,
 				callbacks: {
 					label: function (context: any) {
 						const point = context.raw as ChartDataPoint;
@@ -76,12 +88,26 @@ export function ComparisonChart({ data, featureString, xAxis, yAxis, chartType, 
 				title: {
 					display: true,
 					text: xAxisLabel,
+					color: textColor,
+				},
+				ticks: {
+					color: textColor,
+				},
+				grid: {
+					color: gridColor,
 				},
 			},
 			y: {
 				title: {
 					display: true,
 					text: yAxisLabel,
+					color: textColor,
+				},
+				ticks: {
+					color: textColor,
+				},
+				grid: {
+					color: gridColor,
 				},
 			},
 		},

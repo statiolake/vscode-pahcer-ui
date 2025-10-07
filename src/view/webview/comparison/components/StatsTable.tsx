@@ -18,23 +18,21 @@ export function StatsTable({ data, featureString }: Props) {
 	const tableStyle = {
 		width: '100%',
 		borderCollapse: 'collapse' as const,
-		marginTop: '10px',
 	};
 
 	const cellStyle = {
 		padding: '8px',
 		textAlign: 'left' as const,
-		borderBottom: '1px solid var(--vscode-panel-border)',
 	};
 
 	const thStyle = {
 		...cellStyle,
+		borderBottom: '1px solid var(--vscode-panel-border)',
 		fontWeight: 'bold' as const,
 	};
 
 	return (
 		<div style={sectionStyle}>
-			<h3>統計情報</h3>
 			<table style={tableStyle}>
 				<thead>
 					<tr>
