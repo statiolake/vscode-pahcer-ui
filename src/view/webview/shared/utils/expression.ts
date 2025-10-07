@@ -8,10 +8,10 @@ export function isValidExpression(expr: string, variableNames: string[]): boolea
 	}
 
 	try {
-		// Build dummy variables
-		const variables: Record<string, number> = {};
+		// Build dummy variables (all as single-element arrays)
+		const variables: Record<string, number[]> = {};
 		for (const name of variableNames) {
-			variables[name] = 1;
+			variables[name] = [1];
 		}
 
 		// Try to evaluate with dummy variables
@@ -25,10 +25,11 @@ export function isValidExpression(expr: string, variableNames: string[]): boolea
 
 /**
  * Evaluate arithmetic expression using recursive descent parser
- * Supports: +, -, *, /, ^, log(), parentheses, variables
+ * Supports: +, -, *, /, ^, log(), avg(), max(), min(), parentheses, variables
+ * All values are arrays internally (element-wise operations, length-1 arrays can broadcast)
  * Throws an error if the expression is invalid
  */
-export function evaluateExpression(expr: string, variables: Record<string, number>): number {
+export function evaluateExpression(expr: string, variables: Record<string, number[]>): number[] {
 	const parser = new ExpressionParser(expr.trim(), variables);
 	const result = parser.parse();
 	if (parser.pos < parser.tokens.length && parser.tokens[parser.pos].type !== 'eof') {
@@ -44,12 +45,48 @@ interface Token {
 	value: string;
 }
 
+/**
+ * Helper functions for element-wise operations
+ * All values are arrays; length-1 arrays can be broadcast
+ */
+function elementWise(
+	left: number[],
+	right: number[],
+	op: (a: number, b: number) => number,
+): number[] {
+	// Broadcast: if one is length 1, broadcast to the other's length
+	if (left.length === 1 && right.length === 1) {
+		return [op(left[0], right[0])];
+	}
+
+	if (left.length === 1) {
+		return right.map((b: number) => op(left[0], b));
+	}
+
+	if (right.length === 1) {
+		return left.map((a: number) => op(a, right[0]));
+	}
+
+	// Element-wise: both arrays must have same length
+	if (left.length !== right.length) {
+		throw new Error(
+			`Array length mismatch: ${left.length} vs ${right.length} (only length-1 arrays can be broadcast)`,
+		);
+	}
+
+	return left.map((a: number, i: number) => op(a, right[i]));
+}
+
+function elementWiseUnary(value: number[], op: (a: number) => number): number[] {
+	return value.map(op);
+}
+
 class ExpressionParser {
 	tokens: Token[];
 	pos: number;
-	variables: Record<string, number>;
+	variables: Record<string, number[]>;
 
-	constructor(expr: string, variables: Record<string, number>) {
+	constructor(expr: string, variables: Record<string, number[]>) {
 		this.tokens = this.tokenize(expr);
 		this.pos = 0;
 		this.variables = variables;
@@ -117,12 +154,12 @@ class ExpressionParser {
 		return tokens;
 	}
 
-	parse(): number {
+	parse(): number[] {
 		return this.parseAddSub();
 	}
 
 	// Addition and subtraction (lowest precedence)
-	parseAddSub(): number {
+	parseAddSub(): number[] {
 		let left = this.parseMulDiv();
 
 		while (this.pos < this.tokens.length) {
@@ -130,7 +167,10 @@ class ExpressionParser {
 			if (token.type === 'operator' && (token.value === '+' || token.value === '-')) {
 				this.pos++;
 				const right = this.parseMulDiv();
-				left = token.value === '+' ? left + right : left - right;
+				left =
+					token.value === '+'
+						? elementWise(left, right, (a, b) => a + b)
+						: elementWise(left, right, (a, b) => a - b);
 			} else {
 				break;
 			}
@@ -140,7 +180,7 @@ class ExpressionParser {
 	}
 
 	// Multiplication and division
-	parseMulDiv(): number {
+	parseMulDiv(): number[] {
 		let left = this.parsePower();
 
 		while (this.pos < this.tokens.length) {
@@ -149,12 +189,14 @@ class ExpressionParser {
 				this.pos++;
 				const right = this.parsePower();
 				if (token.value === '*') {
-					left = left * right;
+					left = elementWise(left, right, (a, b) => a * b);
 				} else {
-					if (right === 0) {
-						throw new Error('Division by zero');
-					}
-					left = left / right;
+					left = elementWise(left, right, (a, b) => {
+						if (b === 0) {
+							throw new Error('Division by zero');
+						}
+						return a / b;
+					});
 				}
 			} else {
 				break;
@@ -165,7 +207,7 @@ class ExpressionParser {
 	}
 
 	// Power (right associative)
-	parsePower(): number {
+	parsePower(): number[] {
 		let left = this.parseUnary();
 
 		if (this.pos < this.tokens.length) {
@@ -173,7 +215,7 @@ class ExpressionParser {
 			if (token.type === 'operator' && token.value === '^') {
 				this.pos++;
 				const right = this.parsePower(); // Right associative
-				left = left ** right;
+				left = elementWise(left, right, (a, b) => a ** b);
 			}
 		}
 
@@ -181,13 +223,13 @@ class ExpressionParser {
 	}
 
 	// Unary operators (+, -)
-	parseUnary(): number {
+	parseUnary(): number[] {
 		if (this.pos < this.tokens.length) {
 			const token = this.tokens[this.pos];
 			if (token.type === 'operator' && (token.value === '+' || token.value === '-')) {
 				this.pos++;
 				const value = this.parseUnary();
-				return token.value === '-' ? -value : value;
+				return token.value === '-' ? elementWiseUnary(value, (a) => -a) : value;
 			}
 		}
 
@@ -195,7 +237,7 @@ class ExpressionParser {
 	}
 
 	// Primary expressions (numbers, variables, functions, parentheses)
-	parsePrimary(): number {
+	parsePrimary(): number[] {
 		if (this.pos >= this.tokens.length) {
 			throw new Error('Unexpected end of expression');
 		}
@@ -207,14 +249,14 @@ class ExpressionParser {
 			throw new Error('Unexpected end of expression');
 		}
 
-		// Number
+		// Number (wrap in array)
 		if (token.type === 'number') {
 			this.pos++;
 			const num = parseFloat(token.value);
 			if (isNaN(num)) {
 				throw new Error(`Invalid number: ${token.value}`);
 			}
-			return num;
+			return [num];
 		}
 
 		// Identifier (variable or function)
@@ -247,7 +289,7 @@ class ExpressionParser {
 		throw new Error(`Unexpected token: ${token.value}`);
 	}
 
-	parseFunctionCall(name: string): number {
+	parseFunctionCall(name: string): number[] {
 		// Consume '('
 		this.pos++;
 
@@ -260,12 +302,34 @@ class ExpressionParser {
 		}
 		this.pos++;
 
-		// Evaluate function
+		// Element-wise functions
 		if (name === 'log') {
-			if (arg <= 0) {
-				throw new Error('log() requires positive argument');
+			return elementWiseUnary(arg, (a) => {
+				if (a <= 0) {
+					throw new Error('log() requires positive argument');
+				}
+				return Math.log(a);
+			});
+		}
+
+		// Aggregation functions (array -> single number, wrapped in length-1 array)
+		if (name === 'avg' || name === 'max' || name === 'min') {
+			if (arg.length === 0) {
+				throw new Error(`${name}() requires non-empty array`);
 			}
-			return Math.log(arg);
+
+			if (name === 'avg') {
+				const sum = arg.reduce((acc, val) => acc + val, 0);
+				return [sum / arg.length];
+			}
+
+			if (name === 'max') {
+				return [Math.max(...arg)];
+			}
+
+			if (name === 'min') {
+				return [Math.min(...arg)];
+			}
 		}
 
 		throw new Error(`Unknown function: ${name}`);

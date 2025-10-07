@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import type { ComparisonData, ChartDataPoint } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
-import { parseFeatures, populateVariables } from '../../shared/utils/features';
+import { parseFeatures } from '../../shared/utils/features';
 import { postMessage } from '../../shared/utils/vscode';
 
 // Register Chart.js components
@@ -143,37 +143,108 @@ function prepareChartData(
 			return testCase && testCase.score > 0;
 		});
 
-		const chartData = filteredSeeds
+		// Step 1: Calculate X value for each seed (scalar)
+		type SeedData = {
+			seed: number;
+			xValue: number;
+			testCase: NonNullable<ReturnType<typeof result.cases.find>>;
+			inputLine: string;
+		};
+
+		const seedDataList: SeedData[] = filteredSeeds
 			.map((seed) => {
 				const testCase = result.cases.find((c) => c.seed === seed);
 				if (!testCase) return null;
 
-				// Parse input line to get variables
-				const variables = populateVariables(seed, features, inputData[seed] || '');
-				// Add score variables
-				variables.absScore = testCase.score;
-				variables.relScore = testCase.relativeScore;
+				const inputLine = inputData[seed] || '';
+				const variables: Record<string, number[]> = {};
+				variables.seed = [seed];
+				variables.absScore = [testCase.score];
+				variables.relScore = [testCase.relativeScore];
 
-				// Evaluate X axis and Y axis expressions
+				// Parse features
+				const featureValues = parseFeatures(inputLine);
+				for (let i = 0; i < features.length && i < featureValues.length; i++) {
+					variables[features[i]] = [Number(featureValues[i]) || 0];
+				}
+
 				try {
-					const xValue = evaluateExpression(xAxis, variables);
-					const yValue = evaluateExpression(yAxis, variables);
-					return {
-						x: xValue,
-						y: yValue,
-						resultId: result.id,
-						seed,
-						variables,
-					};
+					const xResult = evaluateExpression(xAxis, variables);
+					const xValue = xResult[0]; // X must be scalar
+					return { seed, xValue, testCase, inputLine };
 				} catch {
-					// Skip invalid data points
 					return null;
 				}
 			})
 			.filter((d): d is NonNullable<typeof d> => d !== null);
 
+		// Step 2: Group by X value
+		const groupedByX = new Map<number, SeedData[]>();
+		for (const seedData of seedDataList) {
+			const key = seedData.xValue;
+			if (!groupedByX.has(key)) {
+				groupedByX.set(key, []);
+			}
+			groupedByX.get(key)!.push(seedData);
+		}
+
+		// Step 3: For each group, evaluate Y axis with arrays
+		const chartData: ChartDataPoint[] = [];
+		for (const [xValue, group] of groupedByX.entries()) {
+			// Build arrays for Y evaluation
+			const variables: Record<string, number[]> = {};
+			variables.seed = group.map((d) => d.seed);
+			variables.absScore = group.map((d) => d.testCase.score);
+			variables.relScore = group.map((d) => d.testCase.relativeScore);
+
+			// Parse features for each group member
+			for (const featureName of features) {
+				variables[featureName] = group.map((d) => {
+					const featureValues = parseFeatures(d.inputLine);
+					const featureIndex = features.indexOf(featureName);
+					return Number(featureValues[featureIndex]) || 0;
+				});
+			}
+
+			try {
+				const yResult = evaluateExpression(yAxis, variables);
+
+				// If yResult length matches group length, create one point per seed
+				if (yResult.length === group.length) {
+					for (let i = 0; i < group.length; i++) {
+						chartData.push({
+							x: xValue,
+							y: yResult[i],
+							resultId: result.id,
+							seed: group[i].seed,
+							variables: {
+								seed: group[i].seed,
+								absScore: group[i].testCase.score,
+								relScore: group[i].testCase.relativeScore,
+							},
+						});
+					}
+				} else if (yResult.length === 1) {
+					// Aggregated: create one point (no specific seed association)
+					chartData.push({
+						x: xValue,
+						y: yResult[0],
+						resultId: result.id,
+						seed: group[0].seed, // Representative seed (won't be used for visualizer)
+						variables: {}, // No specific variables
+					});
+				} else {
+					console.warn(
+						`Y result length (${yResult.length}) doesn't match group length (${group.length}) or 1`,
+					);
+				}
+			} catch (e) {
+				console.warn(`Failed to evaluate Y for X=${xValue}:`, e);
+			}
+		}
+
 		// Sort by x value
-		chartData.sort((a, b) => (a?.x ?? 0) - (b?.x ?? 0));
+		chartData.sort((a, b) => a.x - b.x);
 
 		return {
 			label: result.time,

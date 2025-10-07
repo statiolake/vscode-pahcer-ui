@@ -150,8 +150,19 @@ export function ControlPanel({
 						<li><code>relScore</code> - 相対スコア (%)</li>
 						<li>Features で定義した変数 (例: <code>N</code>, <code>M</code>, <code>K</code>)</li>
 					</ul>
-					<p style={{ marginTop: '0', marginBottom: '5px' }}>
+					<p style={{ marginTop: '0', marginBottom: '10px' }}>
 						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>, <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>, <code>relScore*100</code>
+					</p>
+					<p style={{ marginTop: '0', marginBottom: '10px' }}>
+						<strong>Y軸の集計関数:</strong> X軸で同じ値になるデータをグループ化し、集計できます
+					</p>
+					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
+						<li><code>avg(absScore)</code> - 平均値</li>
+						<li><code>max(absScore)</code> - 最大値</li>
+						<li><code>min(absScore)</code> - 最小値</li>
+					</ul>
+					<p style={{ marginTop: '0', marginBottom: '5px' }}>
+						<strong>「WA を無視」:</strong> チェックすると、集計時にスコアが0のケース（WA）を除外します
 					</p>
 				</div>
 			</details>

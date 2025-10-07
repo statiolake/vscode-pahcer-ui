@@ -14,6 +14,6 @@ export interface ComparisonConfig {
 export const DEFAULT_COMPARISON_CONFIG: ComparisonConfig = {
 	featureString: 'N M K',
 	xAxis: 'seed',
-	yAxis: 'absScore',
+	yAxis: 'avg(absScore)',
 	chartType: 'line',
 };
