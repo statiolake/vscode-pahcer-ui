@@ -3,10 +3,10 @@ import type { ComparisonData, StatsRow } from '../types';
 
 interface Props {
 	data: ComparisonData;
-	features: string;
+	featureString: string;
 }
 
-export function StatsTable({ data, features }: Props) {
+export function StatsTable({ data, featureString }: Props) {
 	const stats = useMemo(() => calculateStats(data), [data]);
 
 	const sectionStyle = {

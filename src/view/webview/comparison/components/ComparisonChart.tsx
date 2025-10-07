@@ -12,6 +12,7 @@ import {
 } from 'chart.js';
 import type { ComparisonData, ChartDataPoint } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
+import { parseFeatures, populateVariables } from '../../shared/utils/features';
 import { postMessage } from '../../shared/utils/vscode';
 
 // Register Chart.js components
@@ -19,17 +20,17 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 interface Props {
 	data: ComparisonData;
-	features: string;
+	featureString: string;
 	xAxis: string;
 	yAxis: 'absolute' | 'relative';
 	chartType: 'line' | 'scatter';
 	skipFailed: boolean;
 }
 
-export function ComparisonChart({ data, features, xAxis, yAxis, chartType, skipFailed }: Props) {
+export function ComparisonChart({ data, featureString, xAxis, yAxis, chartType, skipFailed }: Props) {
 	const { chartData, xAxisLabel, yAxisLabel } = useMemo(
-		() => prepareChartData(data, features, xAxis, yAxis, skipFailed),
-		[data, features, xAxis, yAxis, skipFailed],
+		() => prepareChartData(data, featureString, xAxis, yAxis, skipFailed),
+		[data, featureString, xAxis, yAxis, skipFailed],
 	);
 
 	const options = {
@@ -104,10 +105,7 @@ function prepareChartData(
 	yAxis: 'absolute' | 'relative',
 	skipFailed: boolean,
 ) {
-	const features = featuresStr
-		.trim()
-		.split(/\s+/)
-		.filter((f) => f.length > 0);
+	const features = parseFeatures(featuresStr);
 	const { results, seeds, inputData } = data;
 
 	const datasets = results.map((result, index) => {
@@ -124,18 +122,22 @@ function prepareChartData(
 				if (!testCase) return null;
 
 				// Parse input line to get variables
-				const variables = parseInputLine(seed, inputData[seed], features);
+				const variables = populateVariables(seed, features, inputData[seed] || '');
 
 				// Evaluate X axis expression
-				const xValue = evaluateExpression(xAxis, variables);
-
-				return {
-					x: xValue,
-					y: yAxis === 'absolute' ? testCase.score : testCase.relativeScore,
-					resultId: result.id,
-					seed,
-					variables,
-				};
+				try {
+					const xValue = evaluateExpression(xAxis, variables);
+					return {
+						x: xValue,
+						y: yAxis === 'absolute' ? testCase.score : testCase.relativeScore,
+						resultId: result.id,
+						seed,
+						variables,
+					};
+				} catch {
+					// Skip invalid data points
+					return null;
+				}
 			})
 			.filter((d): d is NonNullable<typeof d> => d !== null);
 
@@ -157,20 +159,6 @@ function prepareChartData(
 		xAxisLabel: xAxis,
 		yAxisLabel: yAxis === 'absolute' ? 'スコア' : '相対スコア (%)',
 	};
-}
-
-function parseInputLine(seed: number, line: string | undefined, features: string[]): Record<string, number> {
-	const parsed: Record<string, number> = { seed };
-
-	if (!line) return parsed;
-
-	const values = line.split(/\s+/).filter((v) => v.length > 0);
-	for (let i = 0; i < Math.min(features.length, values.length); i++) {
-		const num = parseFloat(values[i]);
-		parsed[features[i]] = isNaN(num) ? 0 : num;
-	}
-
-	return parsed;
 }
 
 function getColorForResultId(resultId: string): string {

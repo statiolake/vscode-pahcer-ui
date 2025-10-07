@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function ComparisonView({ initialData }: Props) {
-	const [features, setFeatures] = useState(initialData.config.features || '');
+	const [featureString, setFeatureString] = useState(initialData.config.features || '');
 	const [xAxis, setXAxis] = useState(initialData.config.xAxis || 'seed');
 	const [yAxis, setYAxis] = useState<'absolute' | 'relative'>(
 		(initialData.config.yAxis as 'absolute' | 'relative') || 'absolute',
@@ -20,8 +20,8 @@ export function ComparisonView({ initialData }: Props) {
 
 	// Auto-save features
 	useEffect(() => {
-		postMessage({ command: 'saveFeatures', features });
-	}, [features]);
+		postMessage({ command: 'saveFeatures', features: featureString });
+	}, [featureString]);
 
 	// Auto-save xAxis
 	useEffect(() => {
@@ -38,23 +38,23 @@ export function ComparisonView({ initialData }: Props) {
 			<h1>実行結果の比較</h1>
 
 			<ControlPanel
-				features={features}
+				featureString={featureString}
 				xAxis={xAxis}
 				yAxis={yAxis}
 				chartType={chartType}
 				skipFailed={skipFailed}
-				onFeaturesChange={setFeatures}
+				onFeatureStringChange={setFeatureString}
 				onXAxisChange={setXAxis}
 				onYAxisChange={setYAxis}
 				onChartTypeChange={setChartType}
 				onSkipFailedChange={setSkipFailed}
 			/>
 
-			<StatsTable data={initialData} features={features} />
+			<StatsTable data={initialData} featureString={featureString} />
 
 			<ComparisonChart
 				data={initialData}
-				features={features}
+				featureString={featureString}
 				xAxis={xAxis}
 				yAxis={yAxis}
 				chartType={chartType}

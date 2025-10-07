@@ -1,12 +1,14 @@
 import React from 'react';
+import { isValidExpression } from '../../shared/utils/expression';
+import { parseFeatures } from '../../shared/utils/features';
 
 interface Props {
-	features: string;
+	featureString: string;
 	xAxis: string;
 	yAxis: 'absolute' | 'relative';
 	chartType: 'line' | 'scatter';
 	skipFailed: boolean;
-	onFeaturesChange: (value: string) => void;
+	onFeatureStringChange: (value: string) => void;
 	onXAxisChange: (value: string) => void;
 	onYAxisChange: (value: 'absolute' | 'relative') => void;
 	onChartTypeChange: (value: 'line' | 'scatter') => void;
@@ -14,17 +16,18 @@ interface Props {
 }
 
 export function ControlPanel({
-	features,
+	featureString,
 	xAxis,
 	yAxis,
 	chartType,
 	skipFailed,
-	onFeaturesChange,
+	onFeatureStringChange,
 	onXAxisChange,
 	onYAxisChange,
 	onChartTypeChange,
 	onSkipFailedChange,
 }: Props) {
+	const features = parseFeatures(featureString);
 	const sectionStyle = {
 		marginBottom: '20px',
 		padding: '10px',
@@ -51,6 +54,16 @@ export function ControlPanel({
 		border: '1px solid var(--vscode-input-border)',
 	};
 
+	const isXAxisValid = isValidExpression(xAxis, features);
+	const xAxisInputStyle = {
+		...inputStyle,
+		width: '200px',
+		outline: isXAxisValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
+		backgroundColor: isXAxisValid
+			? 'var(--vscode-input-background)'
+			: 'var(--vscode-inputValidation-errorBackground)',
+	};
+
 	return (
 		<>
 			<div style={sectionStyle}>
@@ -58,8 +71,8 @@ export function ControlPanel({
 					Features:
 					<input
 						type="text"
-						value={features}
-						onChange={(e) => onFeaturesChange(e.target.value)}
+						value={featureString}
+						onChange={(e) => onFeatureStringChange(e.target.value)}
 						placeholder="例: N M K"
 						style={{ ...inputStyle, width: '300px' }}
 					/>
@@ -86,7 +99,8 @@ export function ControlPanel({
 							value={xAxis}
 							onChange={(e) => onXAxisChange(e.target.value)}
 							placeholder="例: seed, N, log(N)"
-							style={{ ...inputStyle, width: '200px' }}
+							style={xAxisInputStyle}
+							title={isXAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
 						/>
 					</label>
 					<label style={labelStyle}>
