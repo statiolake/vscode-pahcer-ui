@@ -14,6 +14,7 @@ export function ComparisonView({ initialData }: Props) {
 	const [xAxis, setXAxis] = useState(initialData.config.xAxis);
 	const [yAxis, setYAxis] = useState(initialData.config.yAxis);
 	const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
+	const [filter, setFilter] = useState(initialData.config.filter);
 	const [skipFailed, setSkipFailed] = useState(true);
 
 	// Auto-save comparison config
@@ -25,9 +26,10 @@ export function ComparisonView({ initialData }: Props) {
 				xAxis,
 				yAxis,
 				chartType,
+				filter,
 			},
 		});
-	}, [featureString, xAxis, yAxis, chartType]);
+	}, [featureString, xAxis, yAxis, chartType, filter]);
 
 	return (
 		<div style={{ padding: '20px' }}>
@@ -37,14 +39,16 @@ export function ComparisonView({ initialData }: Props) {
 				yAxis={yAxis}
 				chartType={chartType}
 				skipFailed={skipFailed}
+				filter={filter}
 				onFeatureStringChange={setFeatureString}
 				onXAxisChange={setXAxis}
 				onYAxisChange={setYAxis}
 				onChartTypeChange={setChartType}
 				onSkipFailedChange={setSkipFailed}
+				onFilterChange={setFilter}
 			/>
 
-			<StatsTable data={initialData} featureString={featureString} />
+			<StatsTable data={initialData} featureString={featureString} filter={filter} />
 
 			<ComparisonChart
 				data={initialData}
@@ -53,6 +57,7 @@ export function ComparisonView({ initialData }: Props) {
 				yAxis={yAxis}
 				chartType={chartType}
 				skipFailed={skipFailed}
+				filter={filter}
 			/>
 		</div>
 	);

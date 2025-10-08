@@ -15,6 +15,7 @@ export interface ComparisonConfig {
 	xAxis: string;
 	yAxis: string;
 	chartType: 'line' | 'scatter';
+	filter: string;
 }
 
 export interface ComparisonData {

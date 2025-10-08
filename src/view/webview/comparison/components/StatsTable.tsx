@@ -1,13 +1,19 @@
 import React, { useMemo } from 'react';
 import type { ComparisonData, StatsRow } from '../types';
+import { evaluateExpression } from '../../shared/utils/expression';
+import { parseFeatures } from '../../shared/utils/features';
 
 interface Props {
 	data: ComparisonData;
 	featureString: string;
+	filter: string;
 }
 
-export function StatsTable({ data, featureString }: Props) {
-	const stats = useMemo(() => calculateStats(data), [data]);
+export function StatsTable({ data, featureString, filter }: Props) {
+	const { stats, filteredCount, totalCount } = useMemo(
+		() => calculateStats(data, featureString, filter),
+		[data, featureString, filter],
+	);
 
 	const sectionStyle = {
 		marginBottom: '20px',
@@ -31,8 +37,13 @@ export function StatsTable({ data, featureString }: Props) {
 		fontWeight: 'bold' as const,
 	};
 
+	const filterInfo = filter.trim() !== '' ? ` (フィルタ後: ${filteredCount}/${totalCount})` : '';
+
 	return (
 		<div style={sectionStyle}>
+			<div style={{ marginBottom: '10px', fontSize: '0.9em', color: 'var(--vscode-descriptionForeground)' }}>
+				統計情報{filterInfo}
+			</div>
 			<table style={tableStyle}>
 				<thead>
 					<tr>
@@ -63,13 +74,49 @@ export function StatsTable({ data, featureString }: Props) {
 	);
 }
 
-function calculateStats(data: ComparisonData): StatsRow[] {
+function calculateStats(
+	data: ComparisonData,
+	featuresStr: string,
+	filter: string,
+): { stats: StatsRow[]; filteredCount: number; totalCount: number } {
 	const stats: StatsRow[] = [];
-	const { results, seeds } = data;
+	const { results, seeds, inputData } = data;
+	const features = parseFeatures(featuresStr);
 
-	// Calculate best scores for each seed
+	// Apply filter to determine which seeds to include
+	const filteredSeeds = seeds.filter((seed) => {
+		if (filter.trim() === '') return true;
+
+		const inputLine = inputData[seed] || '';
+		const variables: Record<string, number[]> = {};
+		variables.seed = [seed];
+
+		// We need at least one result to get absScore/relScore
+		// Use the first result's case for filtering
+		const firstResult = results[0];
+		const testCase = firstResult?.cases.find((c) => c.seed === seed);
+		if (!testCase) return false;
+
+		variables.absScore = [testCase.score];
+		variables.relScore = [testCase.relativeScore];
+
+		const featureValues = parseFeatures(inputLine);
+		for (let i = 0; i < features.length && i < featureValues.length; i++) {
+			variables[features[i]] = [Number(featureValues[i]) || 0];
+		}
+
+		try {
+			const filterResult = evaluateExpression(filter, variables);
+			return filterResult[0] === 1;
+		} catch (e) {
+			console.warn(`Filter evaluation failed for seed ${seed}:`, e);
+			return false;
+		}
+	});
+
+	// Calculate best scores for each filtered seed
 	const bests: Record<number, number> = {};
-	for (const seed of seeds) {
+	for (const seed of filteredSeeds) {
 		let maxScore = 0;
 		for (const result of results) {
 			const testCase = result.cases.find((c) => c.seed === seed);
@@ -87,7 +134,7 @@ function calculateStats(data: ComparisonData): StatsRow[] {
 		let uniqueBestCount = 0;
 		let failCount = 0;
 
-		for (const seed of seeds) {
+		for (const seed of filteredSeeds) {
 			const testCase = result.cases.find((c) => c.seed === seed);
 			if (testCase) {
 				if (testCase.score > 0) {
@@ -96,7 +143,7 @@ function calculateStats(data: ComparisonData): StatsRow[] {
 
 					if (testCase.score === bests[seed] && bests[seed] > 0) {
 						bestCount++;
-						// Check if this is unique best
+						// Check if this is unique best (among filtered seeds)
 						const othersWithSameScore = results.filter((r) => {
 							const tc = r.cases.find((c) => c.seed === seed);
 							return tc && tc.score === bests[seed];
@@ -129,5 +176,5 @@ function calculateStats(data: ComparisonData): StatsRow[] {
 		});
 	}
 
-	return stats;
+	return { stats, filteredCount: filteredSeeds.length, totalCount: seeds.length };
 }

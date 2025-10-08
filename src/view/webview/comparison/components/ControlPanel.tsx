@@ -8,11 +8,13 @@ interface Props {
 	yAxis: string;
 	chartType: 'line' | 'scatter';
 	skipFailed: boolean;
+	filter: string;
 	onFeatureStringChange: (value: string) => void;
 	onXAxisChange: (value: string) => void;
 	onYAxisChange: (value: string) => void;
 	onChartTypeChange: (value: 'line' | 'scatter') => void;
 	onSkipFailedChange: (value: boolean) => void;
+	onFilterChange: (value: string) => void;
 }
 
 export function ControlPanel({
@@ -21,11 +23,13 @@ export function ControlPanel({
 	yAxis,
 	chartType,
 	skipFailed,
+	filter,
 	onFeatureStringChange,
 	onXAxisChange,
 	onYAxisChange,
 	onChartTypeChange,
 	onSkipFailedChange,
+	onFilterChange,
 }: Props) {
 	const features = parseFeatures(featureString);
 	const variableNames = ['seed', 'absScore', 'relScore', ...features];
@@ -58,6 +62,7 @@ export function ControlPanel({
 
 	const isXAxisValid = isValidExpression(xAxis, variableNames);
 	const isYAxisValid = isValidExpression(yAxis, variableNames);
+	const isFilterValid = filter.trim() === '' || isValidExpression(filter, variableNames);
 
 	const xAxisInputStyle = {
 		...inputStyle,
@@ -77,8 +82,18 @@ export function ControlPanel({
 			: 'var(--vscode-inputValidation-errorBackground)',
 	};
 
+	const filterInputStyle = {
+		...inputStyle,
+		width: '200px',
+		outline: isFilterValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
+		backgroundColor: isFilterValid
+			? 'var(--vscode-input-background)'
+			: 'var(--vscode-inputValidation-errorBackground)',
+	};
+
 	return (
 		<div style={sectionStyle}>
+			{/* First row: Features and Filter */}
 			<div style={controlsStyle}>
 				<label style={labelStyle}>
 					Features:
@@ -91,7 +106,25 @@ export function ControlPanel({
 					/>
 				</label>
 				<label style={labelStyle}>
-					<select style={inputStyle} value={chartType} onChange={(e) => onChartTypeChange(e.target.value as 'line' | 'scatter')}>
+					Filter:
+					<input
+						type="text"
+						value={filter}
+						onChange={(e) => onFilterChange(e.target.value)}
+						placeholder="例: N >= 100"
+						style={filterInputStyle}
+						title={isFilterValid ? '' : '式が不正です'}
+					/>
+				</label>
+			</div>
+			{/* Second row: Chart type, X-axis, Y-axis, Skip Failed */}
+			<div style={{ ...controlsStyle, marginTop: '10px' }}>
+				<label style={labelStyle}>
+					<select
+						style={inputStyle}
+						value={chartType}
+						onChange={(e) => onChartTypeChange(e.target.value as 'line' | 'scatter')}
+					>
 						<option value="line">折れ線</option>
 						<option value="scatter">散布図</option>
 					</select>
@@ -160,6 +193,13 @@ export function ControlPanel({
 						<li><code>avg(absScore)</code> - 平均値</li>
 						<li><code>max(absScore)</code> - 最大値</li>
 						<li><code>min(absScore)</code> - 最小値</li>
+					</ul>
+					<p style={{ marginTop: '0', marginBottom: '10px' }}>
+						<strong>Filter:</strong> 条件式を指定してデータをフィルタリング（空欄の場合は全データを表示）
+					</p>
+					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
+						<li>比較演算子: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code></li>
+						<li>例: <code>N &gt;= 100</code>, <code>N == 50</code>, <code>N * M &lt;= 1000</code></li>
 					</ul>
 					<p style={{ marginTop: '0', marginBottom: '5px' }}>
 						<strong>「WA を無視」:</strong> チェックすると、集計時にスコアが0のケース（WA）を除外します

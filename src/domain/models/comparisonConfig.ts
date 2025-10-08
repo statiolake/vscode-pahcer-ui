@@ -6,6 +6,7 @@ export interface ComparisonConfig {
 	xAxis: string; // e.g., "seed", "N", "log(N)"
 	yAxis: string; // e.g., "absScore", "relScore"
 	chartType: 'line' | 'scatter';
+	filter: string; // e.g., "N >= 100", "N == 50"
 }
 
 /**
@@ -16,4 +17,5 @@ export const DEFAULT_COMPARISON_CONFIG: ComparisonConfig = {
 	xAxis: 'seed',
 	yAxis: 'avg(absScore)',
 	chartType: 'line',
+	filter: '',
 };

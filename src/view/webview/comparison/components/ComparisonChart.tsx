@@ -25,12 +25,21 @@ interface Props {
 	yAxis: string;
 	chartType: 'line' | 'scatter';
 	skipFailed: boolean;
+	filter: string;
 }
 
-export function ComparisonChart({ data, featureString, xAxis, yAxis, chartType, skipFailed }: Props) {
+export function ComparisonChart({
+	data,
+	featureString,
+	xAxis,
+	yAxis,
+	chartType,
+	skipFailed,
+	filter,
+}: Props) {
 	const { chartData, xAxisLabel, yAxisLabel } = useMemo(
-		() => prepareChartData(data, featureString, xAxis, yAxis, chartType, skipFailed),
-		[data, featureString, xAxis, yAxis, chartType, skipFailed],
+		() => prepareChartData(data, featureString, xAxis, yAxis, chartType, skipFailed, filter),
+		[data, featureString, xAxis, yAxis, chartType, skipFailed, filter],
 	);
 
 	// Get VSCode theme colors
@@ -131,6 +140,7 @@ function prepareChartData(
 	yAxis: string,
 	chartType: 'line' | 'scatter',
 	skipFailed: boolean,
+	filter: string,
 ) {
 	const features = parseFeatures(featuresStr);
 	const { results, seeds, inputData } = data;
@@ -143,7 +153,7 @@ function prepareChartData(
 			return testCase && testCase.score > 0;
 		});
 
-		// Step 1: Calculate X value for each seed (scalar)
+		// Step 1: Calculate X value for each seed (scalar) and apply filter
 		type SeedData = {
 			seed: number;
 			xValue: number;
@@ -166,6 +176,20 @@ function prepareChartData(
 				const featureValues = parseFeatures(inputLine);
 				for (let i = 0; i < features.length && i < featureValues.length; i++) {
 					variables[features[i]] = [Number(featureValues[i]) || 0];
+				}
+
+				// Apply filter if specified
+				if (filter.trim() !== '') {
+					try {
+						const filterResult = evaluateExpression(filter, variables);
+						// Filter returns 1 for true, 0 for false
+						if (filterResult[0] === 0) {
+							return null; // Skip this seed
+						}
+					} catch (e) {
+						console.warn(`Filter evaluation failed for seed ${seed}:`, e);
+						return null;
+					}
 				}
 
 				try {

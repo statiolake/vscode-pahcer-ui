@@ -25,7 +25,8 @@ export function isValidExpression(expr: string, variableNames: string[]): boolea
 
 /**
  * Evaluate arithmetic expression using recursive descent parser
- * Supports: +, -, *, /, ^, log(), avg(), max(), min(), parentheses, variables
+ * Supports: +, -, *, /, ^, log(), avg(), max(), min(), comparison operators, parentheses, variables
+ * Comparison operators: <, <=, >, >=, ==, != (return 1 for true, 0 for false)
  * All values are arrays internally (element-wise operations, length-1 arrays can broadcast)
  * Throws an error if the expression is invalid
  */
@@ -38,7 +39,7 @@ export function evaluateExpression(expr: string, variables: Record<string, numbe
 	return result;
 }
 
-type TokenType = 'number' | 'identifier' | 'operator' | 'lparen' | 'rparen' | 'eof';
+type TokenType = 'number' | 'identifier' | 'operator' | 'comparison' | 'lparen' | 'rparen' | 'eof';
 
 interface Token {
 	type: TokenType;
@@ -127,7 +128,23 @@ class ExpressionParser {
 				continue;
 			}
 
-			// Operators
+			// Comparison operators (must check before single-char operators)
+			if (char === '<' || char === '>' || char === '=' || char === '!') {
+				let op = char;
+				i++;
+				if (i < expr.length && expr[i] === '=') {
+					op += '=';
+					i++;
+				}
+				// Validate comparison operators
+				if (op === '<' || op === '<=' || op === '>' || op === '>=' || op === '==' || op === '!=') {
+					tokens.push({ type: 'comparison', value: op });
+					continue;
+				}
+				throw new Error(`Invalid operator: ${op}`);
+			}
+
+			// Arithmetic operators
 			if ('+-*/^'.includes(char)) {
 				tokens.push({ type: 'operator', value: char });
 				i++;
@@ -155,10 +172,48 @@ class ExpressionParser {
 	}
 
 	parse(): number[] {
-		return this.parseAddSub();
+		return this.parseComparison();
 	}
 
-	// Addition and subtraction (lowest precedence)
+	// Comparison operators (lowest precedence)
+	parseComparison(): number[] {
+		let left = this.parseAddSub();
+
+		while (this.pos < this.tokens.length) {
+			const token = this.tokens[this.pos];
+			if (token.type === 'comparison') {
+				this.pos++;
+				const right = this.parseAddSub();
+				const op = token.value;
+
+				left = elementWise(left, right, (a, b) => {
+					let result: boolean;
+					if (op === '<') {
+						result = a < b;
+					} else if (op === '<=') {
+						result = a <= b;
+					} else if (op === '>') {
+						result = a > b;
+					} else if (op === '>=') {
+						result = a >= b;
+					} else if (op === '==') {
+						result = a === b;
+					} else if (op === '!=') {
+						result = a !== b;
+					} else {
+						throw new Error(`Unknown comparison operator: ${op}`);
+					}
+					return result ? 1 : 0;
+				});
+			} else {
+				break;
+			}
+		}
+
+		return left;
+	}
+
+	// Addition and subtraction
 	parseAddSub(): number[] {
 		let left = this.parseMulDiv();
 
