@@ -56,9 +56,9 @@ export class PahcerResultRepository {
 	constructor(private workspaceRoot: string) {}
 
 	/**
-	 * 最新N件の実行結果を読み込む
+	 * 最新N件の実行結果を読み込む（デフォルトは全件）
 	 */
-	async loadLatestResults(limit = 10): Promise<PahcerResultWithId[]> {
+	async loadLatestResults(limit = Number.POSITIVE_INFINITY): Promise<PahcerResultWithId[]> {
 		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
 
 		if (!fs.existsSync(jsonDir)) {

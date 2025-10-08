@@ -180,7 +180,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * 実行結果一覧を取得
 	 */
 	private async getExecutions(): Promise<PahcerTreeItem[]> {
-		const results = await this.resultRepository.loadLatestResults(10);
+		const results = await this.resultRepository.loadLatestResults();
 
 		if (results.length === 0) {
 			const item = new PahcerTreeItem(
@@ -272,7 +272,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * Seed一覧を取得
 	 */
 	private async getSeeds(): Promise<PahcerTreeItem[]> {
-		const results = await this.resultRepository.loadLatestResults(10);
+		const results = await this.resultRepository.loadLatestResults();
 
 		if (results.length === 0) {
 			const item = new PahcerTreeItem(
@@ -308,7 +308,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * Seedの実行結果一覧を取得
 	 */
 	private async getExecutionsForSeed(seed: number): Promise<PahcerTreeItem[]> {
-		const results = await this.resultRepository.loadLatestResults(10);
+		const results = await this.resultRepository.loadLatestResults();
 
 		// Group by seed
 		const grouped = groupBySeed(results);
