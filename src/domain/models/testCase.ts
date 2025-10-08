@@ -7,4 +7,6 @@ export interface TestCase {
 	relativeScore: number;
 	executionTime: number;
 	errorMessage: string;
+	/** 出力ファイルが見つかったかどうか */
+	foundOutput?: boolean;
 }

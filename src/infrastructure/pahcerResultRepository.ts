@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { PahcerResult, PahcerResultWithId } from '../domain/models/pahcerResult';
-import type { TestCase } from '../domain/models/testCase';
 
 /**
  * JSONファイルから読み込んだ生データの型
@@ -28,7 +27,11 @@ interface RawPahcerResult {
 /**
  * 生データをドメインモデルに変換
  */
-function convertToDomainModel(raw: RawPahcerResult): PahcerResult {
+function convertToDomainModel(
+	raw: RawPahcerResult,
+	resultId: string,
+	workspaceRoot: string,
+): PahcerResult {
 	return {
 		startTime: raw.start_time,
 		caseCount: raw.case_count,
@@ -39,13 +42,28 @@ function convertToDomainModel(raw: RawPahcerResult): PahcerResult {
 		comment: raw.comment,
 		tagName: raw.tag_name,
 		waSeeds: raw.wa_seeds,
-		cases: raw.cases.map((c) => ({
-			seed: c.seed,
-			score: c.score,
-			relativeScore: c.relative_score,
-			executionTime: c.execution_time,
-			errorMessage: c.error_message,
-		})),
+		cases: raw.cases.map((c) => {
+			// Check if output file exists
+			const seedStr = String(c.seed).padStart(4, '0');
+			const outputPath = path.join(
+				workspaceRoot,
+				'.pahcer-ui',
+				'results',
+				`result_${resultId}`,
+				'out',
+				`${seedStr}.txt`,
+			);
+			const foundOutput = fs.existsSync(outputPath);
+
+			return {
+				seed: c.seed,
+				score: c.score,
+				relativeScore: c.relative_score,
+				executionTime: c.execution_time,
+				errorMessage: c.error_message,
+				foundOutput,
+			};
+		}),
 	};
 }
 
@@ -82,7 +100,7 @@ export class PahcerResultRepository {
 
 				results.push({
 					id: resultId,
-					result: convertToDomainModel(raw),
+					result: convertToDomainModel(raw, resultId, this.workspaceRoot),
 				});
 			} catch (e) {
 				console.error(`Failed to load ${file}:`, e);
@@ -105,7 +123,7 @@ export class PahcerResultRepository {
 		try {
 			const content = fs.readFileSync(jsonPath, 'utf-8');
 			const raw: RawPahcerResult = JSON.parse(content);
-			return convertToDomainModel(raw);
+			return convertToDomainModel(raw, resultId, this.workspaceRoot);
 		} catch (e) {
 			console.error(`Failed to load result ${resultId}:`, e);
 			return null;

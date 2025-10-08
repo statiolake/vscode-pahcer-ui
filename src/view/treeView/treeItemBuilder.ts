@@ -87,14 +87,26 @@ export class TreeItemBuilder {
 		item.contextValue = 'case';
 		item.description = description;
 
-		// Make clickable
-		item.command = {
-			command: 'pahcer-ui.showVisualizer',
-			title: 'Show Visualizer',
-			arguments: [testCase.seed, resultId],
-		};
+		// Make clickable only if output file is found
+		if (testCase.foundOutput) {
+			item.command = {
+				command: 'pahcer-ui.showVisualizer',
+				title: 'Show Visualizer',
+				arguments: [testCase.seed, resultId],
+			};
+		} else {
+			// For cases without output file, show error notification
+			item.command = {
+				command: 'pahcer-ui.showResultsNotFoundError',
+				title: 'Show Results Not Found Error',
+				arguments: [testCase.seed],
+			};
+		}
 
-		if (testCase.score === 0 || testCase.errorMessage) {
+		if (!testCase.foundOutput) {
+			item.iconPath = new vscode.ThemeIcon('question', new vscode.ThemeColor('testing.iconQueued'));
+			item.tooltip = '出力ファイルが保存されていません';
+		} else if (testCase.score === 0 || testCase.errorMessage) {
 			item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
 			item.tooltip = testCase.errorMessage || 'WA';
 		} else {
@@ -146,15 +158,26 @@ export class TreeItemBuilder {
 				: vscode.TreeItemCheckboxState.Unchecked;
 		}
 
-		// Make clickable
-		item.command = {
-			command: 'pahcer-ui.showVisualizer',
-			title: 'Show Visualizer',
-			arguments: [seed, resultId],
-		};
+		// Make clickable only if output file is found
+		if (testCase.foundOutput) {
+			item.command = {
+				command: 'pahcer-ui.showVisualizer',
+				title: 'Show Visualizer',
+				arguments: [seed, resultId],
+			};
+		} else {
+			item.command = {
+				command: 'pahcer-ui.showResultsNotFoundError',
+				title: 'Show Results Not Found Error',
+				arguments: [seed],
+			};
+		}
 
 		// Highlight latest execution
-		if (isLatest) {
+		if (!testCase.foundOutput) {
+			item.iconPath = new vscode.ThemeIcon('question', new vscode.ThemeColor('testing.iconQueued'));
+			item.tooltip = '出力ファイルが保存されていません';
+		} else if (isLatest) {
 			item.iconPath = new vscode.ThemeIcon(
 				'debug-stackframe-focused',
 				new vscode.ThemeColor('charts.blue'),

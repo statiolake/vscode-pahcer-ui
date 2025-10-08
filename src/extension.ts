@@ -122,6 +122,12 @@ export function activate(context: vscode.ExtensionContext) {
 				await visualizerViewController.showVisualizerForCase(seed, inputPath, outputPath, resultId);
 			},
 		),
+		vscode.commands.registerCommand('pahcer-ui.showResultsNotFoundError', (seed: number) => {
+			const seedStr = String(seed).padStart(4, '0');
+			vscode.window.showErrorMessage(
+				`Seed ${seedStr} の結果が見つからないため、ビジュアライザを開けません。`,
+			);
+		}),
 		vscode.commands.registerCommand('pahcer-ui.addComment', (item: any) =>
 			addCommentCommand(item, resultRepository, treeViewController),
 		),
