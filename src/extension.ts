@@ -8,6 +8,7 @@ import {
 } from './controller/commands/openFileCommand';
 import { refreshCommand } from './controller/commands/refreshCommand';
 import { runCommand } from './controller/commands/runCommand';
+import { showDiffCommand } from './controller/commands/showDiffCommand';
 import {
 	switchToExecutionCommand,
 	switchToSeedCommand,
@@ -68,6 +69,14 @@ export function activate(context: vscode.ExtensionContext) {
 		// Auto-show comparison view when checkboxes change
 		const checkedResults = treeViewController.getCheckedResults();
 		await comparisonViewController.showComparison(checkedResults);
+
+		// Update context for diff button visibility
+		const resultsWithCommitHash = await treeViewController.getCheckedResultsWithCommitHash();
+		vscode.commands.executeCommand(
+			'setContext',
+			'pahcer.canShowDiff',
+			resultsWithCommitHash.length === 2,
+		);
 	});
 
 	// Watch for changes in pahcer/json directory
@@ -149,6 +158,9 @@ export function activate(context: vscode.ExtensionContext) {
 				return openErrorFile(workspaceRoot, item.resultId, item.seed);
 			}
 		}),
+		vscode.commands.registerCommand('pahcer-ui.showDiff', () =>
+			showDiffCommand(treeViewController, workspaceRoot),
+		),
 	];
 
 	context.subscriptions.push(treeView, runOptionsWebView, watcher, ...commands);

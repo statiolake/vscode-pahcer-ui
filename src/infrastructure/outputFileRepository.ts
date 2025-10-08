@@ -59,7 +59,7 @@ export class OutputFileRepository {
 	}
 
 	/**
-	 * 出力ファイルをコピーする
+	 * 出力ファイルをコピーし、必要に応じてコミットハッシュを保存する
 	 */
 	async copyOutputFiles(resultId: string): Promise<void> {
 		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
@@ -80,6 +80,28 @@ export class OutputFileRepository {
 		if (fs.existsSync(toolsErrDir)) {
 			const errDestDir = path.join(destDir, 'err');
 			fs.cpSync(toolsErrDir, errDestDir, { recursive: true });
+		}
+
+		// Save commit hash if available
+		const commitHash = (global as any).lastCommitHash;
+		if (commitHash) {
+			const metaPath = path.join(destDir, 'meta.json');
+			const metadata = { comment: '', commitHash };
+
+			// Load existing metadata if any
+			if (fs.existsSync(metaPath)) {
+				try {
+					const existing = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+					metadata.comment = existing.comment || '';
+				} catch (e) {
+					// Ignore errors
+				}
+			}
+
+			fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
+
+			// Clear the global variable
+			delete (global as any).lastCommitHash;
 		}
 	}
 }

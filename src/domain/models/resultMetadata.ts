@@ -3,4 +3,5 @@
  */
 export interface ResultMetadata {
 	comment: string;
+	commitHash?: string;
 }

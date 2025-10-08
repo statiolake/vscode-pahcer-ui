@@ -98,9 +98,28 @@ export class PahcerResultRepository {
 				const raw: RawPahcerResult = JSON.parse(content);
 				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
 
+				const result = convertToDomainModel(raw, resultId, this.workspaceRoot);
+
+				// Load commit hash from meta.json
+				const metaPath = path.join(
+					this.workspaceRoot,
+					'.pahcer-ui',
+					'results',
+					`result_${resultId}`,
+					'meta.json',
+				);
+				if (fs.existsSync(metaPath)) {
+					try {
+						const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+						result.commitHash = metadata.commitHash;
+					} catch (e) {
+						// Ignore errors
+					}
+				}
+
 				results.push({
 					id: resultId,
-					result: convertToDomainModel(raw, resultId, this.workspaceRoot),
+					result,
 				});
 			} catch (e) {
 				console.error(`Failed to load ${file}:`, e);

@@ -86,6 +86,11 @@
 			{
 				"command": "pahcer-ui.openErrorFile",
 				"title": "エラーファイルを開く"
+			},
+			{
+				"command": "pahcer-ui.showDiff",
+				"title": "差分を表示",
+				"icon": "$(git-compare)"
 			}
 		],
 		"menus": {
@@ -119,6 +124,11 @@
 					"command": "pahcer-ui.switchToExecution",
 					"when": "view == pahcerResults && pahcer.groupingMode == bySeed",
 					"group": "navigation@4"
+				},
+				{
+					"command": "pahcer-ui.showDiff",
+					"when": "view == pahcerResults && pahcer.canShowDiff",
+					"group": "navigation@5"
 				}
 			],
 			"view/item/context": [
@@ -199,6 +209,11 @@
 					"minimum": 0.5,
 					"maximum": 3,
 					"description": "ビジュアライザのズームレベル"
+				},
+				"pahcer-ui.gitIntegration": {
+					"type": "boolean",
+					"default": null,
+					"description": "Git統合を有効にするかどうか (nullの場合は初回に確認)"
 				}
 			}
 		}

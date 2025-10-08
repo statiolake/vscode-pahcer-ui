@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
 
 interface RunOptions {
 	startSeed: number;
@@ -39,6 +40,18 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async handleRunWithOptions(options: RunOptions): Promise<void> {
+		// Git統合チェック＆コミット
+		try {
+			const commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
+			if (commitHash) {
+				// コミットハッシュをグローバル変数に保存（後でmeta.jsonに保存するため）
+				(global as any).lastCommitHash = commitHash;
+			}
+		} catch (error) {
+			// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
+			return;
+		}
+
 		const tempConfigPath = await this.createTempConfig(options);
 
 		let command = `pahcer run --setting-file "${tempConfigPath}"`;

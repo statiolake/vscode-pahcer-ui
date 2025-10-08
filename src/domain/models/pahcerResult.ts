@@ -14,6 +14,7 @@ export interface PahcerResult {
 	tagName: string | null;
 	waSeeds: number[];
 	cases: TestCase[];
+	commitHash?: string;
 }
 
 /**

@@ -45,19 +45,43 @@ export class TreeItemBuilder {
 				: vscode.TreeItemCheckboxState.Unchecked;
 		}
 
-		// Icon based on AC status
-		if (result.waSeeds.length === 0) {
-			treeItem.iconPath = new vscode.ThemeIcon('pass', new vscode.ThemeColor('testing.iconPassed'));
-		} else if (acCount > 0) {
-			treeItem.iconPath = new vscode.ThemeIcon(
-				'warning',
-				new vscode.ThemeColor('testing.iconQueued'),
-			);
+		// Icon based on commit hash and AC status
+		if (result.commitHash) {
+			// Has commit hash - use git icon with appropriate color
+			if (result.waSeeds.length === 0) {
+				treeItem.iconPath = new vscode.ThemeIcon(
+					'git-commit',
+					new vscode.ThemeColor('testing.iconPassed'),
+				);
+			} else if (acCount > 0) {
+				treeItem.iconPath = new vscode.ThemeIcon(
+					'git-commit',
+					new vscode.ThemeColor('testing.iconQueued'),
+				);
+			} else {
+				treeItem.iconPath = new vscode.ThemeIcon(
+					'git-commit',
+					new vscode.ThemeColor('testing.iconFailed'),
+				);
+			}
 		} else {
-			treeItem.iconPath = new vscode.ThemeIcon(
-				'error',
-				new vscode.ThemeColor('testing.iconFailed'),
-			);
+			// No commit hash - use regular icons
+			if (result.waSeeds.length === 0) {
+				treeItem.iconPath = new vscode.ThemeIcon(
+					'pass',
+					new vscode.ThemeColor('testing.iconPassed'),
+				);
+			} else if (acCount > 0) {
+				treeItem.iconPath = new vscode.ThemeIcon(
+					'warning',
+					new vscode.ThemeColor('testing.iconQueued'),
+				);
+			} else {
+				treeItem.iconPath = new vscode.ThemeIcon(
+					'error',
+					new vscode.ThemeColor('testing.iconFailed'),
+				);
+			}
 		}
 
 		return treeItem;
