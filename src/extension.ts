@@ -14,6 +14,7 @@ import {
 } from './controller/commands/switchModeCommand';
 import { ComparisonViewController } from './controller/comparisonViewController';
 import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
+import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { FileWatcher } from './infrastructure/fileWatcher';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
@@ -33,6 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
 	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
 	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
+	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(context, workspaceRoot);
 
 	// Create infrastructure components
 	const terminalAdapter = new TerminalAdapter();
@@ -45,6 +47,15 @@ export function activate(context: vscode.ExtensionContext) {
 		showCollapseAll: true,
 		canSelectMany: false,
 	});
+
+	// Register RunOptions WebView Provider
+	const runOptionsWebView = vscode.window.registerWebviewViewProvider(
+		'pahcerRunOptions',
+		runOptionsWebViewProvider,
+	);
+
+	// Initialize context (show TreeView by default)
+	vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
 
 	// Handle checkbox state changes
 	treeView.onDidChangeCheckboxState(async (e) => {
@@ -89,6 +100,10 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('pahcer-ui.run', () =>
 			runCommand(workspaceAdapter, terminalAdapter),
 		),
+		vscode.commands.registerCommand('pahcer-ui.runWithOptions', () => {
+			// Show RunOptions WebView by switching context
+			vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', true);
+		}),
 		vscode.commands.registerCommand('pahcer-ui.refresh', () => refreshCommand(treeViewController)),
 		vscode.commands.registerCommand('pahcer-ui.switchToSeed', () =>
 			switchToSeedCommand(treeViewController, updateGroupingContext),
@@ -130,7 +145,7 @@ export function activate(context: vscode.ExtensionContext) {
 		}),
 	];
 
-	context.subscriptions.push(treeView, watcher, ...commands);
+	context.subscriptions.push(treeView, runOptionsWebView, watcher, ...commands);
 }
 
 export function deactivate() {}

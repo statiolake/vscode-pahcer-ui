@@ -28,8 +28,15 @@
 		"views": {
 			"pahcer": [
 				{
+					"type": "webview",
+					"id": "pahcerRunOptions",
+					"name": "実行オプション",
+					"when": "pahcer.showRunOptions"
+				},
+				{
 					"id": "pahcerResults",
-					"name": "Test Results"
+					"name": "Test Results",
+					"when": "!pahcer.showRunOptions"
 				}
 			]
 		},
@@ -37,6 +44,11 @@
 			{
 				"command": "pahcer-ui.run",
 				"title": "テストを実行",
+				"icon": "$(run-all)"
+			},
+			{
+				"command": "pahcer-ui.runWithOptions",
+				"title": "詳細実行...",
 				"icon": "$(play)"
 			},
 			{
@@ -80,6 +92,11 @@
 			"view/title": [
 				{
 					"command": "pahcer-ui.run",
+					"when": "view == pahcerResults",
+					"group": "navigation@1"
+				},
+				{
+					"command": "pahcer-ui.runWithOptions",
 					"when": "view == pahcerResults",
 					"group": "navigation@1"
 				},

@@ -5,6 +5,7 @@ const watch = process.argv.includes('--watch');
 
 const entries = {
 	comparison: 'src/view/webview/comparison/index.tsx',
+	runOptions: 'src/view/webview/runOptions/index.tsx',
 };
 
 async function build() {
