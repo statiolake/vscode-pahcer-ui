@@ -2,6 +2,7 @@ export interface TestCase {
 	seed: number;
 	score: number;
 	relativeScore: number;
+	executionTime: number; // in seconds
 }
 
 export interface ResultData {
@@ -22,6 +23,7 @@ export interface ComparisonData {
 	results: ResultData[];
 	seeds: number[];
 	inputData: Record<number, string>;
+	stderrData: Record<string, Record<number, string>>; // resultId -> seed -> stderr
 	config: ComparisonConfig;
 }
 

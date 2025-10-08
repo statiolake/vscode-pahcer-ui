@@ -181,10 +181,15 @@ export function ControlPanel({
 						<li><code>seed</code> - シード番号</li>
 						<li><code>absScore</code> - 絶対スコア</li>
 						<li><code>relScore</code> - 相対スコア (%)</li>
+						<li><code>msec</code> - 実行時間 (ミリ秒)</li>
 						<li>Features で定義した変数 (例: <code>N</code>, <code>M</code>, <code>K</code>)</li>
+						<li><code>$varname</code> - 標準エラー出力から抽出した変数 (例: <code>$iter</code>)</li>
 					</ul>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
-						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>, <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>, <code>relScore*100</code>
+						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>, <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>, <code>relScore*100</code>, <code>msec</code>, <code>log($iter)</code>
+					</p>
+					<p style={{ marginTop: '0', marginBottom: '10px' }}>
+						<strong>標準エラー出力の変数:</strong> 標準エラー出力の先頭100行と末尾100行から <code>$varname = value</code> 形式で抽出
 					</p>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
 						<strong>利用可能な関数:</strong>

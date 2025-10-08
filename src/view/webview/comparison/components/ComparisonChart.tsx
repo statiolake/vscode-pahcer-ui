@@ -13,6 +13,7 @@ import {
 import type { ComparisonData, ChartDataPoint } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
+import { parseStderrVariables } from '../../shared/utils/stderr';
 import { postMessage } from '../../shared/utils/vscode';
 
 // Register Chart.js components
@@ -143,7 +144,7 @@ function prepareChartData(
 	filter: string,
 ) {
 	const features = parseFeatures(featuresStr);
-	const { results, seeds, inputData } = data;
+	const { results, seeds, inputData, stderrData } = data;
 
 	const datasets = results.map((result, index) => {
 		const color = getColorForResultId(result.id);
@@ -171,11 +172,19 @@ function prepareChartData(
 				variables.seed = [seed];
 				variables.absScore = [testCase.score];
 				variables.relScore = [testCase.relativeScore];
+				variables.msec = [testCase.executionTime * 1000]; // Convert seconds to milliseconds
 
 				// Parse features
 				const featureValues = parseFeatures(inputLine);
 				for (let i = 0; i < features.length && i < featureValues.length; i++) {
 					variables[features[i]] = [Number(featureValues[i]) || 0];
+				}
+
+				// Parse stderr variables (with $ prefix)
+				const stderr = stderrData[result.id]?.[seed] || '';
+				const stderrVars = parseStderrVariables(stderr);
+				for (const [varName, value] of Object.entries(stderrVars)) {
+					variables[`$${varName}`] = [value];
 				}
 
 				// Apply filter if specified
@@ -220,6 +229,7 @@ function prepareChartData(
 			variables.seed = group.map((d) => d.seed);
 			variables.absScore = group.map((d) => d.testCase.score);
 			variables.relScore = group.map((d) => d.testCase.relativeScore);
+			variables.msec = group.map((d) => d.testCase.executionTime * 1000);
 
 			// Parse features for each group member
 			for (const featureName of features) {
@@ -227,6 +237,25 @@ function prepareChartData(
 					const featureValues = parseFeatures(d.inputLine);
 					const featureIndex = features.indexOf(featureName);
 					return Number(featureValues[featureIndex]) || 0;
+				});
+			}
+
+			// Collect all stderr variables from all group members
+			const allStderrVarNames = new Set<string>();
+			for (const d of group) {
+				const stderr = stderrData[result.id]?.[d.seed] || '';
+				const stderrVars = parseStderrVariables(stderr);
+				for (const varName of Object.keys(stderrVars)) {
+					allStderrVarNames.add(varName);
+				}
+			}
+
+			// Build arrays for stderr variables
+			for (const varName of allStderrVarNames) {
+				variables[`$${varName}`] = group.map((d) => {
+					const stderr = stderrData[result.id]?.[d.seed] || '';
+					const stderrVars = parseStderrVariables(stderr);
+					return stderrVars[varName] || 0;
 				});
 			}
 

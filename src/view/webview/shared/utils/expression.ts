@@ -1,21 +1,16 @@
 /**
- * Validate expression syntax by attempting to evaluate it
+ * Validate expression syntax by parsing (without evaluating)
  * Returns true if the expression is valid (or empty), false otherwise
+ * Note: variableNames parameter is kept for backward compatibility but not used
  */
-export function isValidExpression(expr: string, variableNames: string[]): boolean {
+export function isValidExpression(expr: string, _variableNames?: string[]): boolean {
 	if (!expr || expr.trim() === '') {
 		return true;
 	}
 
 	try {
-		// Build dummy variables (all as single-element arrays)
-		const variables: Record<string, number[]> = {};
-		for (const name of variableNames) {
-			variables[name] = [1];
-		}
-
-		// Try to evaluate with dummy variables
-		evaluateExpression(expr, variables);
+		// Parse without evaluation - only checks syntax
+		parseExpression(expr);
 		return true;
 	} catch (e) {
 		console.warn(`Expression '${expr}' validation error:`, e);
@@ -24,7 +19,7 @@ export function isValidExpression(expr: string, variableNames: string[]): boolea
 }
 
 /**
- * Evaluate arithmetic expression using recursive descent parser
+ * Evaluate arithmetic expression using AST-based parser
  * Supports: +, -, *, /, ^, comparison operators, parentheses, variables
  * Comparison operators: <, <=, >, >=, ==, != (return 1 for true, 0 for false)
  * Functions:
@@ -35,12 +30,174 @@ export function isValidExpression(expr: string, variableNames: string[]): boolea
  * Throws an error if the expression is invalid
  */
 export function evaluateExpression(expr: string, variables: Record<string, number[]>): number[] {
-	const parser = new ExpressionParser(expr.trim(), variables);
+	const ast = parseExpression(expr);
+	return evaluateAst(ast, variables);
+}
+
+/**
+ * Parse expression into AST (Abstract Syntax Tree)
+ * Does NOT check if variables exist - only validates syntax
+ */
+export function parseExpression(expr: string): AstNode {
+	const parser = new ExpressionParser(expr.trim());
 	const result = parser.parse();
 	if (parser.pos < parser.tokens.length && parser.tokens[parser.pos].type !== 'eof') {
 		throw new Error(`Unexpected token: ${parser.tokens[parser.pos].value}`);
 	}
 	return result;
+}
+
+/**
+ * Evaluate AST with given variables
+ * Throws an error if a variable is not found or evaluation fails
+ */
+export function evaluateAst(node: AstNode, variables: Record<string, number[]>): number[] {
+	switch (node.type) {
+		case 'number':
+			return [node.value];
+
+		case 'variable':
+			if (!(node.name in variables)) {
+				throw new Error(`Unknown variable: ${node.name}`);
+			}
+			return variables[node.name];
+
+		case 'unary': {
+			const operand = evaluateAst(node.operand, variables);
+			return node.operator === '-' ? elementWiseUnary(operand, (a) => -a) : operand;
+		}
+
+		case 'binary': {
+			const left = evaluateAst(node.left, variables);
+			const right = evaluateAst(node.right, variables);
+
+			switch (node.operator) {
+				case '+':
+					return elementWise(left, right, (a, b) => a + b);
+				case '-':
+					return elementWise(left, right, (a, b) => a - b);
+				case '*':
+					return elementWise(left, right, (a, b) => a * b);
+				case '/':
+					return elementWise(left, right, (a, b) => {
+						if (b === 0) {
+							throw new Error('Division by zero');
+						}
+						return a / b;
+					});
+				case '^':
+					return elementWise(left, right, (a, b) => a ** b);
+				case '<':
+					return elementWise(left, right, (a, b) => (a < b ? 1 : 0));
+				case '<=':
+					return elementWise(left, right, (a, b) => (a <= b ? 1 : 0));
+				case '>':
+					return elementWise(left, right, (a, b) => (a > b ? 1 : 0));
+				case '>=':
+					return elementWise(left, right, (a, b) => (a >= b ? 1 : 0));
+				case '==':
+					return elementWise(left, right, (a, b) => (a === b ? 1 : 0));
+				case '!=':
+					return elementWise(left, right, (a, b) => (a !== b ? 1 : 0));
+				default:
+					// TypeScript should ensure all cases are covered
+					throw new Error(`Unknown binary operator: ${(node as BinaryNode).operator}`);
+			}
+		}
+
+		case 'function': {
+			// Special case: random() takes no arguments
+			if (node.name === 'random') {
+				if (node.args.length !== 0) {
+					throw new Error('random() takes no arguments');
+				}
+				return [Math.random()];
+			}
+
+			// All other functions take exactly one argument
+			if (node.args.length !== 1) {
+				throw new Error(`${node.name}() requires exactly one argument`);
+			}
+
+			const arg = evaluateAst(node.args[0], variables);
+
+			// Element-wise functions
+			if (node.name === 'log') {
+				return elementWiseUnary(arg, (a) => {
+					if (a <= 0) {
+						throw new Error('log() requires positive argument');
+					}
+					return Math.log(a);
+				});
+			}
+
+			if (node.name === 'ceil') {
+				return elementWiseUnary(arg, Math.ceil);
+			}
+
+			if (node.name === 'floor') {
+				return elementWiseUnary(arg, Math.floor);
+			}
+
+			// Aggregation functions (array -> single number, wrapped in length-1 array)
+			if (node.name === 'avg' || node.name === 'max' || node.name === 'min') {
+				if (arg.length === 0) {
+					throw new Error(`${node.name}() requires non-empty array`);
+				}
+
+				if (node.name === 'avg') {
+					const sum = arg.reduce((acc, val) => acc + val, 0);
+					return [sum / arg.length];
+				}
+
+				if (node.name === 'max') {
+					return [Math.max(...arg)];
+				}
+
+				if (node.name === 'min') {
+					return [Math.min(...arg)];
+				}
+			}
+
+			throw new Error(`Unknown function: ${node.name}`);
+		}
+
+		default:
+			// TypeScript should ensure all cases are covered
+			throw new Error(`Unknown AST node type: ${(node as AstNode).type}`);
+	}
+}
+
+// AST Node Types
+type AstNode = NumberNode | VariableNode | UnaryNode | BinaryNode | FunctionNode;
+
+interface NumberNode {
+	type: 'number';
+	value: number;
+}
+
+interface VariableNode {
+	type: 'variable';
+	name: string;
+}
+
+interface UnaryNode {
+	type: 'unary';
+	operator: '+' | '-';
+	operand: AstNode;
+}
+
+interface BinaryNode {
+	type: 'binary';
+	operator: '+' | '-' | '*' | '/' | '^' | '<' | '<=' | '>' | '>=' | '==' | '!=';
+	left: AstNode;
+	right: AstNode;
+}
+
+interface FunctionNode {
+	type: 'function';
+	name: string;
+	args: AstNode[];
 }
 
 type TokenType = 'number' | 'identifier' | 'operator' | 'comparison' | 'lparen' | 'rparen' | 'eof';
@@ -89,12 +246,10 @@ function elementWiseUnary(value: number[], op: (a: number) => number): number[] 
 class ExpressionParser {
 	tokens: Token[];
 	pos: number;
-	variables: Record<string, number[]>;
 
-	constructor(expr: string, variables: Record<string, number[]>) {
+	constructor(expr: string) {
 		this.tokens = this.tokenize(expr);
 		this.pos = 0;
-		this.variables = variables;
 	}
 
 	tokenize(expr: string): Token[] {
@@ -119,6 +274,21 @@ class ExpressionParser {
 				}
 				tokens.push({ type: 'number', value: num });
 				continue;
+			}
+
+			// Identifiers starting with $ (stderr variables)
+			if (char === '$') {
+				let ident = '$';
+				i++;
+				if (i < expr.length && /[a-zA-Z_]/.test(expr[i])) {
+					while (i < expr.length && /[a-zA-Z_0-9]/.test(expr[i])) {
+						ident += expr[i];
+						i++;
+					}
+					tokens.push({ type: 'identifier', value: ident });
+					continue;
+				}
+				throw new Error('Invalid variable name after $');
 			}
 
 			// Identifiers (variables and functions)
@@ -175,12 +345,12 @@ class ExpressionParser {
 		return tokens;
 	}
 
-	parse(): number[] {
+	parse(): AstNode {
 		return this.parseComparison();
 	}
 
 	// Comparison operators (lowest precedence)
-	parseComparison(): number[] {
+	parseComparison(): AstNode {
 		let left = this.parseAddSub();
 
 		while (this.pos < this.tokens.length) {
@@ -188,27 +358,12 @@ class ExpressionParser {
 			if (token.type === 'comparison') {
 				this.pos++;
 				const right = this.parseAddSub();
-				const op = token.value;
-
-				left = elementWise(left, right, (a, b) => {
-					let result: boolean;
-					if (op === '<') {
-						result = a < b;
-					} else if (op === '<=') {
-						result = a <= b;
-					} else if (op === '>') {
-						result = a > b;
-					} else if (op === '>=') {
-						result = a >= b;
-					} else if (op === '==') {
-						result = a === b;
-					} else if (op === '!=') {
-						result = a !== b;
-					} else {
-						throw new Error(`Unknown comparison operator: ${op}`);
-					}
-					return result ? 1 : 0;
-				});
+				left = {
+					type: 'binary',
+					operator: token.value as '<' | '<=' | '>' | '>=' | '==' | '!=',
+					left,
+					right,
+				};
 			} else {
 				break;
 			}
@@ -218,7 +373,7 @@ class ExpressionParser {
 	}
 
 	// Addition and subtraction
-	parseAddSub(): number[] {
+	parseAddSub(): AstNode {
 		let left = this.parseMulDiv();
 
 		while (this.pos < this.tokens.length) {
@@ -226,10 +381,12 @@ class ExpressionParser {
 			if (token.type === 'operator' && (token.value === '+' || token.value === '-')) {
 				this.pos++;
 				const right = this.parseMulDiv();
-				left =
-					token.value === '+'
-						? elementWise(left, right, (a, b) => a + b)
-						: elementWise(left, right, (a, b) => a - b);
+				left = {
+					type: 'binary',
+					operator: token.value as '+' | '-',
+					left,
+					right,
+				};
 			} else {
 				break;
 			}
@@ -239,7 +396,7 @@ class ExpressionParser {
 	}
 
 	// Multiplication and division
-	parseMulDiv(): number[] {
+	parseMulDiv(): AstNode {
 		let left = this.parsePower();
 
 		while (this.pos < this.tokens.length) {
@@ -247,16 +404,12 @@ class ExpressionParser {
 			if (token.type === 'operator' && (token.value === '*' || token.value === '/')) {
 				this.pos++;
 				const right = this.parsePower();
-				if (token.value === '*') {
-					left = elementWise(left, right, (a, b) => a * b);
-				} else {
-					left = elementWise(left, right, (a, b) => {
-						if (b === 0) {
-							throw new Error('Division by zero');
-						}
-						return a / b;
-					});
-				}
+				left = {
+					type: 'binary',
+					operator: token.value as '*' | '/',
+					left,
+					right,
+				};
 			} else {
 				break;
 			}
@@ -266,7 +419,7 @@ class ExpressionParser {
 	}
 
 	// Power (right associative)
-	parsePower(): number[] {
+	parsePower(): AstNode {
 		let left = this.parseUnary();
 
 		if (this.pos < this.tokens.length) {
@@ -274,7 +427,12 @@ class ExpressionParser {
 			if (token.type === 'operator' && token.value === '^') {
 				this.pos++;
 				const right = this.parsePower(); // Right associative
-				left = elementWise(left, right, (a, b) => a ** b);
+				left = {
+					type: 'binary',
+					operator: '^',
+					left,
+					right,
+				};
 			}
 		}
 
@@ -282,13 +440,17 @@ class ExpressionParser {
 	}
 
 	// Unary operators (+, -)
-	parseUnary(): number[] {
+	parseUnary(): AstNode {
 		if (this.pos < this.tokens.length) {
 			const token = this.tokens[this.pos];
 			if (token.type === 'operator' && (token.value === '+' || token.value === '-')) {
 				this.pos++;
-				const value = this.parseUnary();
-				return token.value === '-' ? elementWiseUnary(value, (a) => -a) : value;
+				const operand = this.parseUnary();
+				return {
+					type: 'unary',
+					operator: token.value as '+' | '-',
+					operand,
+				};
 			}
 		}
 
@@ -296,7 +458,7 @@ class ExpressionParser {
 	}
 
 	// Primary expressions (numbers, variables, functions, parentheses)
-	parsePrimary(): number[] {
+	parsePrimary(): AstNode {
 		if (this.pos >= this.tokens.length) {
 			throw new Error('Unexpected end of expression');
 		}
@@ -308,14 +470,14 @@ class ExpressionParser {
 			throw new Error('Unexpected end of expression');
 		}
 
-		// Number (wrap in array)
+		// Number
 		if (token.type === 'number') {
 			this.pos++;
 			const num = parseFloat(token.value);
 			if (isNaN(num)) {
 				throw new Error(`Invalid number: ${token.value}`);
 			}
-			return [num];
+			return { type: 'number', value: num };
 		}
 
 		// Identifier (variable or function)
@@ -327,17 +489,14 @@ class ExpressionParser {
 				return this.parseFunctionCall(token.value);
 			}
 
-			// Variable
-			if (!(token.value in this.variables)) {
-				throw new Error(`Unknown variable: ${token.value}`);
-			}
-			return this.variables[token.value];
+			// Variable (no validation at parse time)
+			return { type: 'variable', name: token.value };
 		}
 
 		// Parenthesized expression
 		if (token.type === 'lparen') {
 			this.pos++;
-			const value = this.parseAddSub();
+			const value = this.parseComparison();
 			if (this.pos >= this.tokens.length || this.tokens[this.pos].type !== 'rparen') {
 				throw new Error('Missing closing parenthesis');
 			}
@@ -348,25 +507,22 @@ class ExpressionParser {
 		throw new Error(`Unexpected token: ${token.value}`);
 	}
 
-	parseFunctionCall(name: string): number[] {
+	parseFunctionCall(name: string): FunctionNode {
+		// Consume '('
+		this.pos++;
+
 		// Special case: random() takes no arguments
 		if (name === 'random') {
-			// Consume '('
-			this.pos++;
 			// Expect ')'
 			if (this.pos >= this.tokens.length || this.tokens[this.pos].type !== 'rparen') {
 				throw new Error('random() takes no arguments');
 			}
 			this.pos++;
-			return [Math.random()];
+			return { type: 'function', name, args: [] };
 		}
 
 		// All other functions take one argument
-		// Consume '('
-		this.pos++;
-
-		// Parse argument
-		const arg = this.parseAddSub();
+		const arg = this.parseComparison();
 
 		// Expect ')'
 		if (this.pos >= this.tokens.length || this.tokens[this.pos].type !== 'rparen') {
@@ -374,44 +530,6 @@ class ExpressionParser {
 		}
 		this.pos++;
 
-		// Element-wise functions
-		if (name === 'log') {
-			return elementWiseUnary(arg, (a) => {
-				if (a <= 0) {
-					throw new Error('log() requires positive argument');
-				}
-				return Math.log(a);
-			});
-		}
-
-		if (name === 'ceil') {
-			return elementWiseUnary(arg, Math.ceil);
-		}
-
-		if (name === 'floor') {
-			return elementWiseUnary(arg, Math.floor);
-		}
-
-		// Aggregation functions (array -> single number, wrapped in length-1 array)
-		if (name === 'avg' || name === 'max' || name === 'min') {
-			if (arg.length === 0) {
-				throw new Error(`${name}() requires non-empty array`);
-			}
-
-			if (name === 'avg') {
-				const sum = arg.reduce((acc, val) => acc + val, 0);
-				return [sum / arg.length];
-			}
-
-			if (name === 'max') {
-				return [Math.max(...arg)];
-			}
-
-			if (name === 'min') {
-				return [Math.min(...arg)];
-			}
-		}
-
-		throw new Error(`Unknown function: ${name}`);
+		return { type: 'function', name, args: [arg] };
 	}
 }

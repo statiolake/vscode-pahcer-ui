@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import type { ComparisonData, StatsRow } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
+import { parseStderrVariables } from '../../shared/utils/stderr';
 
 interface Props {
 	data: ComparisonData;
@@ -80,7 +81,7 @@ function calculateStats(
 	filter: string,
 ): { stats: StatsRow[]; filteredCount: number; totalCount: number } {
 	const stats: StatsRow[] = [];
-	const { results, seeds, inputData } = data;
+	const { results, seeds, inputData, stderrData } = data;
 	const features = parseFeatures(featuresStr);
 
 	// Apply filter to determine which seeds to include
@@ -91,7 +92,7 @@ function calculateStats(
 		const variables: Record<string, number[]> = {};
 		variables.seed = [seed];
 
-		// We need at least one result to get absScore/relScore
+		// We need at least one result to get absScore/relScore/executionTime
 		// Use the first result's case for filtering
 		const firstResult = results[0];
 		const testCase = firstResult?.cases.find((c) => c.seed === seed);
@@ -99,10 +100,18 @@ function calculateStats(
 
 		variables.absScore = [testCase.score];
 		variables.relScore = [testCase.relativeScore];
+		variables.msec = [testCase.executionTime * 1000];
 
 		const featureValues = parseFeatures(inputLine);
 		for (let i = 0; i < features.length && i < featureValues.length; i++) {
 			variables[features[i]] = [Number(featureValues[i]) || 0];
+		}
+
+		// Parse stderr variables
+		const stderr = stderrData[firstResult.id]?.[seed] || '';
+		const stderrVars = parseStderrVariables(stderr);
+		for (const [varName, value] of Object.entries(stderrVars)) {
+			variables[`$${varName}`] = [value];
 		}
 
 		try {

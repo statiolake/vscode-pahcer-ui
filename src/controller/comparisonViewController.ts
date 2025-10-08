@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ConfigRepository } from '../infrastructure/configRepository';
 import { InputFileRepository } from '../infrastructure/inputFileRepository';
 import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
+import { StderrFileRepository } from '../infrastructure/stderrFileRepository';
 
 function getNonce() {
 	let text = '';
@@ -21,6 +22,7 @@ export class ComparisonViewController {
 
 	private resultRepository: PahcerResultRepository;
 	private inputFileRepository: InputFileRepository;
+	private stderrFileRepository: StderrFileRepository;
 	private configRepository: ConfigRepository;
 
 	constructor(
@@ -29,6 +31,7 @@ export class ComparisonViewController {
 	) {
 		this.resultRepository = new PahcerResultRepository(workspaceRoot);
 		this.inputFileRepository = new InputFileRepository(workspaceRoot);
+		this.stderrFileRepository = new StderrFileRepository(workspaceRoot);
 		this.configRepository = new ConfigRepository(workspaceRoot);
 	}
 
@@ -63,6 +66,12 @@ export class ComparisonViewController {
 
 		// Load input files and extract first line for features
 		const inputData = await this.inputFileRepository.loadFirstLines(Array.from(allSeeds));
+
+		// Load stderr files for all results and seeds
+		const stderrData = await this.stderrFileRepository.loadStderrForResults(
+			resultIds,
+			Array.from(allSeeds),
+		);
 
 		// Create or show panel
 		if (this.panel) {
@@ -105,7 +114,12 @@ export class ComparisonViewController {
 		}
 
 		// Generate HTML
-		this.panel.webview.html = await this.getWebviewContent(results, inputData, this.panel.webview);
+		this.panel.webview.html = await this.getWebviewContent(
+			results,
+			inputData,
+			stderrData,
+			this.panel.webview,
+		);
 	}
 
 	/**
@@ -114,6 +128,7 @@ export class ComparisonViewController {
 	private async getWebviewContent(
 		results: Array<{ id: string; data: any }>,
 		inputData: Map<number, string>,
+		stderrData: Record<string, Record<number, string>>,
 		webview: vscode.Webview,
 	): Promise<string> {
 		function formatDate(date: Date): string {
@@ -153,10 +168,12 @@ export class ComparisonViewController {
 					seed: c.seed,
 					score: c.score,
 					relativeScore: c.relativeScore,
+					executionTime: c.executionTime,
 				})),
 			})),
 			seeds,
 			inputData: inputDataObj,
+			stderrData,
 			config,
 		};
 
