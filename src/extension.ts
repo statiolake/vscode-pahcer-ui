@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import { addCommentCommand } from './controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './controller/commands/changeSortOrderCommand';
+import {
+	openErrorFile,
+	openInputFile,
+	openOutputFile,
+} from './controller/commands/openFileCommand';
 import { refreshCommand } from './controller/commands/refreshCommand';
 import { runCommand } from './controller/commands/runCommand';
 import {
@@ -108,6 +113,21 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
 			changeSortOrderCommand(treeViewController),
 		),
+		vscode.commands.registerCommand('pahcer-ui.openInputFile', (item: any) => {
+			if (item?.seed !== undefined) {
+				return openInputFile(workspaceRoot, item.seed);
+			}
+		}),
+		vscode.commands.registerCommand('pahcer-ui.openOutputFile', (item: any) => {
+			if (item?.seed !== undefined) {
+				return openOutputFile(workspaceRoot, item.resultId, item.seed);
+			}
+		}),
+		vscode.commands.registerCommand('pahcer-ui.openErrorFile', (item: any) => {
+			if (item?.seed !== undefined) {
+				return openErrorFile(workspaceRoot, item.resultId, item.seed);
+			}
+		}),
 	];
 
 	context.subscriptions.push(treeView, watcher, ...commands);

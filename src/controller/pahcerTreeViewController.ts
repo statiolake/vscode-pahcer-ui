@@ -258,6 +258,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 				builtItem.description as string,
 			);
 			item.seed = testCase.seed;
+			item.resultId = resultId;
 			item.command = builtItem.command;
 			item.iconPath = builtItem.iconPath;
 			item.tooltip = builtItem.tooltip;
