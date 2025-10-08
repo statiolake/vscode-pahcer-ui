@@ -43,4 +43,6 @@ export interface StatsRow {
 	bestCount: number;
 	uniqueBestCount: number;
 	failCount: number;
+	filteredCount: number;
+	totalCount: number;
 }
