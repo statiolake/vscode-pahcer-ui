@@ -62,7 +62,37 @@ export class GitAdapter {
 				return;
 			}
 
-			const files = output.split('\n').filter((f) => f.trim());
+			const files = output
+				.split('\n')
+				.filter((f) => f.trim())
+				.filter((f) => {
+					// Filter out files in tools/ directory
+					if (f.startsWith('tools/')) {
+						return false;
+					}
+					// Filter out dotfiles (files starting with .)
+					const fileName = f.split('/').pop();
+					if (fileName && fileName.startsWith('.')) {
+						return false;
+					}
+					// Filter out .txt, .json, and .html files
+					const ext = f.toLowerCase().split('.').pop();
+					return ext !== 'txt' && ext !== 'json' && ext !== 'html';
+				});
+
+			if (files.length === 0) {
+				vscode.window.showInformationMessage('表示対象の変更ファイルはありません');
+				return;
+			}
+
+			// Check if there are too many files
+			const MAX_FILES = 10;
+			if (files.length > MAX_FILES) {
+				vscode.window.showErrorMessage(
+					`変更ファイルが多すぎます（${files.length}個）。差分表示は${MAX_FILES}個以下のファイルでのみ利用できます。`,
+				);
+				return;
+			}
 
 			// Open diff for each file
 			for (const file of files) {
@@ -81,6 +111,7 @@ export class GitAdapter {
 					leftUri,
 					rightUri,
 					`${file} (${leftTitle} ↔ ${rightTitle})`,
+					{ preview: false }, // Open in regular tab, not preview tab
 				);
 			}
 		} catch (error) {

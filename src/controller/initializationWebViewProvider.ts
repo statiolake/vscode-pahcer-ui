@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { TesterDownloader } from '../infrastructure/testerDownloader';
@@ -70,6 +71,9 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		terminal.show();
 		terminal.sendText(command);
 
+		// Update .gitignore to add tools/target
+		this.updateGitignore();
+
 		// Close initialization WebView and return to TreeView
 		await vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', false);
 
@@ -77,6 +81,32 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		setTimeout(async () => {
 			await vscode.commands.executeCommand('pahcer-ui.refresh');
 		}, 2000);
+	}
+
+	/**
+	 * .gitignore に tools/target を追加
+	 */
+	private updateGitignore(): void {
+		try {
+			const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
+			let content = '';
+
+			// Read existing .gitignore if it exists
+			if (fs.existsSync(gitignorePath)) {
+				content = fs.readFileSync(gitignorePath, 'utf8');
+			}
+
+			// Check if tools/target is already in .gitignore
+			if (!content.includes('tools/target')) {
+				// Add tools/target to .gitignore
+				const newLine = content.endsWith('\n') || content === '' ? '' : '\n';
+				content += `${newLine}tools/target\n`;
+				fs.writeFileSync(gitignorePath, content, 'utf8');
+			}
+		} catch (error) {
+			// Silently ignore errors - not critical
+			console.error('Failed to update .gitignore:', error);
+		}
 	}
 
 	private getHtmlContent(webview: vscode.Webview): string {
