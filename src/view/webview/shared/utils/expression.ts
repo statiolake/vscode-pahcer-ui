@@ -25,8 +25,12 @@ export function isValidExpression(expr: string, variableNames: string[]): boolea
 
 /**
  * Evaluate arithmetic expression using recursive descent parser
- * Supports: +, -, *, /, ^, log(), avg(), max(), min(), comparison operators, parentheses, variables
+ * Supports: +, -, *, /, ^, comparison operators, parentheses, variables
  * Comparison operators: <, <=, >, >=, ==, != (return 1 for true, 0 for false)
+ * Functions:
+ *   - Element-wise: log(), ceil(), floor()
+ *   - Aggregation: avg(), max(), min() (array -> scalar)
+ *   - Special: random() (no arguments)
  * All values are arrays internally (element-wise operations, length-1 arrays can broadcast)
  * Throws an error if the expression is invalid
  */
@@ -345,6 +349,19 @@ class ExpressionParser {
 	}
 
 	parseFunctionCall(name: string): number[] {
+		// Special case: random() takes no arguments
+		if (name === 'random') {
+			// Consume '('
+			this.pos++;
+			// Expect ')'
+			if (this.pos >= this.tokens.length || this.tokens[this.pos].type !== 'rparen') {
+				throw new Error('random() takes no arguments');
+			}
+			this.pos++;
+			return [Math.random()];
+		}
+
+		// All other functions take one argument
 		// Consume '('
 		this.pos++;
 
@@ -365,6 +382,14 @@ class ExpressionParser {
 				}
 				return Math.log(a);
 			});
+		}
+
+		if (name === 'ceil') {
+			return elementWiseUnary(arg, Math.ceil);
+		}
+
+		if (name === 'floor') {
+			return elementWiseUnary(arg, Math.floor);
 		}
 
 		// Aggregation functions (array -> single number, wrapped in length-1 array)

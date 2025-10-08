@@ -187,12 +187,12 @@ export function ControlPanel({
 						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>, <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>, <code>relScore*100</code>
 					</p>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
-						<strong>Y軸の集計関数:</strong> X軸で同じ値になるデータをグループ化し、集計できます
+						<strong>利用可能な関数:</strong>
 					</p>
 					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
-						<li><code>avg(absScore)</code> - 平均値</li>
-						<li><code>max(absScore)</code> - 最大値</li>
-						<li><code>min(absScore)</code> - 最小値</li>
+						<li>要素ごと: <code>log(x)</code>, <code>ceil(x)</code>, <code>floor(x)</code></li>
+						<li>集計: <code>avg(x)</code>, <code>max(x)</code>, <code>min(x)</code></li>
+						<li>その他: <code>random()</code> - 0以上1未満の乱数</li>
 					</ul>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
 						<strong>Filter:</strong> 条件式を指定してデータをフィルタリング（空欄の場合は全データを表示）
