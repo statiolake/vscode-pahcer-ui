@@ -5,6 +5,7 @@ interface InitOptions {
 	objective: 'max' | 'min';
 	language: 'rust' | 'cpp' | 'python' | 'go';
 	isInteractive: boolean;
+	testerUrl: string;
 }
 
 export const InitializationView: React.FC = () => {
@@ -16,6 +17,7 @@ export const InitializationView: React.FC = () => {
 	const [objective, setObjective] = useState<'max' | 'min'>('max');
 	const [language, setLanguage] = useState<'rust' | 'cpp' | 'python' | 'go'>('rust');
 	const [isInteractive, setIsInteractive] = useState(false);
+	const [testerUrl, setTesterUrl] = useState('');
 
 	const handleInitialize = () => {
 		if (!problemName.trim()) {
@@ -28,6 +30,7 @@ export const InitializationView: React.FC = () => {
 			objective,
 			language,
 			isInteractive,
+			testerUrl: testerUrl.trim(),
 		};
 
 		// @ts-expect-error - vscode API is injected
@@ -162,6 +165,23 @@ export const InitializationView: React.FC = () => {
 					</div>
 					<div style={descriptionStyle}>
 						インタラクティブ問題の場合はチェックを入れてください。
+					</div>
+				</div>
+
+				<div style={fieldStyle}>
+					<label htmlFor="testerUrl" style={labelStyle}>
+						ローカルテスターURL（オプション）
+					</label>
+					<input
+						id="testerUrl"
+						type="text"
+						value={testerUrl}
+						onChange={(e) => setTesterUrl(e.target.value)}
+						style={inputStyle}
+						placeholder="例: https://img.atcoder.jp/ahc054/YDAxDRZr_v2.zip"
+					/>
+					<div style={descriptionStyle}>
+						ローカルテスターのZIPファイルURLを入力すると、自動的にダウンロードして展開します。空欄の場合はスキップされます。
 					</div>
 				</div>
 

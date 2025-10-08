@@ -49,7 +49,7 @@
 		"viewsWelcome": [
 			{
 				"view": "pahcerResults",
-				"contents": "Pahcer UI を利用するには、まず Pahcer をインストールする必要があります。\n\n[Pahcer の GitHub ページを開く](command:pahcer-ui.openGitHub)",
+				"contents": "Pahcer UI を利用するには、まず Pahcer をインストールする必要があります。\n\n[Pahcer の GitHub ページを開く](command:pahcer-ui.openGitHub)\n\nインストール後、ウィンドウを再読み込みしてください。\n\n[ウィンドウを再読み込み](command:workbench.action.reloadWindow)",
 				"when": "pahcer.status == notInstalled"
 			},
 			{

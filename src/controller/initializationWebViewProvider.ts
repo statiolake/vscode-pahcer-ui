@@ -1,11 +1,13 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { TesterDownloader } from '../infrastructure/testerDownloader';
 
 interface InitOptions {
 	problemName: string;
 	objective: 'max' | 'min';
 	language: 'rust' | 'cpp' | 'python' | 'go';
 	isInteractive: boolean;
+	testerUrl: string;
 }
 
 /**
@@ -39,6 +41,22 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 	}
 
 	private async handleInitialize(options: InitOptions): Promise<void> {
+		// Download tester if URL is provided
+		if (options.testerUrl) {
+			try {
+				vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
+				const downloader = new TesterDownloader(this.workspaceRoot);
+				await downloader.downloadAndExtract(options.testerUrl);
+				vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				vscode.window.showErrorMessage(
+					`ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
+				);
+				// Continue with initialization even if download fails
+			}
+		}
+
 		// Build pahcer init command
 		let command = `pahcer init --problem "${options.problemName}" --objective ${options.objective} --lang ${options.language}`;
 		if (options.isInteractive) {

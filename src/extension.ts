@@ -58,113 +58,46 @@ export function activate(context: vscode.ExtensionContext) {
 	// Always create TreeViewController (it handles pahcer status internally)
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
 
-	// Register initialization WebView and command only when not initialized
-	if (pahcerStatus === PahcerStatus.NotInitialized) {
-		const initializationProvider = new InitializationWebViewProvider(context, workspaceRoot);
-		const initializationWebView = vscode.window.registerWebviewViewProvider(
-			'pahcerInitialization',
-			initializationProvider,
-		);
+	// Register initialization WebView and command (always register, regardless of pahcer status)
+	const initializationProvider = new InitializationWebViewProvider(context, workspaceRoot);
+	const initializationWebView = vscode.window.registerWebviewViewProvider(
+		'pahcerInitialization',
+		initializationProvider,
+	);
 
-		const initializeCommand = vscode.commands.registerCommand('pahcer-ui.initialize', () => {
-			// Show initialization WebView by switching context
-			vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', true);
-		});
+	const initializeCommand = vscode.commands.registerCommand('pahcer-ui.initialize', () => {
+		// Show initialization WebView by switching context
+		vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', true);
+	});
 
-		context.subscriptions.push(initializationWebView, initializeCommand);
-	}
+	context.subscriptions.push(initializationWebView, initializeCommand);
 
-	// If pahcer is not ready, we still create the TreeView but it will show welcome view
-	if (pahcerStatus !== PahcerStatus.Ready) {
-		const treeView = vscode.window.createTreeView('pahcerResults', {
-			treeDataProvider: treeViewController,
-			showCollapseAll: false,
-		});
-
-		context.subscriptions.push(
-			treeView,
-			vscode.commands.registerCommand('pahcer-ui.refresh', () => {
-				treeViewController.refresh();
-			}),
-		);
-
-		return;
-	}
-
-	// Create other controllers (only when pahcer is ready)
-	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
-	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
-	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(context, workspaceRoot);
-
-	// Create infrastructure components
+	// Create infrastructure components (always needed)
 	const terminalAdapter = new TerminalAdapter();
-	const resultRepository = new PahcerResultRepository(workspaceRoot);
-	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 
-	// Create TreeView
+	// Create TreeView (always create, but behavior differs based on pahcer status)
 	const treeView = vscode.window.createTreeView('pahcerResults', {
 		treeDataProvider: treeViewController,
-		showCollapseAll: true,
+		showCollapseAll: pahcerStatus === PahcerStatus.Ready,
 		canSelectMany: false,
 	});
 
-	// Register RunOptions WebView Provider
-	const runOptionsWebView = vscode.window.registerWebviewViewProvider(
-		'pahcerRunOptions',
-		runOptionsWebViewProvider,
-	);
+	// Create all controllers (always create, but will error if used when not ready)
+	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
+	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
+	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(context, workspaceRoot);
+	const resultRepository = new PahcerResultRepository(workspaceRoot);
+	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 
-	// Initialize context (show TreeView by default)
-	vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
-
-	// Handle checkbox state changes
-	treeView.onDidChangeCheckboxState(async (e) => {
-		for (const [item] of e.items) {
-			if ((item as any).resultId) {
-				treeViewController.toggleCheckbox((item as any).resultId);
-			}
-		}
-
-		// Auto-show comparison view when checkboxes change
-		const checkedResults = treeViewController.getCheckedResults();
-		await comparisonViewController.showComparison(checkedResults);
-
-		// Update context for diff button visibility
-		const resultsWithCommitHash = await treeViewController.getCheckedResultsWithCommitHash();
-		vscode.commands.executeCommand(
-			'setContext',
-			'pahcer.canShowDiff',
-			resultsWithCommitHash.length === 2,
-		);
-	});
-
-	// Watch for changes in pahcer/json directory
-	const watcher = new FileWatcher(workspaceRoot, 'pahcer/json/result_*.json', {
-		onCreate: async (uri) => {
-			// Extract result ID from path
-			const fileName = uri.fsPath.split('/').pop();
-			const match = fileName?.match(/^result_(.+)\.json$/);
-			if (match) {
-				const resultId = match[1];
-				await outputFileRepository.copyOutputFiles(resultId);
-			}
-			treeViewController.refresh();
-		},
-		onChange: () => treeViewController.refresh(),
-		onDelete: () => treeViewController.refresh(),
-	});
-
-	// Update context for button visibility
+	// Initialize grouping context
 	const updateGroupingContext = () => {
 		const mode = treeViewController.getGroupingMode();
 		vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
 	};
-
-	// Initialize context
 	updateGroupingContext();
 
-	// Register commands
-	const commands = [
+	// Register ALL commands (always available, but may error if pahcer not ready)
+	const allCommands = [
 		vscode.commands.registerCommand('pahcer-ui.refresh', () => {
 			treeViewController.refresh();
 		}),
@@ -172,9 +105,11 @@ export function activate(context: vscode.ExtensionContext) {
 			runCommand(workspaceAdapter, terminalAdapter),
 		),
 		vscode.commands.registerCommand('pahcer-ui.runWithOptions', () => {
-			// Show RunOptions WebView by switching context
 			vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', true);
 		}),
+		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
+			changeSortOrderCommand(treeViewController),
+		),
 		vscode.commands.registerCommand('pahcer-ui.switchToSeed', () =>
 			switchToSeedCommand(treeViewController, updateGroupingContext),
 		),
@@ -201,9 +136,6 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('pahcer-ui.addComment', (item: any) =>
 			addCommentCommand(item, resultRepository, treeViewController),
 		),
-		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
-			changeSortOrderCommand(treeViewController),
-		),
 		vscode.commands.registerCommand('pahcer-ui.openInputFile', (item: any) => {
 			if (item?.seed !== undefined) {
 				return openInputFile(workspaceRoot, item.seed);
@@ -224,7 +156,53 @@ export function activate(context: vscode.ExtensionContext) {
 		),
 	];
 
-	context.subscriptions.push(treeView, runOptionsWebView, watcher, ...commands);
+	// Register RunOptions WebView Provider
+	const runOptionsWebView = vscode.window.registerWebviewViewProvider(
+		'pahcerRunOptions',
+		runOptionsWebViewProvider,
+	);
+
+	// Initialize context (show TreeView by default)
+	vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
+
+	// Watch for changes in pahcer/json directory (always watch, regardless of pahcer status)
+	const watcher = new FileWatcher(workspaceRoot, 'pahcer/json/result_*.json', {
+		onCreate: async (uri) => {
+			// Extract result ID from path
+			const fileName = uri.fsPath.split('/').pop();
+			const match = fileName?.match(/^result_(.+)\.json$/);
+			if (match) {
+				const resultId = match[1];
+				await outputFileRepository.copyOutputFiles(resultId);
+			}
+			treeViewController.refresh();
+		},
+		onChange: () => treeViewController.refresh(),
+		onDelete: () => treeViewController.refresh(),
+	});
+
+	// Handle checkbox state changes (always register)
+	treeView.onDidChangeCheckboxState(async (e) => {
+		for (const [item] of e.items) {
+			if ((item as any).resultId) {
+				treeViewController.toggleCheckbox((item as any).resultId);
+			}
+		}
+
+		// Auto-show comparison view when checkboxes change
+		const checkedResults = treeViewController.getCheckedResults();
+		await comparisonViewController.showComparison(checkedResults);
+
+		// Update context for diff button visibility
+		const resultsWithCommitHash = await treeViewController.getCheckedResultsWithCommitHash();
+		vscode.commands.executeCommand(
+			'setContext',
+			'pahcer.canShowDiff',
+			resultsWithCommitHash.length === 2,
+		);
+	});
+
+	context.subscriptions.push(treeView, runOptionsWebView, watcher, ...allCommands);
 }
 
 export function deactivate() {}
