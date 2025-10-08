@@ -9,7 +9,6 @@ import type {
 } from '../domain/services/sortingService';
 import { sortExecutionsForSeed, sortTestCases } from '../domain/services/sortingService';
 import { ConfigAdapter } from '../infrastructure/configAdapter';
-import { MetadataRepository } from '../infrastructure/metadataRepository';
 import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
@@ -44,13 +43,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	private checkedResults = new Set<string>();
 
 	private resultRepository: PahcerResultRepository;
-	private metadataRepository: MetadataRepository;
 	private configAdapter: ConfigAdapter;
 	private treeItemBuilder: TreeItemBuilder;
 
 	constructor(private workspaceRoot: string) {
 		this.resultRepository = new PahcerResultRepository(workspaceRoot);
-		this.metadataRepository = new MetadataRepository(workspaceRoot);
 		this.configAdapter = new ConfigAdapter();
 		this.treeItemBuilder = new TreeItemBuilder();
 	}
@@ -194,9 +191,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		const items: PahcerTreeItem[] = [];
 
 		for (const resultWithId of results) {
-			// Load comment
-			const metadata = await this.metadataRepository.load(resultWithId.id);
-			const comment = metadata?.comment || '';
+			// Use comment from pahcer's JSON
+			const comment = resultWithId.result.comment || '';
 
 			// Build tree item
 			const builtItem = this.treeItemBuilder.buildExecutionItem(

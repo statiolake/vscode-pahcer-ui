@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { MetadataRepository } from '../../infrastructure/metadataRepository';
+import type { PahcerResultRepository } from '../../infrastructure/pahcerResultRepository';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -7,7 +7,7 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
  */
 export async function addCommentCommand(
 	item: any,
-	metadataRepository: MetadataRepository,
+	resultRepository: PahcerResultRepository,
 	treeViewController: PahcerTreeViewController,
 ): Promise<void> {
 	if (!item?.resultId) {
@@ -24,10 +24,14 @@ export async function addCommentCommand(
 		return;
 	}
 
-	// Save comment
-	await metadataRepository.save(item.resultId, { comment });
+	// Update comment in pahcer's JSON file
+	try {
+		await resultRepository.updateComment(item.resultId, comment);
 
-	// Refresh tree view
-	treeViewController.refresh();
-	vscode.window.showInformationMessage('コメントを保存しました');
+		// Refresh tree view
+		treeViewController.refresh();
+		vscode.window.showInformationMessage('コメントを保存しました');
+	} catch (error) {
+		vscode.window.showErrorMessage(`コメントの保存に失敗しました: ${error}`);
+	}
 }

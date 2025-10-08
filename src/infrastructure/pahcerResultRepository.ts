@@ -111,4 +111,30 @@ export class PahcerResultRepository {
 			return null;
 		}
 	}
+
+	/**
+	 * コメントを更新する（pahcer本体のJSONファイルを直接書き換え）
+	 */
+	async updateComment(resultId: string, comment: string): Promise<void> {
+		const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
+
+		if (!fs.existsSync(jsonPath)) {
+			throw new Error(`Result file not found: ${jsonPath}`);
+		}
+
+		try {
+			// JSONファイルを読み込む
+			const content = fs.readFileSync(jsonPath, 'utf-8');
+			const raw: RawPahcerResult = JSON.parse(content);
+
+			// commentフィールドを更新
+			raw.comment = comment;
+
+			// JSONファイルに書き戻す（インデントを保持）
+			fs.writeFileSync(jsonPath, JSON.stringify(raw, null, 2), 'utf-8');
+		} catch (e) {
+			console.error(`Failed to update comment for ${resultId}:`, e);
+			throw e;
+		}
+	}
 }

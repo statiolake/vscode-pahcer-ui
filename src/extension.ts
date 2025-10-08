@@ -16,8 +16,8 @@ import { ComparisonViewController } from './controller/comparisonViewController'
 import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { FileWatcher } from './infrastructure/fileWatcher';
-import { MetadataRepository } from './infrastructure/metadataRepository';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
+import { PahcerResultRepository } from './infrastructure/pahcerResultRepository';
 import { TerminalAdapter } from './infrastructure/terminalAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Create infrastructure components
 	const terminalAdapter = new TerminalAdapter();
-	const metadataRepository = new MetadataRepository(workspaceRoot);
+	const resultRepository = new PahcerResultRepository(workspaceRoot);
 	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 
 	// Create TreeView
@@ -108,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
 			},
 		),
 		vscode.commands.registerCommand('pahcer-ui.addComment', (item: any) =>
-			addCommentCommand(item, metadataRepository, treeViewController),
+			addCommentCommand(item, resultRepository, treeViewController),
 		),
 		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
 			changeSortOrderCommand(treeViewController),
