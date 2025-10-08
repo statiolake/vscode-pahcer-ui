@@ -33,6 +33,8 @@ export interface ChartDataPoint {
 	resultId: string;
 	seed: number;
 	variables?: Record<string, number>;
+	// For aggregated points: list of all seeds and their Y values in the group
+	group?: Array<{ seed: number; y: number }>;
 }
 
 export interface StatsRow {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Line, Scatter } from 'react-chartjs-2';
 import {
 	Chart as ChartJS,
@@ -29,6 +29,12 @@ interface Props {
 	filter: string;
 }
 
+interface PopupState {
+	x: number;
+	y: number;
+	point: ChartDataPoint;
+}
+
 export function ComparisonChart({
 	data,
 	featureString,
@@ -38,6 +44,8 @@ export function ComparisonChart({
 	skipFailed,
 	filter,
 }: Props) {
+	const [popup, setPopup] = useState<PopupState | null>(null);
+
 	const { chartData, xAxisLabel, yAxisLabel } = useMemo(
 		() => prepareChartData(data, featureString, xAxis, yAxis, chartType, skipFailed, filter),
 		[data, featureString, xAxis, yAxis, chartType, skipFailed, filter],
@@ -47,14 +55,20 @@ export function ComparisonChart({
 	const textColor = getComputedStyle(document.body).getPropertyValue('--vscode-foreground') || '#cccccc';
 	const gridColor = getComputedStyle(document.body).getPropertyValue('--vscode-panel-border') || '#3e3e3e';
 
-	const options = {
-		responsive: true,
-		maintainAspectRatio: false,
-		onClick: (_: unknown, elements: unknown[]) => {
-			if (Array.isArray(elements) && elements.length > 0) {
-				const element = elements[0] as { datasetIndex: number; index: number };
-				const point = chartData.datasets[element.datasetIndex]?.data[element.index];
-				if (point) {
+	const handlePointClick = (event: any, elements: unknown[]) => {
+		if (Array.isArray(elements) && elements.length > 0) {
+			const element = elements[0] as { datasetIndex: number; index: number };
+			const point = chartData.datasets[element.datasetIndex]?.data[element.index];
+			if (point && event.native) {
+				// If the point has a group (aggregated), show popup
+				if (point.group && point.group.length > 1) {
+					setPopup({
+						x: event.native.clientX,
+						y: event.native.clientY,
+						point,
+					});
+				} else {
+					// Single point or non-aggregated: navigate directly
 					postMessage({
 						command: 'showVisualizer',
 						resultId: point.resultId,
@@ -62,7 +76,13 @@ export function ComparisonChart({
 					});
 				}
 			}
-		},
+		}
+	};
+
+	const options = {
+		responsive: true,
+		maintainAspectRatio: false,
+		onClick: handlePointClick,
 		plugins: {
 			legend: {
 				position: 'top' as const,
@@ -79,13 +99,17 @@ export function ComparisonChart({
 				callbacks: {
 					label: function (context: any) {
 						const point = context.raw as ChartDataPoint;
-						const lines = [
-							context.dataset.label + ': ' + point.y.toLocaleString(),
-							'seed: ' + point.seed,
-							'x: ' + point.x,
-						];
-						if (point.variables) {
-							lines.push('vars: ' + JSON.stringify(point.variables));
+						const lines = [context.dataset.label + ': ' + point.y.toLocaleString()];
+
+						if (point.group && point.group.length > 1) {
+							lines.push(`(${point.group.length} 件を集約)`);
+							lines.push('x: ' + point.x);
+						} else {
+							lines.push('seed: ' + point.seed);
+							lines.push('x: ' + point.x);
+							if (point.variables) {
+								lines.push('vars: ' + JSON.stringify(point.variables));
+							}
 						}
 						return lines;
 					},
@@ -123,12 +147,91 @@ export function ComparisonChart({
 		},
 	};
 
+	const handleSeedClick = (resultId: string, seed: number) => {
+		postMessage({
+			command: 'showVisualizer',
+			resultId,
+			seed,
+		});
+		setPopup(null);
+	};
+
+	const handleClosePopup = () => {
+		setPopup(null);
+	};
+
 	return (
 		<div style={{ position: 'relative', height: '600px', marginTop: '20px' }}>
 			{chartType === 'line' ? (
 				<Line data={chartData} options={options} />
 			) : (
 				<Scatter data={chartData} options={options} />
+			)}
+
+			{popup && (
+				<>
+					{/* Backdrop to close popup */}
+					<div
+						style={{
+							position: 'fixed',
+							top: 0,
+							left: 0,
+							right: 0,
+							bottom: 0,
+							zIndex: 999,
+						}}
+						onClick={handleClosePopup}
+					/>
+					{/* Popup */}
+					<div
+						style={{
+							position: 'fixed',
+							left: popup.x + 10,
+							top: popup.y + 10,
+							backgroundColor: 'var(--vscode-editor-background)',
+							border: '1px solid var(--vscode-panel-border)',
+							borderRadius: '4px',
+							padding: '10px',
+							maxHeight: '300px',
+							overflowY: 'auto',
+							zIndex: 1000,
+							boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+						}}
+					>
+						<div style={{ marginBottom: '8px', fontWeight: 'bold', color: textColor }}>
+							集約された Seed (x={popup.point.x})
+						</div>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+							{popup.point.group?.map((item) => (
+								<a
+									key={item.seed}
+									href="#"
+									onClick={(e) => {
+										e.preventDefault();
+										handleSeedClick(popup.point.resultId, item.seed);
+									}}
+									style={{
+										color: 'var(--vscode-textLink-foreground)',
+										textDecoration: 'none',
+										padding: '4px 8px',
+										borderRadius: '2px',
+										cursor: 'pointer',
+									}}
+									onMouseEnter={(e) => {
+										e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+										e.currentTarget.style.textDecoration = 'underline';
+									}}
+									onMouseLeave={(e) => {
+										e.currentTarget.style.backgroundColor = 'transparent';
+										e.currentTarget.style.textDecoration = 'none';
+									}}
+								>
+									Seed {item.seed}: {item.y.toLocaleString()}
+								</a>
+							))}
+						</div>
+					</div>
+				</>
 			)}
 		</div>
 	);
@@ -262,7 +365,7 @@ function prepareChartData(
 			try {
 				const yResult = evaluateExpression(yAxis, variables);
 
-				// If yResult length matches group length, create one point per seed
+				// If yResult length matches group length, create one point per seed (not aggregated)
 				if (yResult.length === group.length) {
 					for (let i = 0; i < group.length; i++) {
 						chartData.push({
@@ -275,16 +378,44 @@ function prepareChartData(
 								absScore: group[i].testCase.score,
 								relScore: group[i].testCase.relativeScore,
 							},
+							// No group field for non-aggregated points
 						});
 					}
 				} else if (yResult.length === 1) {
-					// Aggregated: create one point (no specific seed association)
+					// Aggregated: create one point with group information
 					chartData.push({
 						x: xValue,
 						y: yResult[0],
 						resultId: result.id,
-						seed: group[0].seed, // Representative seed (won't be used for visualizer)
-						variables: {}, // No specific variables
+						seed: group[0].seed, // Representative seed (not used for single-seed navigation)
+						variables: {}, // No specific variables for aggregated point
+						group: group.map((g) => {
+							// Re-evaluate Y for each individual seed to show in popup
+							const singleVars: Record<string, number[]> = {};
+							singleVars.seed = [g.seed];
+							singleVars.absScore = [g.testCase.score];
+							singleVars.relScore = [g.testCase.relativeScore];
+							singleVars.msec = [g.testCase.executionTime * 1000];
+
+							for (const featureName of features) {
+								const featureValues = parseFeatures(g.inputLine);
+								const featureIndex = features.indexOf(featureName);
+								singleVars[featureName] = [Number(featureValues[featureIndex]) || 0];
+							}
+
+							const stderr = stderrData[result.id]?.[g.seed] || '';
+							const stderrVars = parseStderrVariables(stderr);
+							for (const [varName, value] of Object.entries(stderrVars)) {
+								singleVars[`$${varName}`] = [value];
+							}
+
+							try {
+								const singleY = evaluateExpression(yAxis, singleVars);
+								return { seed: g.seed, y: singleY[0] };
+							} catch {
+								return { seed: g.seed, y: g.testCase.score };
+							}
+						}),
 					});
 				} else {
 					console.warn(
