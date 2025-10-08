@@ -35,7 +35,7 @@
 				},
 				{
 					"id": "pahcerResults",
-					"name": "Test Results",
+					"name": "テスト結果",
 					"when": "!pahcer.showRunOptions"
 				}
 			]

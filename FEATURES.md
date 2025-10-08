@@ -5,7 +5,7 @@
 ## 1. テスト実行結果の表示
 
 ### 1.1 TreeView による結果表示
-- **場所**: Activity Bar の Pahcer アイコン → Test Results
+- **場所**: Activity Bar の Pahcer アイコン → テスト結果
 - **機能**:
   - `pahcer/json/result_*.json` から最新10件の実行結果を読み込み
   - 各実行結果のサマリー情報を表示:

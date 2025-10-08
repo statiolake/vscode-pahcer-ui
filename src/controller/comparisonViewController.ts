@@ -81,7 +81,7 @@ export class ComparisonViewController {
 
 			this.panel = vscode.window.createWebviewPanel(
 				'pahcerComparison',
-				'Results Comparison',
+				'結果の比較',
 				vscode.ViewColumn.One,
 				{
 					enableScripts: true,
@@ -190,7 +190,7 @@ export class ComparisonViewController {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; img-src ${webview.cspSource} data:;">
-    <title>Results Comparison</title>
+    <title>結果の比較</title>
     <style nonce="${nonce}">
         body {
             font-family: var(--vscode-font-family);
