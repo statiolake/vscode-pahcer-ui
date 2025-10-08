@@ -22,17 +22,16 @@ export class TreeItemBuilder {
 		isChecked: boolean,
 	): vscode.TreeItem {
 		const result = item.result;
-		const time = this.formatDate(new Date(result.startTime));
+		const time = this.formatDateCompact(new Date(result.startTime));
 		const acCount = calculateAcCount(result.caseCount, result.waSeeds);
-		const avgScore = calculateAverageScore(result.totalScore, result.caseCount).toFixed(2);
+		const avgScore = calculateAverageScore(result.totalScore, result.caseCount).toFixed(1);
 		const avgRel = calculateAverageRelativeScore(
 			result.totalRelativeScore,
 			result.caseCount,
-		).toFixed(3);
+		).toFixed(2);
 
-		const label = comment
-			? `[${comment}] ${time} - AC:${acCount}/${result.caseCount} Score:${avgScore} Rel:${avgRel}`
-			: `${time} - AC:${acCount}/${result.caseCount} Score:${avgScore} Rel:${avgRel}`;
+		const commentSuffix = comment ? ` [${comment}]` : '';
+		const label = `${time} - Avg: ${avgScore} (${avgRel}%)${commentSuffix}`;
 		const description = result.comment || (result.tagName || '').replace('pahcer/', '');
 
 		const treeItem = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
@@ -68,7 +67,8 @@ export class TreeItemBuilder {
 	 * サマリーのTreeItemを生成
 	 */
 	buildSummaryItem(result: PahcerResult): vscode.TreeItem {
-		const summaryLabel = `Total Score: ${result.totalScore.toLocaleString()}, Max Time: ${(result.maxExecutionTime * 1000).toFixed(0)}ms`;
+		const acCount = calculateAcCount(result.caseCount, result.waSeeds);
+		const summaryLabel = `AC: ${acCount}/${result.caseCount}, Total Score: ${result.totalScore.toLocaleString()}, Max Time: ${(result.maxExecutionTime * 1000).toFixed(0)}ms`;
 		const summaryItem = new vscode.TreeItem(summaryLabel, vscode.TreeItemCollapsibleState.None);
 		summaryItem.contextValue = 'summary';
 		summaryItem.iconPath = new vscode.ThemeIcon('info');
@@ -174,6 +174,17 @@ export class TreeItemBuilder {
 	 */
 	buildInfoItem(message: string): vscode.TreeItem {
 		return new vscode.TreeItem(message, vscode.TreeItemCollapsibleState.None);
+	}
+
+	/**
+	 * 日付をコンパクトにフォーマット（MM/DD HH:MM）
+	 */
+	private formatDateCompact(date: Date): string {
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hour = String(date.getHours()).padStart(2, '0');
+		const minute = String(date.getMinutes()).padStart(2, '0');
+		return `${month}/${day} ${hour}:${minute}`;
 	}
 
 	/**
