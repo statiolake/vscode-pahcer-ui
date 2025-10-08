@@ -29,6 +29,12 @@
 			"pahcer": [
 				{
 					"type": "webview",
+					"id": "pahcerInitialization",
+					"name": "初期化",
+					"when": "pahcer.showInitialization"
+				},
+				{
+					"type": "webview",
 					"id": "pahcerRunOptions",
 					"name": "実行オプション",
 					"when": "pahcer.showRunOptions"
@@ -36,10 +42,22 @@
 				{
 					"id": "pahcerResults",
 					"name": "テスト結果",
-					"when": "!pahcer.showRunOptions"
+					"when": "!pahcer.showRunOptions && !pahcer.showInitialization"
 				}
 			]
 		},
+		"viewsWelcome": [
+			{
+				"view": "pahcerResults",
+				"contents": "Pahcer UI を利用するには、まず Pahcer をインストールする必要があります。\n\n[Pahcer の GitHub ページを開く](command:pahcer-ui.openGitHub)",
+				"when": "pahcer.status == notInstalled"
+			},
+			{
+				"view": "pahcerResults",
+				"contents": "Pahcer を実行するには、まず初期設定を行う必要があります。\n\n[初期化する](command:pahcer-ui.initialize)",
+				"when": "pahcer.status == notInitialized"
+			}
+		],
 		"commands": [
 			{
 				"command": "pahcer-ui.run",
@@ -91,6 +109,14 @@
 				"command": "pahcer-ui.showDiff",
 				"title": "差分を表示",
 				"icon": "$(git-compare)"
+			},
+			{
+				"command": "pahcer-ui.openGitHub",
+				"title": "Pahcer の GitHub ページを開く"
+			},
+			{
+				"command": "pahcer-ui.initialize",
+				"title": "Pahcer を初期化"
 			}
 		],
 		"menus": {

@@ -6,7 +6,6 @@ import {
 	openInputFile,
 	openOutputFile,
 } from './controller/commands/openFileCommand';
-import { refreshCommand } from './controller/commands/refreshCommand';
 import { runCommand } from './controller/commands/runCommand';
 import { showDiffCommand } from './controller/commands/showDiffCommand';
 import {
@@ -14,11 +13,13 @@ import {
 	switchToSeedCommand,
 } from './controller/commands/switchModeCommand';
 import { ComparisonViewController } from './controller/comparisonViewController';
+import { InitializationWebViewProvider } from './controller/initializationWebViewProvider';
 import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { FileWatcher } from './infrastructure/fileWatcher';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
+import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerResultRepository } from './infrastructure/pahcerResultRepository';
 import { TerminalAdapter } from './infrastructure/terminalAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
@@ -31,8 +32,66 @@ export function activate(context: vscode.ExtensionContext) {
 		return;
 	}
 
-	// Create controllers
+	// Check pahcer installation and initialization status
+	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
+	const pahcerStatus = pahcerAdapter.checkStatus();
+
+	// Set context for viewsWelcome
+	if (pahcerStatus === PahcerStatus.NotInstalled) {
+		vscode.commands.executeCommand('setContext', 'pahcer.status', 'notInstalled');
+	} else if (pahcerStatus === PahcerStatus.NotInitialized) {
+		vscode.commands.executeCommand('setContext', 'pahcer.status', 'notInitialized');
+	} else {
+		vscode.commands.executeCommand('setContext', 'pahcer.status', 'ready');
+	}
+
+	// Register setup commands (always available)
+	context.subscriptions.push(
+		vscode.commands.registerCommand('pahcer-ui.openGitHub', () => {
+			vscode.env.openExternal(vscode.Uri.parse('https://github.com/terry-u16/pahcer'));
+		}),
+	);
+
+	// Initialize context (hide initialization view by default)
+	vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', false);
+
+	// Always create TreeViewController (it handles pahcer status internally)
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
+
+	// Register initialization WebView and command only when not initialized
+	if (pahcerStatus === PahcerStatus.NotInitialized) {
+		const initializationProvider = new InitializationWebViewProvider(context, workspaceRoot);
+		const initializationWebView = vscode.window.registerWebviewViewProvider(
+			'pahcerInitialization',
+			initializationProvider,
+		);
+
+		const initializeCommand = vscode.commands.registerCommand('pahcer-ui.initialize', () => {
+			// Show initialization WebView by switching context
+			vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', true);
+		});
+
+		context.subscriptions.push(initializationWebView, initializeCommand);
+	}
+
+	// If pahcer is not ready, we still create the TreeView but it will show welcome view
+	if (pahcerStatus !== PahcerStatus.Ready) {
+		const treeView = vscode.window.createTreeView('pahcerResults', {
+			treeDataProvider: treeViewController,
+			showCollapseAll: false,
+		});
+
+		context.subscriptions.push(
+			treeView,
+			vscode.commands.registerCommand('pahcer-ui.refresh', () => {
+				treeViewController.refresh();
+			}),
+		);
+
+		return;
+	}
+
+	// Create other controllers (only when pahcer is ready)
 	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
 	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
 	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(context, workspaceRoot);
@@ -106,6 +165,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register commands
 	const commands = [
+		vscode.commands.registerCommand('pahcer-ui.refresh', () => {
+			treeViewController.refresh();
+		}),
 		vscode.commands.registerCommand('pahcer-ui.run', () =>
 			runCommand(workspaceAdapter, terminalAdapter),
 		),
@@ -113,7 +175,6 @@ export function activate(context: vscode.ExtensionContext) {
 			// Show RunOptions WebView by switching context
 			vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', true);
 		}),
-		vscode.commands.registerCommand('pahcer-ui.refresh', () => refreshCommand(treeViewController)),
 		vscode.commands.registerCommand('pahcer-ui.switchToSeed', () =>
 			switchToSeedCommand(treeViewController, updateGroupingContext),
 		),

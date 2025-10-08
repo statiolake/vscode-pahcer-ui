@@ -1,0 +1,86 @@
+import * as path from 'node:path';
+import * as vscode from 'vscode';
+
+interface InitOptions {
+	problemName: string;
+	objective: 'max' | 'min';
+	language: 'rust' | 'cpp' | 'python' | 'go';
+	isInteractive: boolean;
+}
+
+/**
+ * pahcer init を実行するための初期化WebView
+ */
+export class InitializationWebViewProvider implements vscode.WebviewViewProvider {
+	constructor(
+		private readonly context: vscode.ExtensionContext,
+		private readonly workspaceRoot: string,
+	) {}
+
+	resolveWebviewView(
+		webviewView: vscode.WebviewView,
+		_context: vscode.WebviewViewResolveContext,
+		_token: vscode.CancellationToken,
+	): void {
+		webviewView.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [this.context.extensionUri],
+		};
+
+		webviewView.webview.html = this.getHtmlContent(webviewView.webview);
+
+		webviewView.webview.onDidReceiveMessage(async (message) => {
+			switch (message.command) {
+				case 'initialize':
+					await this.handleInitialize(message.options);
+					break;
+			}
+		});
+	}
+
+	private async handleInitialize(options: InitOptions): Promise<void> {
+		// Build pahcer init command
+		let command = `pahcer init --problem "${options.problemName}" --objective ${options.objective} --lang ${options.language}`;
+		if (options.isInteractive) {
+			command += ' --interactive';
+		}
+
+		const terminal = vscode.window.createTerminal({
+			name: 'Pahcer Init',
+			cwd: this.workspaceRoot,
+		});
+		terminal.show();
+		terminal.sendText(command);
+
+		// Close initialization WebView and return to TreeView
+		await vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', false);
+
+		// Wait a moment for the command to execute, then refresh TreeView
+		setTimeout(async () => {
+			await vscode.commands.executeCommand('pahcer-ui.refresh');
+		}, 2000);
+	}
+
+	private getHtmlContent(webview: vscode.Webview): string {
+		const scriptUri = webview.asWebviewUri(
+			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'initialization.js'),
+		);
+
+		// Get current directory name as default project name
+		const defaultProjectName = path.basename(this.workspaceRoot);
+
+		return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
+	<title>Pahcer 初期化</title>
+</head>
+<body>
+	<div id="root" data-default-project-name="${defaultProjectName}"></div>
+	<script src="${scriptUri}"></script>
+</body>
+</html>`;
+	}
+}

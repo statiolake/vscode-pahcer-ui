@@ -9,6 +9,7 @@ import type {
 } from '../domain/services/sortingService';
 import { sortExecutionsForSeed, sortTestCases } from '../domain/services/sortingService';
 import { ConfigAdapter } from '../infrastructure/configAdapter';
+import { PahcerAdapter, PahcerStatus } from '../infrastructure/pahcerAdapter';
 import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
@@ -42,11 +43,13 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 	private checkedResults = new Set<string>();
 
+	private pahcerAdapter: PahcerAdapter;
 	private resultRepository: PahcerResultRepository;
 	private configAdapter: ConfigAdapter;
 	private treeItemBuilder: TreeItemBuilder;
 
 	constructor(private workspaceRoot: string) {
+		this.pahcerAdapter = new PahcerAdapter(workspaceRoot);
 		this.resultRepository = new PahcerResultRepository(workspaceRoot);
 		this.configAdapter = new ConfigAdapter();
 		this.treeItemBuilder = new TreeItemBuilder();
@@ -134,6 +137,14 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * 子要素を取得
 	 */
 	async getChildren(element?: PahcerTreeItem): Promise<PahcerTreeItem[]> {
+		// Check pahcer status
+		const status = this.pahcerAdapter.checkStatus();
+
+		// If not ready, return empty array to show welcome view
+		if (status !== PahcerStatus.Ready) {
+			return [];
+		}
+
 		const groupingMode = this.getGroupingMode();
 
 		if (groupingMode === 'byExecution') {
