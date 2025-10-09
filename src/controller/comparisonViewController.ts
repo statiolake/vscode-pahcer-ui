@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getLongTitle, type PahcerResult } from '../domain/models/pahcerResult';
 import { ConfigRepository } from '../infrastructure/configRepository';
 import { InputFileRepository } from '../infrastructure/inputFileRepository';
 import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
@@ -40,7 +41,7 @@ export class ComparisonViewController {
 	 */
 	async showComparison(resultIds: string[]): Promise<void> {
 		// Load result data
-		const results: Array<{ id: string; data: any }> = [];
+		const results: Array<{ id: string; data: PahcerResult | null }> = [];
 		for (const resultId of resultIds) {
 			const result = await this.resultRepository.loadResult(resultId);
 			if (result) {
@@ -59,7 +60,7 @@ export class ComparisonViewController {
 		// Collect all seeds
 		const allSeeds = new Set<number>();
 		for (const result of results) {
-			for (const testCase of result.data.cases) {
+			for (const testCase of result?.data?.cases || []) {
 				allSeeds.add(testCase.seed);
 			}
 		}
@@ -131,16 +132,6 @@ export class ComparisonViewController {
 		stderrData: Record<string, Record<number, string>>,
 		webview: vscode.Webview,
 	): Promise<string> {
-		function formatDate(date: Date): string {
-			const year = date.getFullYear();
-			const month = String(date.getMonth() + 1).padStart(2, '0');
-			const day = String(date.getDate()).padStart(2, '0');
-			const hour = String(date.getHours()).padStart(2, '0');
-			const minute = String(date.getMinutes()).padStart(2, '0');
-			const second = String(date.getSeconds()).padStart(2, '0');
-			return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
-		}
-
 		// Collect all seeds
 		const allSeeds = new Set<number>();
 		for (const result of results) {
@@ -163,7 +154,7 @@ export class ComparisonViewController {
 		const comparisonData = {
 			results: results.map((r) => ({
 				id: r.id,
-				time: formatDate(new Date(r.data.startTime)),
+				time: getLongTitle(r.data),
 				cases: r.data.cases.map((c: any) => ({
 					seed: c.seed,
 					score: c.score,

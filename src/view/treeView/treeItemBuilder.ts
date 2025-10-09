@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
-import type { PahcerResult, PahcerResultWithId } from '../../domain/models/pahcerResult';
+import {
+	getAcCount,
+	getAverageRelativeScore,
+	getAverageScore,
+	getShortTitle,
+	type PahcerResult,
+	type PahcerResultWithId,
+} from '../../domain/models/pahcerResult';
 import type { TestCase } from '../../domain/models/testCase';
 import type { SeedStats } from '../../domain/services/aggregationService';
-import {
-	calculateAcCount,
-	calculateAverageRelativeScore,
-	calculateAverageScore,
-} from '../../domain/services/aggregationService';
 
 /**
  * TreeItem を生成するビルダー
@@ -22,13 +24,10 @@ export class TreeItemBuilder {
 		isChecked: boolean,
 	): vscode.TreeItem {
 		const result = item.result;
-		const time = this.formatDateCompact(new Date(result.startTime));
-		const acCount = calculateAcCount(result.caseCount, result.waSeeds);
-		const avgScore = calculateAverageScore(result.totalScore, result.caseCount).toFixed(1);
-		const avgRel = calculateAverageRelativeScore(
-			result.totalRelativeScore,
-			result.caseCount,
-		).toFixed(2);
+		const time = getShortTitle(result);
+		const acCount = getAcCount(result);
+		const avgScore = getAverageScore(result).toFixed(1);
+		const avgRel = getAverageRelativeScore(result).toFixed(2);
 
 		const commentSuffix = comment ? ` [${comment}]` : '';
 		const label = `${time} - Avg: ${avgScore} (${avgRel}%)${commentSuffix}`;
@@ -91,7 +90,7 @@ export class TreeItemBuilder {
 	 * サマリーのTreeItemを生成
 	 */
 	buildSummaryItem(result: PahcerResult): vscode.TreeItem {
-		const acCount = calculateAcCount(result.caseCount, result.waSeeds);
+		const acCount = getAcCount(result);
 		const summaryLabel = `AC: ${acCount}/${result.caseCount}, Total Score: ${result.totalScore.toLocaleString()}, Max Time: ${(result.maxExecutionTime * 1000).toFixed(0)}ms`;
 		const summaryItem = new vscode.TreeItem(summaryLabel, vscode.TreeItemCollapsibleState.None);
 		summaryItem.contextValue = 'summary';
@@ -221,29 +220,5 @@ export class TreeItemBuilder {
 	 */
 	buildInfoItem(message: string): vscode.TreeItem {
 		return new vscode.TreeItem(message, vscode.TreeItemCollapsibleState.None);
-	}
-
-	/**
-	 * 日付をコンパクトにフォーマット（MM/DD HH:MM）
-	 */
-	private formatDateCompact(date: Date): string {
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const hour = String(date.getHours()).padStart(2, '0');
-		const minute = String(date.getMinutes()).padStart(2, '0');
-		return `${month}/${day} ${hour}:${minute}`;
-	}
-
-	/**
-	 * 日付をフォーマット
-	 */
-	private formatDate(date: Date): string {
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const hour = String(date.getHours()).padStart(2, '0');
-		const minute = String(date.getMinutes()).padStart(2, '0');
-		const second = String(date.getSeconds()).padStart(2, '0');
-		return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
 	}
 }

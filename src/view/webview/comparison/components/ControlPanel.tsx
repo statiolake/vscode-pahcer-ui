@@ -152,25 +152,33 @@ export function ControlPanel({
 					/>
 				</label>
 				<label style={labelStyle}>
-					<input type="checkbox" checked={skipFailed} onChange={(e) => onSkipFailedChange(e.target.checked)} />
+					<input
+						type="checkbox"
+						checked={skipFailed}
+						onChange={(e) => onSkipFailedChange(e.target.checked)}
+					/>
 					WA を無視
 				</label>
 			</div>
 			<details style={{ marginTop: '10px' }}>
-				<summary style={{
-					fontSize: '0.9em',
-					color: 'var(--vscode-descriptionForeground)',
-					cursor: 'pointer',
-					userSelect: 'none'
-				}}>
+				<summary
+					style={{
+						fontSize: '0.9em',
+						color: 'var(--vscode-descriptionForeground)',
+						cursor: 'pointer',
+						userSelect: 'none',
+					}}
+				>
 					設定の詳細
 				</summary>
-				<div style={{
-					fontSize: '0.9em',
-					color: 'var(--vscode-descriptionForeground)',
-					marginTop: '8px',
-					paddingLeft: '20px'
-				}}>
+				<div
+					style={{
+						fontSize: '0.9em',
+						color: 'var(--vscode-descriptionForeground)',
+						marginTop: '8px',
+						paddingLeft: '20px',
+					}}
+				>
 					<p style={{ marginTop: '5px', marginBottom: '10px' }}>
 						<strong>Features:</strong> 入力ファイルの先頭行を空白区切りで解釈 (例: N M K)
 					</p>
@@ -178,36 +186,64 @@ export function ControlPanel({
 						<strong>X軸・Y軸:</strong> 式を使用できます
 					</p>
 					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
-						<li><code>seed</code> - シード番号</li>
-						<li><code>absScore</code> - 絶対スコア</li>
-						<li><code>relScore</code> - 相対スコア (%)</li>
-						<li><code>msec</code> - 実行時間 (ミリ秒)</li>
-						<li>Features で定義した変数 (例: <code>N</code>, <code>M</code>, <code>K</code>)</li>
-						<li><code>$varname</code> - 標準エラー出力から抽出した変数 (例: <code>$iter</code>)</li>
+						<li>
+							<code>seed</code> - シード番号
+						</li>
+						<li>
+							<code>absScore</code> - 絶対スコア
+						</li>
+						<li>
+							<code>relScore</code> - 相対スコア (%)
+						</li>
+						<li>
+							<code>msec</code> - 実行時間 (ミリ秒)
+						</li>
+						<li>
+							Features で定義した変数 (例: <code>N</code>, <code>M</code>, <code>K</code>)
+						</li>
+						<li>
+							<code>$varname</code> - 標準エラー出力から抽出した変数 (例: <code>$iter</code>)
+						</li>
 					</ul>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
-						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>, <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>, <code>relScore*100</code>, <code>msec</code>, <code>log($iter)</code>
+						<strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>,{' '}
+						<code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>,{' '}
+						<code>relScore*100</code>, <code>msec</code>, <code>log($iter)</code>
 					</p>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
-						<strong>標準エラー出力の変数:</strong> 標準エラー出力の先頭100行と末尾100行から <code>$varname = value</code> 形式で抽出
+						<strong>標準エラー出力の変数:</strong> 標準エラー出力の先頭100行と末尾100行から{' '}
+						<code>$varname = value</code> 形式で抽出
 					</p>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
 						<strong>利用可能な関数:</strong>
 					</p>
 					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
-						<li>要素ごと: <code>log(x)</code>, <code>ceil(x)</code>, <code>floor(x)</code></li>
-						<li>集計: <code>avg(x)</code>, <code>max(x)</code>, <code>min(x)</code></li>
-						<li>その他: <code>random()</code> - 0以上1未満の乱数</li>
+						<li>
+							要素ごと: <code>log(x)</code>, <code>ceil(x)</code>, <code>floor(x)</code>
+						</li>
+						<li>
+							集計: <code>avg(x)</code>, <code>max(x)</code>, <code>min(x)</code>
+						</li>
+						<li>
+							その他: <code>random()</code> - 0以上1未満の乱数
+						</li>
 					</ul>
 					<p style={{ marginTop: '0', marginBottom: '10px' }}>
-						<strong>Filter:</strong> 条件式を指定してデータをフィルタリング（空欄の場合は全データを表示）
+						<strong>Filter:</strong>{' '}
+						条件式を指定してデータをフィルタリング（空欄の場合は全データを表示）
 					</p>
 					<ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
-						<li>比較演算子: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code></li>
-						<li>例: <code>N &gt;= 100</code>, <code>N == 50</code>, <code>N * M &lt;= 1000</code></li>
+						<li>
+							比較演算子: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>,{' '}
+							<code>&gt;=</code>, <code>==</code>, <code>!=</code>
+						</li>
+						<li>
+							例: <code>N &gt;= 100</code>, <code>N == 50</code>, <code>N * M &lt;= 1000</code>
+						</li>
 					</ul>
 					<p style={{ marginTop: '0', marginBottom: '5px' }}>
-						<strong>「WA を無視」:</strong> チェックすると、集計時にスコアが0のケース（WA）を除外します
+						<strong>「WA を無視」:</strong>{' '}
+						チェックすると、集計時にスコアが0のケース（WA）を除外します
 					</p>
 				</div>
 			</details>

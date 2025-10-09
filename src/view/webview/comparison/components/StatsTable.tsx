@@ -11,7 +11,10 @@ interface Props {
 }
 
 export function StatsTable({ data, featureString, filter }: Props) {
-	const stats = useMemo(() => calculateStats(data, featureString, filter), [data, featureString, filter]);
+	const stats = useMemo(
+		() => calculateStats(data, featureString, filter),
+		[data, featureString, filter],
+	);
 
 	const sectionStyle = {
 		marginBottom: '20px',
@@ -37,7 +40,13 @@ export function StatsTable({ data, featureString, filter }: Props) {
 
 	return (
 		<div style={sectionStyle}>
-			<div style={{ marginBottom: '10px', fontSize: '0.9em', color: 'var(--vscode-descriptionForeground)' }}>
+			<div
+				style={{
+					marginBottom: '10px',
+					fontSize: '0.9em',
+					color: 'var(--vscode-descriptionForeground)',
+				}}
+			>
 				統計情報
 			</div>
 			<table style={tableStyle}>
@@ -166,7 +175,9 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
 
 		const mean = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 		const variance =
-			scores.length > 0 ? scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length : 0;
+			scores.length > 0
+				? scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length
+				: 0;
 		const sd = Math.sqrt(variance);
 
 		stats.push({

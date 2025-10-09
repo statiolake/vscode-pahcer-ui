@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getTitleWithHash } from '../../domain/models/pahcerResult';
 import { GitAdapter } from '../../infrastructure/gitAdapter';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
@@ -29,23 +30,12 @@ export async function showDiffCommand(
 	}
 
 	try {
-		// Format timestamps as MM/DD HH:mm@hash
-		const formatTitle = (result: typeof older) => {
-			const date = new Date(result.result.startTime);
-			const month = String(date.getMonth() + 1).padStart(2, '0');
-			const day = String(date.getDate()).padStart(2, '0');
-			const hours = String(date.getHours()).padStart(2, '0');
-			const minutes = String(date.getMinutes()).padStart(2, '0');
-			const shortHash = result.result.commitHash?.slice(0, 7) || '';
-			return `${month}/${day} ${hours}:${minutes}@${shortHash}`;
-		};
-
 		const gitAdapter = new GitAdapter(workspaceRoot);
 		await gitAdapter.showDiff(
 			older.result.commitHash,
 			newer.result.commitHash,
-			formatTitle(older),
-			formatTitle(newer),
+			getTitleWithHash(older.result),
+			getTitleWithHash(newer.result),
 		);
 	} catch (error) {
 		vscode.window.showErrorMessage(`差分表示に失敗しました: ${error}`);

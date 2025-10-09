@@ -2,30 +2,6 @@ import type { PahcerResult } from '../models/pahcerResult';
 import type { TestCase } from '../models/testCase';
 
 /**
- * 平均スコアを計算する（純粋関数）
- */
-export function calculateAverageScore(totalScore: number, caseCount: number): number {
-	return caseCount > 0 ? totalScore / caseCount : 0;
-}
-
-/**
- * 平均相対スコアを計算する（純粋関数）
- */
-export function calculateAverageRelativeScore(
-	totalRelativeScore: number,
-	caseCount: number,
-): number {
-	return caseCount > 0 ? totalRelativeScore / caseCount : 0;
-}
-
-/**
- * AC数を計算する（純粋関数）
- */
-export function calculateAcCount(caseCount: number, waSeeds: number[]): number {
-	return caseCount - waSeeds.length;
-}
-
-/**
  * Seed別の統計情報
  */
 export interface SeedStats {
@@ -61,8 +37,8 @@ export function calculateSeedStats(results: PahcerResult[]): Map<number, SeedSta
 			count: data.count,
 			totalScore: data.totalScore,
 			totalRelativeScore: data.totalRel,
-			averageScore: calculateAverageScore(data.totalScore, data.count),
-			averageRelativeScore: calculateAverageRelativeScore(data.totalRel, data.count),
+			averageScore: data.count > 0 ? data.totalScore / data.count : 0,
+			averageRelativeScore: data.count > 0 ? data.totalRel / data.count : 0,
 		});
 	}
 

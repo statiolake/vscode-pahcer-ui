@@ -52,8 +52,10 @@ export function ComparisonChart({
 	);
 
 	// Get VSCode theme colors
-	const textColor = getComputedStyle(document.body).getPropertyValue('--vscode-foreground') || '#cccccc';
-	const gridColor = getComputedStyle(document.body).getPropertyValue('--vscode-panel-border') || '#3e3e3e';
+	const textColor =
+		getComputedStyle(document.body).getPropertyValue('--vscode-foreground') || '#cccccc';
+	const gridColor =
+		getComputedStyle(document.body).getPropertyValue('--vscode-panel-border') || '#3e3e3e';
 
 	const handlePointClick = (event: any, elements: unknown[]) => {
 		if (Array.isArray(elements) && elements.length > 0) {

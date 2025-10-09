@@ -148,7 +148,9 @@ export const InitializationView: React.FC = () => {
 						<option value="python">Python</option>
 						<option value="go">Go</option>
 					</select>
-					<div style={descriptionStyle}>プロジェクトで使用するプログラミング言語を選択してください。</div>
+					<div style={descriptionStyle}>
+						プロジェクトで使用するプログラミング言語を選択してください。
+					</div>
 				</div>
 
 				<div style={fieldStyle}>
@@ -163,9 +165,7 @@ export const InitializationView: React.FC = () => {
 							インタラクティブ問題
 						</label>
 					</div>
-					<div style={descriptionStyle}>
-						インタラクティブ問題の場合はチェックを入れてください。
-					</div>
+					<div style={descriptionStyle}>インタラクティブ問題の場合はチェックを入れてください。</div>
 				</div>
 
 				<div style={fieldStyle}>

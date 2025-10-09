@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { PahcerResultWithId } from '../domain/models/pahcerResult';
+import { getShortTitle, type PahcerResultWithId } from '../domain/models/pahcerResult';
 import { calculateSeedStats } from '../domain/services/aggregationService';
 import { groupByExecution, groupBySeed } from '../domain/services/groupingService';
 import type {
@@ -337,7 +337,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		const items: PahcerTreeItem[] = [];
 
 		for (const execution of sortedExecutions) {
-			const time = this.formatDate(new Date(execution.result.startTime));
+			const time = getShortTitle(execution.result);
 			const isLatest =
 				execution.file === latestFile &&
 				(sortOrder === 'absoluteScoreAsc' || sortOrder === 'absoluteScoreDesc');
@@ -377,18 +377,5 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	async getCheckedResultsWithCommitHash(): Promise<PahcerResultWithId[]> {
 		const allResults = await this.resultRepository.loadLatestResults();
 		return allResults.filter((r) => this.checkedResults.has(r.id) && r.result.commitHash);
-	}
-
-	/**
-	 * 日付をフォーマット
-	 */
-	private formatDate(date: Date): string {
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		const hour = String(date.getHours()).padStart(2, '0');
-		const minute = String(date.getMinutes()).padStart(2, '0');
-		const second = String(date.getSeconds()).padStart(2, '0');
-		return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
 	}
 }
