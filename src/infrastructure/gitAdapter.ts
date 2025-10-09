@@ -13,8 +13,8 @@ export class GitAdapter {
 	 */
 	async commitAll(message: string): Promise<string> {
 		try {
-			// git add -A
-			execSync('git add -A', { cwd: this.workspaceRoot });
+			// git add . (only workspace directory)
+			execSync('git add .', { cwd: this.workspaceRoot });
 
 			// Check if there are changes to commit
 			try {
