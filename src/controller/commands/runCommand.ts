@@ -37,7 +37,14 @@ export async function runCommand(
 	// Task completed - copy output files and refresh
 	const latestResult = await resultRepository.getLatestResult();
 	if (latestResult) {
-		await outputFileRepository.copyOutputFiles(latestResult.id, commitHash || undefined);
+		const pahcerResult = await resultRepository.loadResult(latestResult.id);
+		if (pahcerResult) {
+			await outputFileRepository.copyOutputFiles(
+				latestResult.id,
+				pahcerResult,
+				commitHash || undefined,
+			);
+		}
 	}
 	treeViewController.refresh();
 }

@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import type { ComparisonData, StatsRow } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
-import { parseStderrVariables } from '../../shared/utils/stderr';
 
 interface Props {
 	data: ComparisonData;
@@ -111,9 +110,8 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
 				variables[features[i]] = [Number(featureValues[i]) || 0];
 			}
 
-			// Parse stderr variables
-			const stderr = stderrData[result.id]?.[seed] || '';
-			const stderrVars = parseStderrVariables(stderr);
+			// Get stderr variables
+			const stderrVars = stderrData[result.id]?.[seed] || {};
 			for (const [varName, value] of Object.entries(stderrVars)) {
 				variables[`$${varName}`] = [value];
 			}

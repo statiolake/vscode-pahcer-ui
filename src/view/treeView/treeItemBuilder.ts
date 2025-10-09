@@ -29,8 +29,7 @@ export class TreeItemBuilder {
 		const avgScore = getAverageScore(result).toFixed(1);
 		const avgRel = getAverageRelativeScore(result).toFixed(2);
 
-		const commentSuffix = comment ? ` [${comment}]` : '';
-		const label = `${time} - Avg: ${avgScore} (${avgRel}%)${commentSuffix}`;
+		const label = `${time} - Avg: ${avgScore} (${avgRel}%)`;
 		const description = result.comment || (result.tagName || '').replace('pahcer/', '');
 
 		const treeItem = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);

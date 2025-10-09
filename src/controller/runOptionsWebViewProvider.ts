@@ -73,7 +73,14 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		// Task completed - copy output files
 		const latestResult = await this.resultRepository.getLatestResult();
 		if (latestResult) {
-			await this.outputFileRepository.copyOutputFiles(latestResult.id, commitHash || undefined);
+			const pahcerResult = await this.resultRepository.loadResult(latestResult.id);
+			if (pahcerResult) {
+				await this.outputFileRepository.copyOutputFiles(
+					latestResult.id,
+					pahcerResult,
+					commitHash || undefined,
+				);
+			}
 		}
 	}
 

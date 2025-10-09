@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import { getLongTitle, type PahcerResult } from '../domain/models/pahcerResult';
 import { ConfigRepository } from '../infrastructure/configRepository';
-import { InputFileRepository } from '../infrastructure/inputFileRepository';
+import { MetadataRepository } from '../infrastructure/metadataRepository';
 import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
-import { StderrFileRepository } from '../infrastructure/stderrFileRepository';
 
 function getNonce() {
 	let text = '';
@@ -22,8 +21,7 @@ export class ComparisonViewController {
 	private messageDisposable: vscode.Disposable | undefined;
 
 	private resultRepository: PahcerResultRepository;
-	private inputFileRepository: InputFileRepository;
-	private stderrFileRepository: StderrFileRepository;
+	private metadataRepository: MetadataRepository;
 	private configRepository: ConfigRepository;
 
 	constructor(
@@ -31,8 +29,7 @@ export class ComparisonViewController {
 		private workspaceRoot: string,
 	) {
 		this.resultRepository = new PahcerResultRepository(workspaceRoot);
-		this.inputFileRepository = new InputFileRepository(workspaceRoot);
-		this.stderrFileRepository = new StderrFileRepository(workspaceRoot);
+		this.metadataRepository = new MetadataRepository(workspaceRoot);
 		this.configRepository = new ConfigRepository(workspaceRoot);
 	}
 
@@ -57,25 +54,17 @@ export class ComparisonViewController {
 			return;
 		}
 
-		// Collect all seeds
-		const allSeeds = new Set<number>();
-		for (const result of results) {
-			for (const testCase of result?.data?.cases || []) {
-				allSeeds.add(testCase.seed);
+		// Load metadata for all results (contains analysis data)
+		const metadataMap = new Map<string, any>();
+		for (const resultId of resultIds) {
+			const metadata = await this.metadataRepository.load(resultId);
+			if (metadata) {
+				metadataMap.set(resultId, metadata);
 			}
 		}
 
-		// Load input files and extract first line for features
-		const inputData = await this.inputFileRepository.loadFirstLines(Array.from(allSeeds));
-
-		// Load stderr files for all results and seeds
-		const stderrData = await this.stderrFileRepository.loadStderrForResults(
-			resultIds,
-			Array.from(allSeeds),
-		);
-
 		// Prepare comparison data
-		const comparisonData = await this.prepareComparisonData(results, inputData, stderrData);
+		const comparisonData = await this.prepareComparisonData(results, metadataMap);
 
 		// Create or update panel
 		if (this.panel) {
@@ -132,8 +121,7 @@ export class ComparisonViewController {
 	 */
 	private async prepareComparisonData(
 		results: Array<{ id: string; data: any }>,
-		inputData: Map<number, string>,
-		stderrData: Record<string, Record<number, string>>,
+		metadataMap: Map<string, any>,
 	) {
 		// Collect all seeds
 		const allSeeds = new Set<number>();
@@ -144,10 +132,36 @@ export class ComparisonViewController {
 		}
 		const seeds = Array.from(allSeeds).sort((a, b) => a - b);
 
-		// Convert inputData Map to object
+		// Build inputData and stderrData from metadata analysis
 		const inputDataObj: Record<number, string> = {};
-		for (const [seed, firstLine] of inputData.entries()) {
-			inputDataObj[seed] = firstLine;
+		const stderrData: Record<string, Record<number, Record<string, number>>> = {};
+
+		for (const { id, data } of results) {
+			const metadata = metadataMap.get(id);
+			const analysis = metadata?.analysis || {};
+
+			stderrData[id] = {};
+
+			for (const testCase of data.cases) {
+				const seed = testCase.seed;
+				const seedAnalysis = analysis[seed];
+
+				if (seedAnalysis) {
+					// Use first input line from analysis
+					if (!inputDataObj[seed]) {
+						inputDataObj[seed] = seedAnalysis.firstInputLine || '';
+					}
+
+					// Use stderr variables from analysis
+					stderrData[id][seed] = seedAnalysis.stderrVars || {};
+				} else {
+					// Fallback to empty
+					if (!inputDataObj[seed]) {
+						inputDataObj[seed] = '';
+					}
+					stderrData[id][seed] = {};
+				}
+			}
 		}
 
 		// Load config

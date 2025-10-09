@@ -13,7 +13,6 @@ import {
 import type { ComparisonData, ChartDataPoint } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
-import { parseStderrVariables } from '../../shared/utils/stderr';
 import { postMessage } from '../../shared/utils/vscode';
 
 // Register Chart.js components
@@ -285,9 +284,8 @@ function prepareChartData(
 					variables[features[i]] = [Number(featureValues[i]) || 0];
 				}
 
-				// Parse stderr variables (with $ prefix)
-				const stderr = stderrData[result.id]?.[seed] || '';
-				const stderrVars = parseStderrVariables(stderr);
+				// Get stderr variables (with $ prefix)
+				const stderrVars = stderrData[result.id]?.[seed] || {};
 				for (const [varName, value] of Object.entries(stderrVars)) {
 					variables[`$${varName}`] = [value];
 				}
@@ -348,8 +346,7 @@ function prepareChartData(
 			// Collect all stderr variables from all group members
 			const allStderrVarNames = new Set<string>();
 			for (const d of group) {
-				const stderr = stderrData[result.id]?.[d.seed] || '';
-				const stderrVars = parseStderrVariables(stderr);
+				const stderrVars = stderrData[result.id]?.[d.seed] || {};
 				for (const varName of Object.keys(stderrVars)) {
 					allStderrVarNames.add(varName);
 				}
@@ -358,8 +355,7 @@ function prepareChartData(
 			// Build arrays for stderr variables
 			for (const varName of allStderrVarNames) {
 				variables[`$${varName}`] = group.map((d) => {
-					const stderr = stderrData[result.id]?.[d.seed] || '';
-					const stderrVars = parseStderrVariables(stderr);
+					const stderrVars = stderrData[result.id]?.[d.seed] || {};
 					return stderrVars[varName] || 0;
 				});
 			}
@@ -405,8 +401,7 @@ function prepareChartData(
 								singleVars[featureName] = [Number(featureValues[featureIndex]) || 0];
 							}
 
-							const stderr = stderrData[result.id]?.[g.seed] || '';
-							const stderrVars = parseStderrVariables(stderr);
+							const stderrVars = stderrData[result.id]?.[g.seed] || {};
 							for (const [varName, value] of Object.entries(stderrVars)) {
 								singleVars[`$${varName}`] = [value];
 							}

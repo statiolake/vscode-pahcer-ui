@@ -23,7 +23,7 @@ export interface ComparisonData {
 	results: ResultData[];
 	seeds: number[];
 	inputData: Record<number, string>;
-	stderrData: Record<string, Record<number, string>>; // resultId -> seed -> stderr
+	stderrData: Record<string, Record<number, Record<string, number>>>; // resultId -> seed -> variables
 	config: ComparisonConfig;
 }
 
