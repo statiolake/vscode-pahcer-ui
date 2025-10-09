@@ -14,7 +14,10 @@ import {
 } from './controller/commands/switchModeCommand';
 import { ComparisonViewController } from './controller/comparisonViewController';
 import { InitializationWebViewProvider } from './controller/initializationWebViewProvider';
-import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
+import {
+	type PahcerTreeItem,
+	PahcerTreeViewController,
+} from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
@@ -134,12 +137,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(
 			'pahcer-ui.showVisualizer',
 			async (seed: number, resultId?: string) => {
-				const inputPath = `${workspaceRoot}/tools/in/${String(seed).padStart(4, '0')}.txt`;
-				const outputPath = resultId
-					? `${workspaceRoot}/.pahcer-ui/results/result_${resultId}/out/${String(seed).padStart(4, '0')}.txt`
-					: `${workspaceRoot}/tools/out/${String(seed).padStart(4, '0')}.txt`;
-
-				await visualizerViewController.showVisualizerForCase(seed, inputPath, outputPath, resultId);
+				await visualizerViewController.showVisualizerForCase(seed, resultId);
 			},
 		),
 		vscode.commands.registerCommand('pahcer-ui.showResultsNotFoundError', (seed: number) => {
@@ -148,21 +146,36 @@ export function activate(context: vscode.ExtensionContext) {
 				`Seed ${seedStr} の結果が見つからないため、ビジュアライザを開けません。`,
 			);
 		}),
-		vscode.commands.registerCommand('pahcer-ui.addComment', (item: any) =>
-			addCommentCommand(item, resultRepository, treeViewController),
-		),
-		vscode.commands.registerCommand('pahcer-ui.openInputFile', (item: any) => {
-			if (item?.seed !== undefined) {
-				return openInputFile(workspaceRoot, item.seed);
-			}
+		vscode.commands.registerCommand('pahcer-ui.addComment', (item: PahcerTreeItem) => {
+			addCommentCommand(item, resultRepository, treeViewController);
 		}),
-		vscode.commands.registerCommand('pahcer-ui.openOutputFile', (item: any) => {
-			if (item?.seed !== undefined) {
+		vscode.commands.registerCommand('pahcer-ui.openInputFile', (item: PahcerTreeItem) => {
+			if (!item.seed) {
+				return;
+			}
+			return openInputFile(workspaceRoot, item.seed);
+		}),
+		vscode.commands.registerCommand('pahcer-ui.openOutputFile', (item: PahcerTreeItem) => {
+			if (
+				item &&
+				typeof item === 'object' &&
+				'seed' in item &&
+				typeof item.seed === 'number' &&
+				'resultId' in item &&
+				typeof item.resultId === 'string'
+			) {
 				return openOutputFile(workspaceRoot, item.resultId, item.seed);
 			}
 		}),
-		vscode.commands.registerCommand('pahcer-ui.openErrorFile', (item: any) => {
-			if (item?.seed !== undefined) {
+		vscode.commands.registerCommand('pahcer-ui.openErrorFile', (item: PahcerTreeItem) => {
+			if (
+				item &&
+				typeof item === 'object' &&
+				'seed' in item &&
+				typeof item.seed === 'number' &&
+				'resultId' in item &&
+				typeof item.resultId === 'string'
+			) {
 				return openErrorFile(workspaceRoot, item.resultId, item.seed);
 			}
 		}),

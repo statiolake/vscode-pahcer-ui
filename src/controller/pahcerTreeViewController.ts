@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { getShortTitle, type PahcerResultWithId } from '../domain/models/pahcerResult';
 import { calculateSeedStats } from '../domain/services/aggregationService';
-import { groupByExecution, groupBySeed } from '../domain/services/groupingService';
+import { groupBySeed } from '../domain/services/groupingService';
 import type {
 	ExecutionSortOrder,
 	GroupingMode,
@@ -48,7 +48,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	private configAdapter: ConfigAdapter;
 	private treeItemBuilder: TreeItemBuilder;
 
-	constructor(private workspaceRoot: string) {
+	constructor(workspaceRoot: string) {
 		this.pahcerAdapter = new PahcerAdapter(workspaceRoot);
 		this.resultRepository = new PahcerResultRepository(workspaceRoot);
 		this.configAdapter = new ConfigAdapter();
@@ -202,13 +202,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		const items: PahcerTreeItem[] = [];
 
 		for (const resultWithId of results) {
-			// Use comment from pahcer's JSON
-			const comment = resultWithId.result.comment || '';
-
 			// Build tree item
 			const builtItem = this.treeItemBuilder.buildExecutionItem(
 				resultWithId,
-				comment,
 				true, // Always show checkbox
 				this.checkedResults.has(resultWithId.id),
 			);
@@ -221,7 +217,6 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 			);
 			item.resultId = resultWithId.id;
 			item.result = resultWithId;
-			item.comment = comment;
 			item.checkboxState = builtItem.checkboxState;
 			item.iconPath = builtItem.iconPath;
 

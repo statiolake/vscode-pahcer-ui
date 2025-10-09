@@ -31,33 +31,4 @@ export class InputFileRepository {
 			return null;
 		}
 	}
-
-	/**
-	 * 入力ファイルの最初の行を読み込む
-	 */
-	async loadFirstLine(seed: number): Promise<string | null> {
-		const content = await this.load(seed);
-		if (!content) {
-			return null;
-		}
-
-		const firstLine = content.split('\n')[0].trim();
-		return firstLine;
-	}
-
-	/**
-	 * 複数のSeedに対して最初の行を一括読み込み
-	 */
-	async loadFirstLines(seeds: number[]): Promise<Map<number, string>> {
-		const result = new Map<number, string>();
-
-		for (const seed of seeds) {
-			const firstLine = await this.loadFirstLine(seed);
-			if (firstLine) {
-				result.set(seed, firstLine);
-			}
-		}
-
-		return result;
-	}
 }

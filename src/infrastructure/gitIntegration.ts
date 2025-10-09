@@ -42,25 +42,20 @@ export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<st
 
 	// Git統合が有効な場合はコミット
 	if (gitIntegration === true) {
-		try {
-			const gitAdapter = new GitAdapter(workspaceRoot);
-			const now = new Date();
-			// Format as local time ISO format (YYYY-MM-DDTHH:mm:ss)
-			const year = now.getFullYear();
-			const month = String(now.getMonth() + 1).padStart(2, '0');
-			const day = String(now.getDate()).padStart(2, '0');
-			const hours = String(now.getHours()).padStart(2, '0');
-			const minutes = String(now.getMinutes()).padStart(2, '0');
-			const seconds = String(now.getSeconds()).padStart(2, '0');
-			const timestamp = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-			const commitHash = await gitAdapter.commitAll(`Run at ${timestamp}`);
+		const gitAdapter = new GitAdapter(workspaceRoot);
+		const now = new Date();
+		// Format as local time ISO format (YYYY-MM-DDTHH:mm:ss)
+		const year = now.getFullYear();
+		const month = String(now.getMonth() + 1).padStart(2, '0');
+		const day = String(now.getDate()).padStart(2, '0');
+		const hours = String(now.getHours()).padStart(2, '0');
+		const minutes = String(now.getMinutes()).padStart(2, '0');
+		const seconds = String(now.getSeconds()).padStart(2, '0');
+		const timestamp = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+		const commitHash = await gitAdapter.commitAll(`Run at ${timestamp}`);
 
-			vscode.window.showInformationMessage(`コミット作成: ${commitHash.slice(0, 7)}`);
-			return commitHash;
-		} catch (error) {
-			vscode.window.showErrorMessage(`Git操作に失敗しました: ${error}`);
-			throw error;
-		}
+		vscode.window.showInformationMessage(`コミット作成: ${commitHash.slice(0, 7)}`);
+		return commitHash;
 	}
 
 	return null;

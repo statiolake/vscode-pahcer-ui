@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
 import type { PahcerResultRepository } from '../../infrastructure/pahcerResultRepository';
-import type { PahcerTreeViewController } from '../pahcerTreeViewController';
+import type { PahcerTreeItem, PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
  * コメント追加コマンドハンドラ
  */
 export async function addCommentCommand(
-	item: any,
+	item: PahcerTreeItem,
 	resultRepository: PahcerResultRepository,
 	treeViewController: PahcerTreeViewController,
 ): Promise<void> {
-	if (!item?.resultId) {
+	if (!item.resultId) {
 		return;
 	}
 

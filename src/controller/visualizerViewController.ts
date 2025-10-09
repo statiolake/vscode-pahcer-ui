@@ -19,10 +19,7 @@ export class VisualizerViewController {
 	private visualizerCache: VisualizerCache;
 	private configAdapter: ConfigAdapter;
 
-	constructor(
-		private context: vscode.ExtensionContext,
-		private workspaceRoot: string,
-	) {
+	constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
 		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
 
 		this.inputFileRepository = new InputFileRepository(workspaceRoot);
@@ -36,12 +33,7 @@ export class VisualizerViewController {
 	/**
 	 * ビジュアライザを表示
 	 */
-	async showVisualizerForCase(
-		seed: number,
-		inputPath: string,
-		outputPath: string,
-		resultId?: string,
-	): Promise<void> {
+	async showVisualizerForCase(seed: number, resultId?: string): Promise<void> {
 		// Check if visualizer is already downloaded
 		let htmlFileName = this.visualizerCache.getCachedHtmlFileName();
 
@@ -88,7 +80,7 @@ export class VisualizerViewController {
 		}
 
 		// Open visualizer with test case data
-		await this.openVisualizer(seed, inputPath, outputPath, resultId, htmlFileName);
+		await this.openVisualizer(seed, resultId, htmlFileName);
 	}
 
 	/**
@@ -96,8 +88,6 @@ export class VisualizerViewController {
 	 */
 	private async openVisualizer(
 		seed: number,
-		inputPath: string,
-		outputPath: string,
 		resultId: string | undefined,
 		htmlFileName: string,
 	): Promise<void> {
@@ -175,8 +165,6 @@ export class VisualizerViewController {
 	 * リソースパスをWebView URIに変換
 	 */
 	private convertResourcePaths(html: string, webview: vscode.Webview): string {
-		const visualizerDir = this.visualizerCache.getVisualizerDir();
-
 		// Convert relative paths to webview URIs
 		html = html.replace(/src=["']\.\/([^"']+)["']/g, (match, fileName) => {
 			if (this.visualizerCache.resourceExists(fileName)) {

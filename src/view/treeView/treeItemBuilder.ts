@@ -19,7 +19,6 @@ export class TreeItemBuilder {
 	 */
 	buildExecutionItem(
 		item: PahcerResultWithId,
-		comment: string,
 		comparisonMode: boolean,
 		isChecked: boolean,
 	): vscode.TreeItem {

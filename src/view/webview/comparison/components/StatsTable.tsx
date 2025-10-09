@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import type { ComparisonData, StatsRow } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
+import type { ComparisonData, StatsRow } from '../types';
 
 interface Props {
 	data: ComparisonData;
@@ -61,8 +61,8 @@ export function StatsTable({ data, featureString, filter }: Props) {
 					</tr>
 				</thead>
 				<tbody>
-					{stats.map((stat, index) => (
-						<tr key={index}>
+					{stats.map((stat) => (
+						<tr key={stat.name}>
 							<td style={cellStyle}>{stat.name}</td>
 							<td style={cellStyle}>{stat.totalScore.toLocaleString()}</td>
 							<td style={cellStyle}>
@@ -174,7 +174,7 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
 		const mean = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
 		const variance =
 			scores.length > 0
-				? scores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / scores.length
+				? scores.reduce((sum, score) => sum + (score - mean) ** 2, 0) / scores.length
 				: 0;
 		const sd = Math.sqrt(variance);
 

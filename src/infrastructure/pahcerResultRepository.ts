@@ -113,7 +113,7 @@ export class PahcerResultRepository {
 						const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
 						result.commitHash = metadata.commitHash;
 					} catch (e) {
-						// Ignore errors
+						console.log(`error listing latest results: ${e}`);
 					}
 				}
 

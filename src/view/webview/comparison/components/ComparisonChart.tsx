@@ -9,6 +9,9 @@ import {
 	Title,
 	Tooltip,
 	Legend,
+	type ChartEvent,
+	type ActiveElement,
+	type TooltipItem,
 } from 'chart.js';
 import type { ComparisonData, ChartDataPoint } from '../types';
 import { evaluateExpression } from '../../shared/utils/expression';
@@ -56,11 +59,11 @@ export function ComparisonChart({
 	const gridColor =
 		getComputedStyle(document.body).getPropertyValue('--vscode-panel-border') || '#3e3e3e';
 
-	const handlePointClick = (event: any, elements: unknown[]) => {
+	const handlePointClick = (event: ChartEvent, elements: ActiveElement[]) => {
 		if (Array.isArray(elements) && elements.length > 0) {
 			const element = elements[0] as { datasetIndex: number; index: number };
 			const point = chartData.datasets[element.datasetIndex]?.data[element.index];
-			if (point && event.native) {
+			if (point && event.native && event.native instanceof MouseEvent) {
 				// If the point has a group (aggregated), show popup
 				if (point.group && point.group.length > 1) {
 					setPopup({
@@ -98,7 +101,7 @@ export function ComparisonChart({
 				borderColor: gridColor,
 				borderWidth: 1,
 				callbacks: {
-					label: function (context: any) {
+					label: function (context: TooltipItem<'line' | 'scatter'>) {
 						const point = context.raw as ChartDataPoint;
 						const lines = [context.dataset.label + ': ' + point.y.toLocaleString()];
 

@@ -474,7 +474,7 @@ class ExpressionParser {
 		if (token.type === 'number') {
 			this.pos++;
 			const num = parseFloat(token.value);
-			if (isNaN(num)) {
+			if (Number.isNaN(num)) {
 				throw new Error(`Invalid number: ${token.value}`);
 			}
 			return { type: 'number', value: num };

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { getLongTitle, type PahcerResult } from '../domain/models/pahcerResult';
+import type { ResultMetadata } from '../domain/models/resultMetadata';
 import { ConfigRepository } from '../infrastructure/configRepository';
 import { MetadataRepository } from '../infrastructure/metadataRepository';
 import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
@@ -26,7 +27,7 @@ export class ComparisonViewController {
 
 	constructor(
 		private context: vscode.ExtensionContext,
-		private workspaceRoot: string,
+		workspaceRoot: string,
 	) {
 		this.resultRepository = new PahcerResultRepository(workspaceRoot);
 		this.metadataRepository = new MetadataRepository(workspaceRoot);
@@ -55,7 +56,7 @@ export class ComparisonViewController {
 		}
 
 		// Load metadata for all results (contains analysis data)
-		const metadataMap = new Map<string, any>();
+		const metadataMap = new Map<string, ResultMetadata>();
 		for (const resultId of resultIds) {
 			const metadata = await this.metadataRepository.load(resultId);
 			if (metadata) {
@@ -63,8 +64,11 @@ export class ComparisonViewController {
 			}
 		}
 
-		// Prepare comparison data
-		const comparisonData = await this.prepareComparisonData(results, metadataMap);
+		// Filter out null results and prepare comparison data
+		const validResults = results.filter(
+			(r): r is { id: string; data: PahcerResult } => r.data !== null,
+		);
+		const comparisonData = await this.prepareComparisonData(validResults, metadataMap);
 
 		// Create or update panel
 		if (this.panel) {
@@ -120,8 +124,8 @@ export class ComparisonViewController {
 	 * 比較データを準備
 	 */
 	private async prepareComparisonData(
-		results: Array<{ id: string; data: any }>,
-		metadataMap: Map<string, any>,
+		results: Array<{ id: string; data: PahcerResult }>,
+		metadataMap: Map<string, ResultMetadata>,
 	) {
 		// Collect all seeds
 		const allSeeds = new Set<number>();
@@ -172,7 +176,7 @@ export class ComparisonViewController {
 			results: results.map((r) => ({
 				id: r.id,
 				time: getLongTitle(r.data),
-				cases: r.data.cases.map((c: any) => ({
+				cases: r.data.cases.map((c) => ({
 					seed: c.seed,
 					score: c.score,
 					relativeScore: c.relativeScore,
@@ -189,7 +193,10 @@ export class ComparisonViewController {
 	/**
 	 * WebViewのHTMLを生成
 	 */
-	private getWebviewContent(comparisonData: any, webview: vscode.Webview): string {
+	private getWebviewContent(
+		comparisonData: Awaited<ReturnType<typeof this.prepareComparisonData>>,
+		webview: vscode.Webview,
+	): string {
 		// Get script URI
 		const scriptUri = webview.asWebviewUri(
 			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'comparison.js'),

@@ -52,16 +52,6 @@ export class OutputFileRepository {
 	}
 
 	/**
-	 * 出力ファイルが存在するかチェック
-	 */
-	exists(seed: number, resultId?: string): boolean {
-		const outputPath = resultId
-			? this.getOutputPath(resultId, seed)
-			: this.getLatestOutputPath(seed);
-		return fs.existsSync(outputPath);
-	}
-
-	/**
 	 * 出力ファイルをコピーし、解析を実行してmeta.jsonに保存
 	 */
 	async copyOutputFiles(

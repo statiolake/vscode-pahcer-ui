@@ -28,7 +28,7 @@ export async function runCommand(
 	try {
 		commitHash = await checkAndCommitIfEnabled(workspaceRoot);
 	} catch (error) {
-		// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
+		vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
 		return;
 	}
 
