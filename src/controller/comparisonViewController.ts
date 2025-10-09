@@ -74,10 +74,19 @@ export class ComparisonViewController {
 			Array.from(allSeeds),
 		);
 
-		// Create or show panel
+		// Prepare comparison data
+		const comparisonData = await this.prepareComparisonData(results, inputData, stderrData);
+
+		// Create or update panel
 		if (this.panel) {
+			// Panel already exists - just update data without reloading
 			this.panel.reveal(vscode.ViewColumn.One);
+			this.panel.webview.postMessage({
+				command: 'updateData',
+				data: comparisonData,
+			});
 		} else {
+			// Create new panel
 			const extensionUri = this.context.extensionUri;
 
 			this.panel = vscode.window.createWebviewPanel(
@@ -112,26 +121,20 @@ export class ComparisonViewController {
 				undefined,
 				this.context.subscriptions,
 			);
-		}
 
-		// Generate HTML
-		this.panel.webview.html = await this.getWebviewContent(
-			results,
-			inputData,
-			stderrData,
-			this.panel.webview,
-		);
+			// Set initial HTML
+			this.panel.webview.html = this.getWebviewContent(comparisonData, this.panel.webview);
+		}
 	}
 
 	/**
-	 * WebViewのHTMLを生成
+	 * 比較データを準備
 	 */
-	private async getWebviewContent(
+	private async prepareComparisonData(
 		results: Array<{ id: string; data: any }>,
 		inputData: Map<number, string>,
 		stderrData: Record<string, Record<number, string>>,
-		webview: vscode.Webview,
-	): Promise<string> {
+	) {
 		// Collect all seeds
 		const allSeeds = new Set<number>();
 		for (const result of results) {
@@ -151,7 +154,7 @@ export class ComparisonViewController {
 		const config = await this.configRepository.load();
 
 		// Prepare data for React
-		const comparisonData = {
+		return {
 			results: results.map((r) => ({
 				id: r.id,
 				time: getLongTitle(r.data),
@@ -167,7 +170,12 @@ export class ComparisonViewController {
 			stderrData,
 			config,
 		};
+	}
 
+	/**
+	 * WebViewのHTMLを生成
+	 */
+	private getWebviewContent(comparisonData: any, webview: vscode.Webview): string {
 		// Get script URI
 		const scriptUri = webview.asWebviewUri(
 			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'comparison.js'),

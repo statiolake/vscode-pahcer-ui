@@ -10,12 +10,32 @@ interface Props {
 }
 
 export function ComparisonView({ initialData }: Props) {
+	const [data, setData] = useState(initialData);
 	const [featureString, setFeatureString] = useState(initialData.config.featureString);
 	const [xAxis, setXAxis] = useState(initialData.config.xAxis);
 	const [yAxis, setYAxis] = useState(initialData.config.yAxis);
 	const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
 	const [filter, setFilter] = useState(initialData.config.filter);
 	const [skipFailed, setSkipFailed] = useState(true);
+
+	// Listen for data updates from extension
+	useEffect(() => {
+		const handleMessage = (event: MessageEvent) => {
+			const message = event.data;
+			if (message.command === 'updateData') {
+				setData(message.data);
+				// Update config from new data
+				setFeatureString(message.data.config.featureString);
+				setXAxis(message.data.config.xAxis);
+				setYAxis(message.data.config.yAxis);
+				setChartType(message.data.config.chartType);
+				setFilter(message.data.config.filter);
+			}
+		};
+
+		window.addEventListener('message', handleMessage);
+		return () => window.removeEventListener('message', handleMessage);
+	}, []);
 
 	// Auto-save comparison config
 	useEffect(() => {
@@ -48,10 +68,8 @@ export function ComparisonView({ initialData }: Props) {
 				onFilterChange={setFilter}
 			/>
 
-			<StatsTable data={initialData} featureString={featureString} filter={filter} />
-
 			<ComparisonChart
-				data={initialData}
+				data={data}
 				featureString={featureString}
 				xAxis={xAxis}
 				yAxis={yAxis}
@@ -59,6 +77,8 @@ export function ComparisonView({ initialData }: Props) {
 				skipFailed={skipFailed}
 				filter={filter}
 			/>
+
+			<StatsTable data={data} featureString={featureString} filter={filter} />
 		</div>
 	);
 }
