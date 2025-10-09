@@ -50,30 +50,42 @@ export class GitAdapter {
 		rightTitle: string,
 	): Promise<void> {
 		try {
-			// Get list of changed files
-			const output = execSync(`git diff --name-only ${olderCommitHash} ${newerCommitHash}`, {
+			// Get list of changed files with numstat to detect binary files
+			const numstatOutput = execSync(`git diff --numstat ${olderCommitHash} ${newerCommitHash}`, {
 				cwd: this.workspaceRoot,
 			})
 				.toString()
 				.trim();
 
-			if (!output) {
+			if (!numstatOutput) {
 				vscode.window.showInformationMessage('変更されたファイルはありません');
 				return;
 			}
 
-			const files = output
+			// Parse numstat output: "added deleted filename" or "- - filename" for binary
+			const files = numstatOutput
 				.split('\n')
-				.filter((f) => f.trim())
+				.filter((line) => line.trim())
+				.map((line) => {
+					const parts = line.split('\t');
+					return {
+						isBinary: parts[0] === '-' && parts[1] === '-',
+						filename: parts[2],
+					};
+				})
+				.filter((f) => !f.isBinary) // Exclude binary files
+				.map((f) => f.filename)
 				.filter((f) => {
 					// Filter out files in tools/ directory
 					if (f.startsWith('tools/')) {
 						return false;
 					}
-					// Filter out dotfiles (files starting with .)
-					const fileName = f.split('/').pop();
-					if (fileName && fileName.startsWith('.')) {
-						return false;
+					// Filter out files in directories starting with . (like .vscode/, .pahcer-ui/)
+					const pathParts = f.split('/');
+					for (const part of pathParts) {
+						if (part.startsWith('.')) {
+							return false;
+						}
 					}
 					// Filter out .txt, .json, and .html files
 					const ext = f.toLowerCase().split('.').pop();
