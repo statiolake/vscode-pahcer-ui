@@ -21,7 +21,7 @@ import { FileWatcher } from './infrastructure/fileWatcher';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerResultRepository } from './infrastructure/pahcerResultRepository';
-import { TerminalAdapter } from './infrastructure/terminalAdapter';
+import { TaskAdapter } from './infrastructure/taskAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -58,8 +58,15 @@ export function activate(context: vscode.ExtensionContext) {
 	// Always create TreeViewController (it handles pahcer status internally)
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
 
+	// Create infrastructure components (always needed)
+	const taskAdapter = new TaskAdapter();
+
 	// Register initialization WebView and command (always register, regardless of pahcer status)
-	const initializationProvider = new InitializationWebViewProvider(context, workspaceRoot);
+	const initializationProvider = new InitializationWebViewProvider(
+		context,
+		workspaceRoot,
+		taskAdapter,
+	);
 	const initializationWebView = vscode.window.registerWebviewViewProvider(
 		'pahcerInitialization',
 		initializationProvider,
@@ -72,9 +79,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(initializationWebView, initializeCommand);
 
-	// Create infrastructure components (always needed)
-	const terminalAdapter = new TerminalAdapter();
-
 	// Create TreeView (always create, but behavior differs based on pahcer status)
 	const treeView = vscode.window.createTreeView('pahcerResults', {
 		treeDataProvider: treeViewController,
@@ -85,7 +89,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create all controllers (always create, but will error if used when not ready)
 	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
 	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
-	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(context, workspaceRoot);
+	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
+		context,
+		workspaceRoot,
+		taskAdapter,
+	);
 	const resultRepository = new PahcerResultRepository(workspaceRoot);
 	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 
@@ -102,7 +110,7 @@ export function activate(context: vscode.ExtensionContext) {
 			treeViewController.refresh();
 		}),
 		vscode.commands.registerCommand('pahcer-ui.run', () =>
-			runCommand(workspaceAdapter, terminalAdapter),
+			runCommand(workspaceAdapter, taskAdapter),
 		),
 		vscode.commands.registerCommand('pahcer-ui.runWithOptions', () => {
 			vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', true);

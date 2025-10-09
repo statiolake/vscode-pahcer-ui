@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
+import type { TaskAdapter } from '../infrastructure/taskAdapter';
 
 interface RunOptions {
 	startSeed: number;
@@ -13,6 +14,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,
+		private readonly taskAdapter: TaskAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -59,12 +61,8 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 			command += ' --freeze-best-scores';
 		}
 
-		const terminal = vscode.window.createTerminal({
-			name: 'Pahcer Run',
-			cwd: this.workspaceRoot,
-		});
-		terminal.show();
-		terminal.sendText(command);
+		// Execute pahcer run using task
+		await this.taskAdapter.runTask('Pahcer Run', command, this.workspaceRoot);
 
 		// Switch back to TreeView
 		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);

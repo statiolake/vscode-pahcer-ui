@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { checkAndCommitIfEnabled } from '../../infrastructure/gitIntegration';
-import type { TerminalAdapter } from '../../infrastructure/terminalAdapter';
+import type { TaskAdapter } from '../../infrastructure/taskAdapter';
 import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 
 /**
@@ -8,7 +8,7 @@ import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
  */
 export async function runCommand(
 	workspaceAdapter: WorkspaceAdapter,
-	terminalAdapter: TerminalAdapter,
+	taskAdapter: TaskAdapter,
 ): Promise<void> {
 	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
 
@@ -29,5 +29,5 @@ export async function runCommand(
 		return;
 	}
 
-	terminalAdapter.runPahcer(workspaceRoot);
+	await taskAdapter.runPahcer(workspaceRoot);
 }

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { TaskAdapter } from '../infrastructure/taskAdapter';
 import { TesterDownloader } from '../infrastructure/testerDownloader';
 
 interface InitOptions {
@@ -18,6 +19,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,
+		private readonly taskAdapter: TaskAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -91,24 +93,20 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 			}
 		}
 
-		// Build pahcer init command
-		let command = `pahcer init --problem "${options.problemName}" --objective ${options.objective} --lang ${options.language}`;
-		if (finalIsInteractive) {
-			command += ' --interactive';
-		}
-
-		const terminal = vscode.window.createTerminal({
-			name: 'Pahcer Init',
-			cwd: this.workspaceRoot,
-		});
-		terminal.show();
-		terminal.sendText(command);
-
 		// Update .gitignore to add tools/target
 		this.updateGitignore();
 
 		// Close initialization WebView and return to TreeView
 		await vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', false);
+
+		// Execute pahcer init using task
+		await this.taskAdapter.runPahcerInit(
+			this.workspaceRoot,
+			options.problemName,
+			options.objective,
+			options.language,
+			finalIsInteractive,
+		);
 
 		// Wait a moment for the command to execute, then refresh TreeView
 		setTimeout(async () => {
