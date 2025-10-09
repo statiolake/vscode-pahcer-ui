@@ -183,8 +183,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// Handle checkbox state changes (always register)
 	treeView.onDidChangeCheckboxState(async (e) => {
 		for (const [item] of e.items) {
-			if ((item as any).resultId) {
-				treeViewController.toggleCheckbox((item as any).resultId);
+			if (item.resultId) {
+				treeViewController.toggleCheckbox(item.resultId);
 			}
 		}
 

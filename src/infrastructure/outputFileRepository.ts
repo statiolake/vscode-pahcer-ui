@@ -61,7 +61,7 @@ export class OutputFileRepository {
 	/**
 	 * 出力ファイルをコピーし、必要に応じてコミットハッシュを保存する
 	 */
-	async copyOutputFiles(resultId: string): Promise<void> {
+	async copyOutputFiles(resultId: string, commitHash?: string): Promise<void> {
 		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
 
 		if (!fs.existsSync(destDir)) {
@@ -83,7 +83,6 @@ export class OutputFileRepository {
 		}
 
 		// Save commit hash if available
-		const commitHash = (global as any).lastCommitHash;
 		if (commitHash) {
 			const metaPath = path.join(destDir, 'meta.json');
 			const metadata = { comment: '', commitHash };
@@ -99,9 +98,6 @@ export class OutputFileRepository {
 			}
 
 			fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
-
-			// Clear the global variable
-			delete (global as any).lastCommitHash;
 		}
 	}
 }

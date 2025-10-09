@@ -24,12 +24,9 @@ export async function runCommand(
 	}
 
 	// Git統合チェック＆コミット
+	let commitHash: string | null = null;
 	try {
-		const commitHash = await checkAndCommitIfEnabled(workspaceRoot);
-		if (commitHash) {
-			// コミットハッシュをグローバル変数に保存（後でmeta.jsonに保存するため）
-			(global as any).lastCommitHash = commitHash;
-		}
+		commitHash = await checkAndCommitIfEnabled(workspaceRoot);
 	} catch (error) {
 		// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
 		return;
@@ -40,7 +37,7 @@ export async function runCommand(
 	// Task completed - copy output files and refresh
 	const latestResult = await resultRepository.getLatestResult();
 	if (latestResult) {
-		await outputFileRepository.copyOutputFiles(latestResult.id);
+		await outputFileRepository.copyOutputFiles(latestResult.id, commitHash || undefined);
 	}
 	treeViewController.refresh();
 }

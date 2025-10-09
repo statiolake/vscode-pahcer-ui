@@ -49,12 +49,9 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 
 	async runWithOptions(options: RunOptions): Promise<void> {
 		// Git統合チェック＆コミット
+		let commitHash: string | null = null;
 		try {
-			const commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
-			if (commitHash) {
-				// コミットハッシュをグローバル変数に保存（後でmeta.jsonに保存するため）
-				(global as any).lastCommitHash = commitHash;
-			}
+			commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
 		} catch (error) {
 			// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
 			return;
@@ -76,7 +73,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		// Task completed - copy output files
 		const latestResult = await this.resultRepository.getLatestResult();
 		if (latestResult) {
-			await this.outputFileRepository.copyOutputFiles(latestResult.id);
+			await this.outputFileRepository.copyOutputFiles(latestResult.id, commitHash || undefined);
 		}
 	}
 

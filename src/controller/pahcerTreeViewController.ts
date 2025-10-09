@@ -16,7 +16,7 @@ import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 /**
  * TreeItem with metadata
  */
-class PahcerTreeItem extends vscode.TreeItem {
+export class PahcerTreeItem extends vscode.TreeItem {
 	constructor(
 		label: string,
 		collapsibleState: vscode.TreeItemCollapsibleState,
