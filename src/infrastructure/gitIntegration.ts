@@ -19,16 +19,19 @@ export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<st
 		}
 
 		const result = await vscode.window.showWarningMessage(
-			'Pahcer UIでGit統合を有効にしますか？\n\n' +
-				'有効にすると、テスト実行前に自動的にコミットを作成し、後でバージョン間の差分を確認できます。\n\n' +
-				'⚠️ 注意: ワークスペース内のすべての変更ファイルが自動的にコミットされます。\n' +
-				'.gitignoreを注意深く確認し、コミットしたくないファイルが除外されていることを確認してください。',
-			{ modal: true },
-			'有効にする',
-			'無効にする',
+			'Pahcer UIでGit統合を有効にしますか？',
+			{
+				modal: true,
+				detail:
+					'有効にすると、テスト実行前に自動的にコミットを作成し、後でバージョン間の差分を確認できます。\n\n' +
+					'⚠️ 注意: ワークスペース内のすべての変更ファイルが自動的にコミットされます。' +
+					'.gitignoreを注意深く確認し、コミットしたくないファイルが除外されていることを確認してください。',
+			},
+			{ title: '有効にする' },
+			{ title: '無効にする', isCloseAffordance: true },
 		);
 
-		if (result === '有効にする') {
+		if (result !== undefined && result.title === '有効にする') {
 			await config.update('gitIntegration', true, vscode.ConfigurationTarget.Workspace);
 			gitIntegration = true;
 		} else {
