@@ -130,6 +130,14 @@ export class PahcerResultRepository {
 	}
 
 	/**
+	 * 最新の実行結果を1件取得
+	 */
+	async getLatestResult(): Promise<PahcerResultWithId | null> {
+		const results = await this.loadLatestResults(1);
+		return results.length > 0 ? results[0] : null;
+	}
+
+	/**
 	 * 特定の実行結果を読み込む
 	 */
 	async loadResult(resultId: string): Promise<PahcerResult | null> {

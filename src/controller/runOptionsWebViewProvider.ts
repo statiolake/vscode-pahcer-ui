@@ -2,6 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
+import type { OutputFileRepository } from '../infrastructure/outputFileRepository';
+import type { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 
 interface RunOptions {
@@ -15,6 +17,8 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,
 		private readonly taskAdapter: TaskAdapter,
+		private readonly outputFileRepository: OutputFileRepository,
+		private readonly resultRepository: PahcerResultRepository,
 	) {}
 
 	resolveWebviewView(
@@ -32,16 +36,18 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		webviewView.webview.onDidReceiveMessage(async (message) => {
 			switch (message.command) {
 				case 'runWithOptions':
-					await this.handleRunWithOptions(message.options);
+					await this.runWithOptions(message.options);
+					// Refresh tree view after run completes
+					await vscode.commands.executeCommand('pahcer-ui.refresh');
 					break;
 				case 'cancelRunOptions':
-					await this.handleCancel();
+					await this.cancel();
 					break;
 			}
 		});
 	}
 
-	private async handleRunWithOptions(options: RunOptions): Promise<void> {
+	async runWithOptions(options: RunOptions): Promise<void> {
 		// Git統合チェック＆コミット
 		try {
 			const commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
@@ -61,14 +67,20 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 			command += ' --freeze-best-scores';
 		}
 
+		// Switch back to TreeView
+		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
+
 		// Execute pahcer run using task
 		await this.taskAdapter.runTask('Pahcer Run', command, this.workspaceRoot);
 
-		// Switch back to TreeView
-		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
+		// Task completed - copy output files
+		const latestResult = await this.resultRepository.getLatestResult();
+		if (latestResult) {
+			await this.outputFileRepository.copyOutputFiles(latestResult.id);
+		}
 	}
 
-	private async handleCancel(): Promise<void> {
+	async cancel(): Promise<void> {
 		// Switch back to TreeView
 		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
 	}

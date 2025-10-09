@@ -6,9 +6,10 @@ import * as vscode from 'vscode';
  */
 export class TaskAdapter {
 	/**
-	 * タスクを作成して実行
+	 * タスクを作成して実行し、完了を待つ
+	 * @returns タスクの終了コード（成功なら0）
 	 */
-	async runTask(name: string, command: string, cwd: string): Promise<void> {
+	async runTask(name: string, command: string, cwd: string): Promise<number | undefined> {
 		const taskExecution = new vscode.ShellExecution(command, {
 			cwd,
 		});
@@ -30,14 +31,25 @@ export class TaskAdapter {
 			clear: false,
 		};
 
-		await vscode.tasks.executeTask(task);
+		const execution = await vscode.tasks.executeTask(task);
+
+		// Wait for task completion
+		return new Promise<number | undefined>((resolve) => {
+			const disposable = vscode.tasks.onDidEndTask((e) => {
+				if (e.execution === execution) {
+					disposable.dispose();
+					resolve(e.execution.task.execution ? 0 : undefined);
+				}
+			});
+		});
 	}
 
 	/**
 	 * pahcer runを実行
+	 * @returns タスクの終了コード（成功なら0）
 	 */
-	async runPahcer(workspaceRoot: string): Promise<void> {
-		await this.runTask('Pahcer Run', 'pahcer run', workspaceRoot);
+	async runPahcer(workspaceRoot: string): Promise<number | undefined> {
+		return this.runTask('Pahcer Run', 'pahcer run', workspaceRoot);
 	}
 
 	/**

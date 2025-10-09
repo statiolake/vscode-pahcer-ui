@@ -17,7 +17,6 @@ import { InitializationWebViewProvider } from './controller/initializationWebVie
 import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
-import { FileWatcher } from './infrastructure/fileWatcher';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerResultRepository } from './infrastructure/pahcerResultRepository';
@@ -89,13 +88,15 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create all controllers (always create, but will error if used when not ready)
 	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
 	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
+	const resultRepository = new PahcerResultRepository(workspaceRoot);
+	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
 		context,
 		workspaceRoot,
 		taskAdapter,
+		outputFileRepository,
+		resultRepository,
 	);
-	const resultRepository = new PahcerResultRepository(workspaceRoot);
-	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 
 	// Initialize grouping context
 	const updateGroupingContext = () => {
@@ -109,9 +110,15 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('pahcer-ui.refresh', () => {
 			treeViewController.refresh();
 		}),
-		vscode.commands.registerCommand('pahcer-ui.run', () =>
-			runCommand(workspaceAdapter, taskAdapter),
-		),
+		vscode.commands.registerCommand('pahcer-ui.run', async () => {
+			await runCommand(
+				workspaceAdapter,
+				taskAdapter,
+				outputFileRepository,
+				resultRepository,
+				treeViewController,
+			);
+		}),
 		vscode.commands.registerCommand('pahcer-ui.runWithOptions', () => {
 			vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', true);
 		}),
@@ -173,22 +180,6 @@ export function activate(context: vscode.ExtensionContext) {
 	// Initialize context (show TreeView by default)
 	vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
 
-	// Watch for changes in pahcer/json directory (always watch, regardless of pahcer status)
-	const watcher = new FileWatcher(workspaceRoot, 'pahcer/json/result_*.json', {
-		onCreate: async (uri) => {
-			// Extract result ID from path
-			const fileName = uri.fsPath.split('/').pop();
-			const match = fileName?.match(/^result_(.+)\.json$/);
-			if (match) {
-				const resultId = match[1];
-				await outputFileRepository.copyOutputFiles(resultId);
-			}
-			treeViewController.refresh();
-		},
-		onChange: () => treeViewController.refresh(),
-		onDelete: () => treeViewController.refresh(),
-	});
-
 	// Handle checkbox state changes (always register)
 	treeView.onDidChangeCheckboxState(async (e) => {
 		for (const [item] of e.items) {
@@ -210,7 +201,7 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 	});
 
-	context.subscriptions.push(treeView, runOptionsWebView, watcher, ...allCommands);
+	context.subscriptions.push(treeView, runOptionsWebView, ...allCommands);
 }
 
 export function deactivate() {}

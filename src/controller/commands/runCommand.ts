@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
+import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
 import { checkAndCommitIfEnabled } from '../../infrastructure/gitIntegration';
+import type { OutputFileRepository } from '../../infrastructure/outputFileRepository';
+import type { PahcerResultRepository } from '../../infrastructure/pahcerResultRepository';
 import type { TaskAdapter } from '../../infrastructure/taskAdapter';
 import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 
@@ -9,6 +12,9 @@ import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 export async function runCommand(
 	workspaceAdapter: WorkspaceAdapter,
 	taskAdapter: TaskAdapter,
+	outputFileRepository: OutputFileRepository,
+	resultRepository: PahcerResultRepository,
+	treeViewController: PahcerTreeViewController,
 ): Promise<void> {
 	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
 
@@ -30,4 +36,11 @@ export async function runCommand(
 	}
 
 	await taskAdapter.runPahcer(workspaceRoot);
+
+	// Task completed - copy output files and refresh
+	const latestResult = await resultRepository.getLatestResult();
+	if (latestResult) {
+		await outputFileRepository.copyOutputFiles(latestResult.id);
+	}
+	treeViewController.refresh();
 }
