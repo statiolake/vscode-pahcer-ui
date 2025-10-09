@@ -42,6 +42,8 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 	}
 
 	private async handleInitialize(options: InitOptions): Promise<void> {
+		let finalIsInteractive = options.isInteractive;
+
 		// Download tester if URL is provided
 		if (options.testerUrl) {
 			try {
@@ -49,18 +51,49 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 				const downloader = new TesterDownloader(this.workspaceRoot);
 				await downloader.downloadAndExtract(options.testerUrl);
 				vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
+
+				// Check if tester suggests interactive problem
+				const testerRsPath = path.join(this.workspaceRoot, 'tools', 'src', 'bin', 'tester.rs');
+				const hasInteractiveTester = fs.existsSync(testerRsPath);
+
+				// If detected interactive status differs from user selection, confirm
+				if (hasInteractiveTester !== options.isInteractive) {
+					const detectedType = hasInteractiveTester
+						? 'インタラクティブ問題'
+						: '非インタラクティブ問題';
+					const userSelectedType = options.isInteractive
+						? 'インタラクティブ'
+						: '非インタラクティブ';
+
+					const result = await vscode.window.showWarningMessage(
+						'検出されたインタラクティブ設定に変更しますか？',
+						{
+							modal: true,
+							detail:
+								`ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
+								`指定された問題タイプ: ${userSelectedType}\n` +
+								`検出された問題タイプ: ${detectedType}\n\n` +
+								`検出された問題タイプで続けますか？`,
+						},
+						{ title: hasInteractiveTester ? 'インタラクティブに変更' : '非インタラクティブに変更' },
+						{ title: 'このまま続行', isCloseAffordance: true },
+					);
+
+					if (result !== undefined && result.title !== 'このまま続行') {
+						finalIsInteractive = hasInteractiveTester;
+					}
+				}
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : String(error);
 				vscode.window.showErrorMessage(
 					`ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
 				);
-				// Continue with initialization even if download fails
 			}
 		}
 
 		// Build pahcer init command
 		let command = `pahcer init --problem "${options.problemName}" --objective ${options.objective} --lang ${options.language}`;
-		if (options.isInteractive) {
+		if (finalIsInteractive) {
 			command += ' --interactive';
 		}
 
