@@ -370,7 +370,13 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * コミットハッシュを持つチェック済み結果を取得
 	 */
 	async getCheckedResultsWithCommitHash(): Promise<PahcerResultWithId[]> {
-		const allResults = await this.resultRepository.loadLatestResults();
-		return allResults.filter((r) => this.checkedResults.has(r.id) && r.result.commitHash);
+		const results: PahcerResultWithId[] = [];
+		for (const resultId of this.checkedResults) {
+			const result = await this.resultRepository.loadResultWithId(resultId);
+			if (result?.result.commitHash) {
+				results.push(result);
+			}
+		}
+		return results;
 	}
 }

@@ -158,6 +158,48 @@ export class PahcerResultRepository {
 	}
 
 	/**
+	 * 特定の実行結果をIDと共に読み込む
+	 */
+	async loadResultWithId(resultId: string): Promise<PahcerResultWithId | null> {
+		const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
+
+		if (!fs.existsSync(jsonPath)) {
+			return null;
+		}
+
+		try {
+			const content = fs.readFileSync(jsonPath, 'utf-8');
+			const raw: RawPahcerResult = JSON.parse(content);
+			const result = convertToDomainModel(raw, resultId, this.workspaceRoot);
+
+			// Load commit hash from meta.json
+			const metaPath = path.join(
+				this.workspaceRoot,
+				'.pahcer-ui',
+				'results',
+				`result_${resultId}`,
+				'meta.json',
+			);
+			if (fs.existsSync(metaPath)) {
+				try {
+					const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+					result.commitHash = metadata.commitHash;
+				} catch (e) {
+					console.log(`error loading commit hash for ${resultId}: ${e}`);
+				}
+			}
+
+			return {
+				id: resultId,
+				result,
+			};
+		} catch (e) {
+			console.error(`Failed to load result ${resultId}:`, e);
+			return null;
+		}
+	}
+
+	/**
 	 * コメントを更新する（pahcer本体のJSONファイルを直接書き換え）
 	 */
 	async updateComment(resultId: string, comment: string): Promise<void> {
