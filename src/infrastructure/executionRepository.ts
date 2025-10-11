@@ -35,6 +35,10 @@ function convertToDomainModel(
 	executionId: string,
 	workspaceRoot: string,
 ): Execution {
+	// Get list of existing output files once (instead of checking each file individually)
+	const outDir = path.join(workspaceRoot, '.pahcer-ui', 'results', `result_${executionId}`, 'out');
+	const existingFiles = new Set<string>(fs.existsSync(outDir) ? fs.readdirSync(outDir) : []);
+
 	return {
 		id: executionId,
 		startTime: raw.start_time,
@@ -47,17 +51,8 @@ function convertToDomainModel(
 		tagName: raw.tag_name,
 		waSeeds: raw.wa_seeds,
 		cases: raw.cases.map((c) => {
-			// Check if output file exists
 			const seedStr = String(c.seed).padStart(4, '0');
-			const outputPath = path.join(
-				workspaceRoot,
-				'.pahcer-ui',
-				'results',
-				`result_${executionId}`,
-				'out',
-				`${seedStr}.txt`,
-			);
-			const foundOutput = fs.existsSync(outputPath);
+			const foundOutput = existingFiles.has(`${seedStr}.txt`);
 
 			return {
 				seed: c.seed,
