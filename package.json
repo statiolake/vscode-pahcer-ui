@@ -61,62 +61,70 @@
 		"commands": [
 			{
 				"command": "pahcer-ui.run",
-				"title": "テストを実行",
+				"title": "Pahcer: テストを実行",
 				"icon": "$(run-all)"
 			},
 			{
 				"command": "pahcer-ui.runWithOptions",
-				"title": "詳細実行...",
+				"title": "Pahcer: 詳細実行...",
 				"icon": "$(play)"
 			},
 			{
 				"command": "pahcer-ui.refresh",
-				"title": "結果を更新",
+				"title": "Pahcer: 結果を更新",
 				"icon": "$(refresh)"
 			},
 			{
 				"command": "pahcer-ui.switchToSeed",
-				"title": "Seedごとにグルーピング",
+				"title": "Pahcer: Seedごとにグルーピング",
 				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "pahcer-ui.switchToExecution",
-				"title": "実行ごとにグルーピング",
+				"title": "Pahcer: 実行ごとにグルーピング",
 				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "pahcer-ui.addComment",
-				"title": "コメントを追加"
+				"title": "Pahcer: コメントを追加"
 			},
 			{
 				"command": "pahcer-ui.changeSortOrder",
-				"title": "並び順を変更",
+				"title": "Pahcer: 並び順を変更",
 				"icon": "$(list-filter)"
 			},
 			{
 				"command": "pahcer-ui.openInputFile",
-				"title": "入力ファイルを開く"
+				"title": "Pahcer: 入力ファイルを開く"
 			},
 			{
 				"command": "pahcer-ui.openOutputFile",
-				"title": "出力ファイルを開く"
+				"title": "Pahcer: 出力ファイルを開く"
 			},
 			{
 				"command": "pahcer-ui.openErrorFile",
-				"title": "エラーファイルを開く"
+				"title": "Pahcer: エラーファイルを開く"
 			},
 			{
 				"command": "pahcer-ui.showDiff",
-				"title": "差分を表示",
+				"title": "Pahcer: 差分を表示",
 				"icon": "$(git-compare)"
 			},
 			{
 				"command": "pahcer-ui.openGitHub",
-				"title": "Pahcer の GitHub ページを開く"
+				"title": "Pahcer: GitHub ページを開く"
 			},
 			{
 				"command": "pahcer-ui.initialize",
-				"title": "Pahcer を初期化"
+				"title": "Pahcer: 初期化"
+			},
+			{
+				"command": "pahcer-ui.showVisualizer",
+				"title": "Pahcer: ビジュアライザを表示"
+			},
+			{
+				"command": "pahcer-ui.showResultsNotFoundError",
+				"title": "Pahcer: 結果が見つかりません"
 			}
 		],
 		"menus": {
