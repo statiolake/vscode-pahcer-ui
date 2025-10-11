@@ -1,4 +1,4 @@
-import type { PahcerResult } from '../models/pahcerResult';
+import type { Execution } from '../models/execution';
 import type { TestCase } from '../models/testCase';
 
 /**
@@ -56,7 +56,7 @@ export function sortTestCases(cases: TestCase[], order: ExecutionSortOrder): Tes
 /**
  * Seed別の実行結果をソートする（純粋関数）
  */
-export function sortExecutionsForSeed<T extends { file: string; testCase: TestCase }>(
+export function sortExecutionsForSeed<T extends { execution: Execution; testCase: TestCase }>(
 	executions: T[],
 	order: SeedSortOrder,
 ): T[] {
@@ -64,10 +64,10 @@ export function sortExecutionsForSeed<T extends { file: string; testCase: TestCa
 
 	switch (order) {
 		case 'executionAsc':
-			sorted.sort((a, b) => a.file.localeCompare(b.file));
+			sorted.sort((a, b) => a.execution.id.localeCompare(b.execution.id));
 			break;
 		case 'executionDesc':
-			sorted.sort((a, b) => b.file.localeCompare(a.file));
+			sorted.sort((a, b) => b.execution.id.localeCompare(a.execution.id));
 			break;
 		case 'absoluteScoreAsc':
 			sorted.sort((a, b) => a.testCase.score - b.testCase.score);

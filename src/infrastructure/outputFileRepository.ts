@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { PahcerResult } from '../domain/models/pahcerResult';
+import type { Execution } from '../domain/models/execution';
 import type { SeedAnalysis } from '../domain/models/resultMetadata';
 import { FileAnalyzer } from './fileAnalyzer';
 
@@ -56,7 +56,7 @@ export class OutputFileRepository {
 	 */
 	async copyOutputFiles(
 		resultId: string,
-		pahcerResult: PahcerResult,
+		execution: Execution,
 		commitHash?: string,
 	): Promise<void> {
 		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
@@ -80,7 +80,7 @@ export class OutputFileRepository {
 		}
 
 		// Analyze files and save to meta.json
-		await this.analyzeAndSaveMetadata(resultId, pahcerResult, commitHash);
+		await this.analyzeAndSaveMetadata(resultId, execution, commitHash);
 	}
 
 	/**
@@ -88,14 +88,14 @@ export class OutputFileRepository {
 	 */
 	private async analyzeAndSaveMetadata(
 		resultId: string,
-		pahcerResult: PahcerResult,
+		execution: Execution,
 		commitHash?: string,
 	): Promise<void> {
 		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
 		const metaPath = path.join(destDir, 'meta.json');
 
-		// Collect all seeds from pahcerResult
-		const seeds = pahcerResult.cases.map((c) => c.seed);
+		// Collect all seeds from execution
+		const seeds = execution.cases.map((c) => c.seed);
 
 		// Prepare file paths for parallel reading
 		const inputPaths = seeds.map((seed) =>

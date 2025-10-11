@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { ConfigAdapter } from '../infrastructure/configAdapter';
+import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { InputFileRepository } from '../infrastructure/inputFileRepository';
 import { OutputFileRepository } from '../infrastructure/outputFileRepository';
-import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 import { VisualizerCache } from '../infrastructure/visualizerCache';
 import { VisualizerDownloader } from '../infrastructure/visualizerDownloader';
 
@@ -14,7 +14,7 @@ export class VisualizerViewController {
 
 	private inputFileRepository: InputFileRepository;
 	private outputFileRepository: OutputFileRepository;
-	private resultRepository: PahcerResultRepository;
+	private executionRepository: ExecutionRepository;
 	private visualizerDownloader: VisualizerDownloader;
 	private visualizerCache: VisualizerCache;
 	private configAdapter: ConfigAdapter;
@@ -24,7 +24,7 @@ export class VisualizerViewController {
 
 		this.inputFileRepository = new InputFileRepository(workspaceRoot);
 		this.outputFileRepository = new OutputFileRepository(workspaceRoot);
-		this.resultRepository = new PahcerResultRepository(workspaceRoot);
+		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
 		this.visualizerCache = new VisualizerCache(visualizerDir);
 		this.configAdapter = new ConfigAdapter();
@@ -94,7 +94,7 @@ export class VisualizerViewController {
 		// Get execution time from result file if resultId is provided
 		let executionTime = '';
 		if (resultId) {
-			const result = await this.resultRepository.loadResult(resultId);
+			const result = await this.executionRepository.loadExecution(resultId);
 			if (result) {
 				executionTime = ` (${new Date(result.startTime).toLocaleString()})`;
 			}

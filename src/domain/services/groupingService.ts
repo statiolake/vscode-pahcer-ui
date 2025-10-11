@@ -1,4 +1,4 @@
-import type { PahcerResult, PahcerResultWithId } from '../models/pahcerResult';
+import type { Execution } from '../models/execution';
 import type { TestCase } from '../models/testCase';
 
 // Re-export GroupingMode from sortingService
@@ -8,8 +8,7 @@ export type { GroupingMode } from './sortingService';
  * 実行ごとにグルーピングされたデータ
  */
 export interface ExecutionGroup {
-	resultId: string;
-	result: PahcerResult;
+	execution: Execution;
 	cases: TestCase[];
 }
 
@@ -19,9 +18,7 @@ export interface ExecutionGroup {
 export interface SeedGroup {
 	seed: number;
 	executions: Array<{
-		resultId: string;
-		file: string;
-		result: PahcerResult;
+		execution: Execution;
 		testCase: TestCase;
 	}>;
 }
@@ -29,44 +26,39 @@ export interface SeedGroup {
 /**
  * 実行結果を実行ごとにグルーピング（純粋関数）
  */
-export function groupByExecution(results: PahcerResultWithId[]): ExecutionGroup[] {
-	return results.map((item) => ({
-		resultId: item.id,
-		result: item.result,
-		cases: item.result.cases,
+export function groupByExecution(executions: Execution[]): ExecutionGroup[] {
+	return executions.map((execution) => ({
+		execution,
+		cases: execution.cases,
 	}));
 }
 
 /**
  * 実行結果をSeedごとにグルーピング（純粋関数）
  */
-export function groupBySeed(results: PahcerResultWithId[]): SeedGroup[] {
+export function groupBySeed(executions: Execution[]): SeedGroup[] {
 	const seedMap = new Map<
 		number,
 		Array<{
-			resultId: string;
-			file: string;
-			result: PahcerResult;
+			execution: Execution;
 			testCase: TestCase;
 		}>
 	>();
 
-	for (const item of results) {
-		for (const testCase of item.result.cases) {
-			const executions = seedMap.get(testCase.seed) || [];
-			executions.push({
-				resultId: item.id,
-				file: `result_${item.id}.json`,
-				result: item.result,
+	for (const execution of executions) {
+		for (const testCase of execution.cases) {
+			const executionList = seedMap.get(testCase.seed) || [];
+			executionList.push({
+				execution,
 				testCase,
 			});
-			seedMap.set(testCase.seed, executions);
+			seedMap.set(testCase.seed, executionList);
 		}
 	}
 
 	const groups: SeedGroup[] = [];
-	for (const [seed, executions] of seedMap.entries()) {
-		groups.push({ seed, executions });
+	for (const [seed, executionList] of seedMap.entries()) {
+		groups.push({ seed, executions: executionList });
 	}
 
 	// Seed順にソート

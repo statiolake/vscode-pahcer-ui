@@ -1,9 +1,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { ExecutionRepository } from '../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
 import type { OutputFileRepository } from '../infrastructure/outputFileRepository';
-import type { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 
 interface RunOptions {
@@ -18,7 +18,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly workspaceRoot: string,
 		private readonly taskAdapter: TaskAdapter,
 		private readonly outputFileRepository: OutputFileRepository,
-		private readonly resultRepository: PahcerResultRepository,
+		private readonly executionRepository: ExecutionRepository,
 	) {}
 
 	resolveWebviewView(
@@ -71,16 +71,13 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		await this.taskAdapter.runTask('Pahcer Run', command, this.workspaceRoot);
 
 		// Task completed - copy output files
-		const latestResult = await this.resultRepository.getLatestResult();
-		if (latestResult) {
-			const pahcerResult = await this.resultRepository.loadResult(latestResult.id);
-			if (pahcerResult) {
-				await this.outputFileRepository.copyOutputFiles(
-					latestResult.id,
-					pahcerResult,
-					commitHash || undefined,
-				);
-			}
+		const latestExecution = await this.executionRepository.getLatestExecution();
+		if (latestExecution) {
+			await this.outputFileRepository.copyOutputFiles(
+				latestExecution.id,
+				latestExecution,
+				commitHash || undefined,
+			);
 		}
 	}
 

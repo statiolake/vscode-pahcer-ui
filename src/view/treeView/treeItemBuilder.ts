@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 import {
+	type Execution,
 	getAcCount,
 	getAverageRelativeScore,
 	getAverageScore,
 	getShortTitle,
-	type PahcerResult,
-	type PahcerResultWithId,
-} from '../../domain/models/pahcerResult';
+} from '../../domain/models/execution';
 import type { TestCase } from '../../domain/models/testCase';
 import type { SeedStats } from '../../domain/services/aggregationService';
 
@@ -18,18 +17,17 @@ export class TreeItemBuilder {
 	 * 実行結果のTreeItemを生成
 	 */
 	buildExecutionItem(
-		item: PahcerResultWithId,
+		execution: Execution,
 		comparisonMode: boolean,
 		isChecked: boolean,
 	): vscode.TreeItem {
-		const result = item.result;
-		const time = getShortTitle(result);
-		const acCount = getAcCount(result);
-		const avgScore = getAverageScore(result).toFixed(1);
-		const avgRel = getAverageRelativeScore(result).toFixed(2);
+		const time = getShortTitle(execution);
+		const acCount = getAcCount(execution);
+		const avgScore = getAverageScore(execution).toFixed(1);
+		const avgRel = getAverageRelativeScore(execution).toFixed(2);
 
 		const label = `${time} - Avg: ${avgScore} (${avgRel}%)`;
-		const description = result.comment || (result.tagName || '').replace('pahcer/', '');
+		const description = execution.comment || (execution.tagName || '').replace('pahcer/', '');
 
 		const treeItem = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
 		treeItem.contextValue = 'execution';
@@ -43,9 +41,9 @@ export class TreeItemBuilder {
 		}
 
 		// Icon based on commit hash and AC status
-		if (result.commitHash) {
+		if (execution.commitHash) {
 			// Has commit hash - use git icon with appropriate color
-			if (result.waSeeds.length === 0) {
+			if (execution.waSeeds.length === 0) {
 				treeItem.iconPath = new vscode.ThemeIcon(
 					'git-commit',
 					new vscode.ThemeColor('testing.iconPassed'),
@@ -63,7 +61,7 @@ export class TreeItemBuilder {
 			}
 		} else {
 			// No commit hash - use regular icons
-			if (result.waSeeds.length === 0) {
+			if (execution.waSeeds.length === 0) {
 				treeItem.iconPath = new vscode.ThemeIcon(
 					'pass',
 					new vscode.ThemeColor('testing.iconPassed'),
@@ -87,9 +85,9 @@ export class TreeItemBuilder {
 	/**
 	 * サマリーのTreeItemを生成
 	 */
-	buildSummaryItem(result: PahcerResult): vscode.TreeItem {
-		const acCount = getAcCount(result);
-		const summaryLabel = `AC: ${acCount}/${result.caseCount}, Total Score: ${result.totalScore.toLocaleString()}, Max Time: ${(result.maxExecutionTime * 1000).toFixed(0)}ms`;
+	buildSummaryItem(execution: Execution): vscode.TreeItem {
+		const acCount = getAcCount(execution);
+		const summaryLabel = `AC: ${acCount}/${execution.caseCount}, Total Score: ${execution.totalScore.toLocaleString()}, Max Time: ${(execution.maxExecutionTime * 1000).toFixed(0)}ms`;
 		const summaryItem = new vscode.TreeItem(summaryLabel, vscode.TreeItemCollapsibleState.None);
 		summaryItem.contextValue = 'summary';
 		summaryItem.iconPath = new vscode.ThemeIcon('info');

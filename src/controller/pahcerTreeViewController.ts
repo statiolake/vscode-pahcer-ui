@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getShortTitle, type PahcerResultWithId } from '../domain/models/pahcerResult';
+import { type Execution, getShortTitle } from '../domain/models/execution';
 import { calculateSeedStats } from '../domain/services/aggregationService';
 import { groupBySeed } from '../domain/services/groupingService';
 import type {
@@ -9,8 +9,8 @@ import type {
 } from '../domain/services/sortingService';
 import { sortExecutionsForSeed, sortTestCases } from '../domain/services/sortingService';
 import { ConfigAdapter } from '../infrastructure/configAdapter';
+import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { PahcerAdapter, PahcerStatus } from '../infrastructure/pahcerAdapter';
-import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
 /**
@@ -28,8 +28,8 @@ export class PahcerTreeItem extends vscode.TreeItem {
 		this.contextValue = itemType;
 	}
 
-	resultId?: string;
-	result?: PahcerResultWithId;
+	executionId?: string;
+	execution?: Execution;
 	seed?: number;
 	comment?: string;
 }
@@ -44,13 +44,13 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	private checkedResults = new Set<string>();
 
 	private pahcerAdapter: PahcerAdapter;
-	private resultRepository: PahcerResultRepository;
+	private executionRepository: ExecutionRepository;
 	private configAdapter: ConfigAdapter;
 	private treeItemBuilder: TreeItemBuilder;
 
 	constructor(workspaceRoot: string) {
 		this.pahcerAdapter = new PahcerAdapter(workspaceRoot);
-		this.resultRepository = new PahcerResultRepository(workspaceRoot);
+		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.configAdapter = new ConfigAdapter();
 		this.treeItemBuilder = new TreeItemBuilder();
 	}
@@ -161,9 +161,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		if (!element) {
 			// Root level: show all results
 			return this.getExecutions();
-		} else if (element.itemType === 'execution' && element.result) {
+		} else if (element.itemType === 'execution' && element.execution) {
 			// Show cases for a result
-			return this.getCasesForExecution(element.result, element.resultId);
+			return this.getCasesForExecution(element.execution);
 		} else {
 			return [];
 		}
@@ -188,9 +188,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * 実行結果一覧を取得
 	 */
 	private async getExecutions(): Promise<PahcerTreeItem[]> {
-		const results = await this.resultRepository.loadLatestResults();
+		const executions = await this.executionRepository.loadLatestExecutions();
 
-		if (results.length === 0) {
+		if (executions.length === 0) {
 			const item = new PahcerTreeItem(
 				'No results found',
 				vscode.TreeItemCollapsibleState.None,
@@ -201,12 +201,12 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 		const items: PahcerTreeItem[] = [];
 
-		for (const resultWithId of results) {
+		for (const execution of executions) {
 			// Build tree item
 			const builtItem = this.treeItemBuilder.buildExecutionItem(
-				resultWithId,
+				execution,
 				true, // Always show checkbox
-				this.checkedResults.has(resultWithId.id),
+				this.checkedResults.has(execution.id),
 			);
 
 			const item = new PahcerTreeItem(
@@ -215,8 +215,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 				'execution',
 				builtItem.description as string,
 			);
-			item.resultId = resultWithId.id;
-			item.result = resultWithId;
+			item.executionId = execution.id;
+			item.execution = execution;
 			item.checkboxState = builtItem.checkboxState;
 			item.iconPath = builtItem.iconPath;
 
@@ -229,15 +229,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	/**
 	 * 実行結果のテストケース一覧を取得
 	 */
-	private async getCasesForExecution(
-		resultWithId: PahcerResultWithId,
-		resultId?: string,
-	): Promise<PahcerTreeItem[]> {
+	private async getCasesForExecution(execution: Execution): Promise<PahcerTreeItem[]> {
 		const items: PahcerTreeItem[] = [];
-		const result = resultWithId.result;
 
 		// Summary
-		const summaryBuilt = this.treeItemBuilder.buildSummaryItem(result);
+		const summaryBuilt = this.treeItemBuilder.buildSummaryItem(execution);
 		const summaryItem = new PahcerTreeItem(
 			summaryBuilt.label as string,
 			summaryBuilt.collapsibleState ?? vscode.TreeItemCollapsibleState.None,
@@ -248,11 +244,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 		// Sort cases
 		const sortOrder = this.getExecutionSortOrder();
-		const sortedCases = sortTestCases(result.cases, sortOrder);
+		const sortedCases = sortTestCases(execution.cases, sortOrder);
 
 		// Cases
 		for (const testCase of sortedCases) {
-			const builtItem = this.treeItemBuilder.buildTestCaseItem(testCase, resultId);
+			const builtItem = this.treeItemBuilder.buildTestCaseItem(testCase, execution.id);
 			const item = new PahcerTreeItem(
 				builtItem.label as string,
 				builtItem.collapsibleState ?? vscode.TreeItemCollapsibleState.None,
@@ -260,7 +256,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 				builtItem.description as string,
 			);
 			item.seed = testCase.seed;
-			item.resultId = resultId;
+			item.executionId = execution.id;
 			item.command = builtItem.command;
 			item.iconPath = builtItem.iconPath;
 			item.tooltip = builtItem.tooltip;
@@ -275,9 +271,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * Seed一覧を取得
 	 */
 	private async getSeeds(): Promise<PahcerTreeItem[]> {
-		const results = await this.resultRepository.loadLatestResults();
+		const executions = await this.executionRepository.loadLatestExecutions();
 
-		if (results.length === 0) {
+		if (executions.length === 0) {
 			const item = new PahcerTreeItem(
 				'No results found',
 				vscode.TreeItemCollapsibleState.None,
@@ -287,7 +283,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		}
 
 		// Calculate seed stats
-		const statsMap = calculateSeedStats(results.map((r) => r.result));
+		const statsMap = calculateSeedStats(executions);
 		const items: PahcerTreeItem[] = [];
 
 		for (const stats of Array.from(statsMap.values()).sort((a, b) => a.seed - b.seed)) {
@@ -311,10 +307,10 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * Seedの実行結果一覧を取得
 	 */
 	private async getExecutionsForSeed(seed: number): Promise<PahcerTreeItem[]> {
-		const results = await this.resultRepository.loadLatestResults();
+		const executions = await this.executionRepository.loadLatestExecutions();
 
 		// Group by seed
-		const grouped = groupBySeed(results);
+		const grouped = groupBySeed(executions);
 		const seedGroup = grouped.find((g) => g.seed === seed);
 
 		if (!seedGroup) {
@@ -326,25 +322,26 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		const sortedExecutions = sortExecutionsForSeed(seedGroup.executions, sortOrder);
 
 		// Find latest execution
-		const latestFile = [...seedGroup.executions].sort((a, b) => b.file.localeCompare(a.file))[0]
-			?.file;
+		const latestExecutionId = [...seedGroup.executions].sort((a, b) =>
+			b.execution.id.localeCompare(a.execution.id),
+		)[0]?.execution.id;
 
 		const items: PahcerTreeItem[] = [];
 
-		for (const execution of sortedExecutions) {
-			const time = getShortTitle(execution.result);
+		for (const executionData of sortedExecutions) {
+			const time = getShortTitle(executionData.execution);
 			const isLatest =
-				execution.file === latestFile &&
+				executionData.execution.id === latestExecutionId &&
 				(sortOrder === 'absoluteScoreAsc' || sortOrder === 'absoluteScoreDesc');
 
 			const builtItem = this.treeItemBuilder.buildSeedExecutionItem(
 				time,
-				execution.testCase,
+				executionData.testCase,
 				seed,
-				execution.resultId,
+				executionData.execution.id,
 				isLatest,
 				true, // Show checkbox
-				this.checkedResults.has(execution.resultId),
+				this.checkedResults.has(executionData.execution.id),
 			);
 
 			const item = new PahcerTreeItem(
@@ -354,7 +351,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 				builtItem.description as string,
 			);
 			item.seed = seed;
-			item.resultId = execution.resultId;
+			item.executionId = executionData.execution.id;
 			item.command = builtItem.command;
 			item.checkboxState = builtItem.checkboxState;
 			item.iconPath = builtItem.iconPath;
@@ -369,12 +366,12 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	/**
 	 * コミットハッシュを持つチェック済み結果を取得
 	 */
-	async getCheckedResultsWithCommitHash(): Promise<PahcerResultWithId[]> {
-		const results: PahcerResultWithId[] = [];
-		for (const resultId of this.checkedResults) {
-			const result = await this.resultRepository.loadResultWithId(resultId);
-			if (result?.result.commitHash) {
-				results.push(result);
+	async getCheckedResultsWithCommitHash(): Promise<Execution[]> {
+		const results: Execution[] = [];
+		for (const executionId of this.checkedResults) {
+			const execution = await this.executionRepository.loadExecution(executionId);
+			if (execution?.commitHash) {
+				results.push(execution);
 			}
 		}
 		return results;

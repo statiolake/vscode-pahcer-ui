@@ -20,9 +20,9 @@ import {
 } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
+import { ExecutionRepository } from './infrastructure/executionRepository';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
-import { PahcerResultRepository } from './infrastructure/pahcerResultRepository';
 import { TaskAdapter } from './infrastructure/taskAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
@@ -91,14 +91,14 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create all controllers (always create, but will error if used when not ready)
 	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
 	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
-	const resultRepository = new PahcerResultRepository(workspaceRoot);
+	const executionRepository = new ExecutionRepository(workspaceRoot);
 	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
 		context,
 		workspaceRoot,
 		taskAdapter,
 		outputFileRepository,
-		resultRepository,
+		executionRepository,
 	);
 
 	// Initialize grouping context
@@ -118,7 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
 				workspaceAdapter,
 				taskAdapter,
 				outputFileRepository,
-				resultRepository,
+				executionRepository,
 				treeViewController,
 			);
 		}),
@@ -136,8 +136,8 @@ export function activate(context: vscode.ExtensionContext) {
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showVisualizer',
-			async (seed: number, resultId?: string) => {
-				await visualizerViewController.showVisualizerForCase(seed, resultId);
+			async (seed: number, executionId?: string) => {
+				await visualizerViewController.showVisualizerForCase(seed, executionId);
 			},
 		),
 		vscode.commands.registerCommand('pahcer-ui.showResultsNotFoundError', (seed: number) => {
@@ -147,7 +147,7 @@ export function activate(context: vscode.ExtensionContext) {
 			);
 		}),
 		vscode.commands.registerCommand('pahcer-ui.addComment', (item: PahcerTreeItem) => {
-			addCommentCommand(item, resultRepository, treeViewController);
+			addCommentCommand(item, executionRepository, treeViewController);
 		}),
 		vscode.commands.registerCommand('pahcer-ui.openInputFile', (item: PahcerTreeItem) => {
 			if (!item.seed) {
@@ -161,10 +161,10 @@ export function activate(context: vscode.ExtensionContext) {
 				typeof item === 'object' &&
 				'seed' in item &&
 				typeof item.seed === 'number' &&
-				'resultId' in item &&
-				typeof item.resultId === 'string'
+				'executionId' in item &&
+				typeof item.executionId === 'string'
 			) {
-				return openOutputFile(workspaceRoot, item.resultId, item.seed);
+				return openOutputFile(workspaceRoot, item.executionId, item.seed);
 			}
 		}),
 		vscode.commands.registerCommand('pahcer-ui.openErrorFile', (item: PahcerTreeItem) => {
@@ -173,10 +173,10 @@ export function activate(context: vscode.ExtensionContext) {
 				typeof item === 'object' &&
 				'seed' in item &&
 				typeof item.seed === 'number' &&
-				'resultId' in item &&
-				typeof item.resultId === 'string'
+				'executionId' in item &&
+				typeof item.executionId === 'string'
 			) {
-				return openErrorFile(workspaceRoot, item.resultId, item.seed);
+				return openErrorFile(workspaceRoot, item.executionId, item.seed);
 			}
 		}),
 		vscode.commands.registerCommand('pahcer-ui.showDiff', () =>
@@ -196,8 +196,8 @@ export function activate(context: vscode.ExtensionContext) {
 	// Handle checkbox state changes (always register)
 	treeView.onDidChangeCheckboxState(async (e) => {
 		for (const [item] of e.items) {
-			if (item.resultId) {
-				treeViewController.toggleCheckbox(item.resultId);
+			if (item.executionId) {
+				treeViewController.toggleCheckbox(item.executionId);
 			}
 		}
 

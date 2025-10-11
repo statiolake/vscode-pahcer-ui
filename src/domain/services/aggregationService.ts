@@ -1,4 +1,4 @@
-import type { PahcerResult } from '../models/pahcerResult';
+import type { Execution } from '../models/execution';
 import type { TestCase } from '../models/testCase';
 
 /**
@@ -16,11 +16,11 @@ export interface SeedStats {
 /**
  * Seed別の統計を計算する（純粋関数）
  */
-export function calculateSeedStats(results: PahcerResult[]): Map<number, SeedStats> {
+export function calculateSeedStats(executions: Execution[]): Map<number, SeedStats> {
 	const seedMap = new Map<number, { count: number; totalScore: number; totalRel: number }>();
 
-	for (const result of results) {
-		for (const testCase of result.cases) {
+	for (const execution of executions) {
+		for (const testCase of execution.cases) {
 			const existing = seedMap.get(testCase.seed) || { count: 0, totalScore: 0, totalRel: 0 };
 			seedMap.set(testCase.seed, {
 				count: existing.count + 1,

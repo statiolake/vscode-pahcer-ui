@@ -1,11 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { PahcerResult, PahcerResultWithId } from '../domain/models/pahcerResult';
+import type { Execution } from '../domain/models/execution';
 
 /**
- * JSONファイルから読み込んだ生データの型
+ * JSONファイルから読み込んだ生データの型（pahcer が出力する JSON 形式）
  */
-interface RawPahcerResult {
+interface RawExecutionData {
 	start_time: string;
 	case_count: number;
 	total_score: number;
@@ -26,13 +26,17 @@ interface RawPahcerResult {
 
 /**
  * 生データをドメインモデルに変換
+ * @param raw JSONファイルから読み込んだ生データ
+ * @param executionId 実行ID（例: "20250111_123456"）
+ * @param workspaceRoot ワークスペースのルートパス
  */
 function convertToDomainModel(
-	raw: RawPahcerResult,
-	resultId: string,
+	raw: RawExecutionData,
+	executionId: string,
 	workspaceRoot: string,
-): PahcerResult {
+): Execution {
 	return {
+		id: executionId,
 		startTime: raw.start_time,
 		caseCount: raw.case_count,
 		totalScore: raw.total_score,
@@ -49,7 +53,7 @@ function convertToDomainModel(
 				workspaceRoot,
 				'.pahcer-ui',
 				'results',
-				`result_${resultId}`,
+				`result_${executionId}`,
 				'out',
 				`${seedStr}.txt`,
 			);
@@ -68,15 +72,23 @@ function convertToDomainModel(
 }
 
 /**
- * Pahcer実行結果のリポジトリ
+ * 実行IDからファイル名を計算
  */
-export class PahcerResultRepository {
+function getResultFileName(executionId: string): string {
+	return `result_${executionId}.json`;
+}
+
+/**
+ * テスト実行のリポジトリ
+ * pahcer が出力する JSON ファイルを読み込み、Execution エンティティとして返す
+ */
+export class ExecutionRepository {
 	constructor(private workspaceRoot: string) {}
 
 	/**
-	 * 最新N件の実行結果を読み込む（デフォルトは全件）
+	 * 最新N件の実行を読み込む（デフォルトは全件）
 	 */
-	async loadLatestResults(limit = Number.POSITIVE_INFINITY): Promise<PahcerResultWithId[]> {
+	async loadLatestExecutions(limit = Number.POSITIVE_INFINITY): Promise<Execution[]> {
 		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
 
 		if (!fs.existsSync(jsonDir)) {
@@ -90,58 +102,60 @@ export class PahcerResultRepository {
 			.reverse()
 			.slice(0, limit);
 
-		const results: PahcerResultWithId[] = [];
+		const executions: Execution[] = [];
 
 		for (const file of files) {
 			try {
 				const content = fs.readFileSync(path.join(jsonDir, file), 'utf-8');
-				const raw: RawPahcerResult = JSON.parse(content);
-				const resultId = file.replace(/^result_(.+)\.json$/, '$1');
+				const raw: RawExecutionData = JSON.parse(content);
+				const executionId = file.replace(/^result_(.+)\.json$/, '$1');
 
-				const result = convertToDomainModel(raw, resultId, this.workspaceRoot);
+				const execution = convertToDomainModel(raw, executionId, this.workspaceRoot);
 
 				// Load commit hash from meta.json
 				const metaPath = path.join(
 					this.workspaceRoot,
 					'.pahcer-ui',
 					'results',
-					`result_${resultId}`,
+					`result_${executionId}`,
 					'meta.json',
 				);
 				if (fs.existsSync(metaPath)) {
 					try {
 						const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-						result.commitHash = metadata.commitHash;
+						execution.commitHash = metadata.commitHash;
 					} catch (e) {
 						console.log(`error listing latest results: ${e}`);
 					}
 				}
 
-				results.push({
-					id: resultId,
-					result,
-				});
+				executions.push(execution);
 			} catch (e) {
 				console.error(`Failed to load ${file}:`, e);
 			}
 		}
 
-		return results;
+		return executions;
 	}
 
 	/**
-	 * 最新の実行結果を1件取得
+	 * 最新の実行を1件取得
 	 */
-	async getLatestResult(): Promise<PahcerResultWithId | null> {
-		const results = await this.loadLatestResults(1);
-		return results.length > 0 ? results[0] : null;
+	async getLatestExecution(): Promise<Execution | null> {
+		const executions = await this.loadLatestExecutions(1);
+		return executions.length > 0 ? executions[0] : null;
 	}
 
 	/**
-	 * 特定の実行結果を読み込む
+	 * 特定の実行を読み込む
 	 */
-	async loadResult(resultId: string): Promise<PahcerResult | null> {
-		const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
+	async loadExecution(executionId: string): Promise<Execution | null> {
+		const jsonPath = path.join(
+			this.workspaceRoot,
+			'pahcer',
+			'json',
+			getResultFileName(executionId),
+		);
 
 		if (!fs.existsSync(jsonPath)) {
 			return null;
@@ -149,70 +163,52 @@ export class PahcerResultRepository {
 
 		try {
 			const content = fs.readFileSync(jsonPath, 'utf-8');
-			const raw: RawPahcerResult = JSON.parse(content);
-			return convertToDomainModel(raw, resultId, this.workspaceRoot);
-		} catch (e) {
-			console.error(`Failed to load result ${resultId}:`, e);
-			return null;
-		}
-	}
-
-	/**
-	 * 特定の実行結果をIDと共に読み込む
-	 */
-	async loadResultWithId(resultId: string): Promise<PahcerResultWithId | null> {
-		const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
-
-		if (!fs.existsSync(jsonPath)) {
-			return null;
-		}
-
-		try {
-			const content = fs.readFileSync(jsonPath, 'utf-8');
-			const raw: RawPahcerResult = JSON.parse(content);
-			const result = convertToDomainModel(raw, resultId, this.workspaceRoot);
+			const raw: RawExecutionData = JSON.parse(content);
+			const execution = convertToDomainModel(raw, executionId, this.workspaceRoot);
 
 			// Load commit hash from meta.json
 			const metaPath = path.join(
 				this.workspaceRoot,
 				'.pahcer-ui',
 				'results',
-				`result_${resultId}`,
+				`result_${executionId}`,
 				'meta.json',
 			);
 			if (fs.existsSync(metaPath)) {
 				try {
 					const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-					result.commitHash = metadata.commitHash;
+					execution.commitHash = metadata.commitHash;
 				} catch (e) {
-					console.log(`error loading commit hash for ${resultId}: ${e}`);
+					console.log(`error loading commit hash for ${executionId}: ${e}`);
 				}
 			}
 
-			return {
-				id: resultId,
-				result,
-			};
+			return execution;
 		} catch (e) {
-			console.error(`Failed to load result ${resultId}:`, e);
+			console.error(`Failed to load result ${executionId}:`, e);
 			return null;
 		}
 	}
 
 	/**
-	 * コメントを更新する（pahcer本体のJSONファイルを直接書き換え）
+	 * 実行のコメントを更新する（pahcer本体のJSONファイルを直接書き換え）
 	 */
-	async updateComment(resultId: string, comment: string): Promise<void> {
-		const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${resultId}.json`);
+	async updateExecutionComment(executionId: string, comment: string): Promise<void> {
+		const jsonPath = path.join(
+			this.workspaceRoot,
+			'pahcer',
+			'json',
+			getResultFileName(executionId),
+		);
 
 		if (!fs.existsSync(jsonPath)) {
-			throw new Error(`Result file not found: ${jsonPath}`);
+			throw new Error(`Execution file not found: ${jsonPath}`);
 		}
 
 		try {
 			// JSONファイルを読み込む
 			const content = fs.readFileSync(jsonPath, 'utf-8');
-			const raw: RawPahcerResult = JSON.parse(content);
+			const raw: RawExecutionData = JSON.parse(content);
 
 			// commentフィールドを更新
 			raw.comment = comment;
@@ -220,7 +216,7 @@ export class PahcerResultRepository {
 			// JSONファイルに書き戻す（インデントを保持）
 			fs.writeFileSync(jsonPath, JSON.stringify(raw, null, 2), 'utf-8');
 		} catch (e) {
-			console.error(`Failed to update comment for ${resultId}:`, e);
+			console.error(`Failed to update comment for ${executionId}:`, e);
 			throw e;
 		}
 	}

@@ -1,9 +1,12 @@
 import type { TestCase } from './testCase';
 
 /**
- * Pahcer実行結果のドメインモデル
+ * テスト実行のエンティティ
+ * 各テスト実行を一意に識別するIDを持つ
  */
-export interface PahcerResult {
+export interface Execution {
+	/** 実行ID（例: "20250111_123456"） */
+	id: string;
 	startTime: string;
 	caseCount: number;
 	totalScore: number;
@@ -18,18 +21,16 @@ export interface PahcerResult {
 }
 
 /**
- * 実行結果のIDを含む実行結果
+ * 後方互換性のため、PahcerResultはExecutionのエイリアス
+ * @deprecated Executionを使用してください
  */
-export interface PahcerResultWithId {
-	id: string;
-	result: PahcerResult;
-}
+export type PahcerResult = Execution;
 
 /**
  * 実行結果の短いタイトル（MM/DD HH:MM）
  */
-export function getShortTitle(result: PahcerResult): string {
-	const date = new Date(result.startTime);
+export function getShortTitle(execution: Execution): string {
+	const date = new Date(execution.startTime);
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');
 	const hour = String(date.getHours()).padStart(2, '0');
@@ -40,8 +41,8 @@ export function getShortTitle(result: PahcerResult): string {
 /**
  * 実行結果の長いタイトル（YYYY/MM/DD HH:MM:SS）
  */
-export function getLongTitle(result: PahcerResult): string {
-	const date = new Date(result.startTime);
+export function getLongTitle(execution: Execution): string {
+	const date = new Date(execution.startTime);
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');
@@ -54,32 +55,32 @@ export function getLongTitle(result: PahcerResult): string {
 /**
  * 実行結果のコミットハッシュ付きタイトル（MM/DD HH:MM@hash）
  */
-export function getTitleWithHash(result: PahcerResult): string {
-	if (!result.commitHash) {
-		return getShortTitle(result);
+export function getTitleWithHash(execution: Execution): string {
+	if (!execution.commitHash) {
+		return getShortTitle(execution);
 	}
-	const shortTitle = getShortTitle(result);
-	const shortHash = result.commitHash.slice(0, 7);
+	const shortTitle = getShortTitle(execution);
+	const shortHash = execution.commitHash.slice(0, 7);
 	return `${shortTitle}@${shortHash}`;
 }
 
 /**
  * AC数を計算する
  */
-export function getAcCount(result: PahcerResult): number {
-	return result.caseCount - result.waSeeds.length;
+export function getAcCount(execution: Execution): number {
+	return execution.caseCount - execution.waSeeds.length;
 }
 
 /**
  * 平均スコアを計算する
  */
-export function getAverageScore(result: PahcerResult): number {
-	return result.caseCount > 0 ? result.totalScore / result.caseCount : 0;
+export function getAverageScore(execution: Execution): number {
+	return execution.caseCount > 0 ? execution.totalScore / execution.caseCount : 0;
 }
 
 /**
  * 平均相対スコアを計算する
  */
-export function getAverageRelativeScore(result: PahcerResult): number {
-	return result.caseCount > 0 ? result.totalRelativeScore / result.caseCount : 0;
+export function getAverageRelativeScore(execution: Execution): number {
+	return execution.caseCount > 0 ? execution.totalRelativeScore / execution.caseCount : 0;
 }

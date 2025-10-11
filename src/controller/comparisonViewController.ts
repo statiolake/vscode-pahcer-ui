@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import { getLongTitle, type PahcerResult } from '../domain/models/pahcerResult';
+import { type Execution, getLongTitle } from '../domain/models/execution';
 import type { ResultMetadata } from '../domain/models/resultMetadata';
 import { ConfigRepository } from '../infrastructure/configRepository';
+import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { MetadataRepository } from '../infrastructure/metadataRepository';
-import { PahcerResultRepository } from '../infrastructure/pahcerResultRepository';
 
 function getNonce() {
 	let text = '';
@@ -21,7 +21,7 @@ export class ComparisonViewController {
 	private panel: vscode.WebviewPanel | undefined;
 	private messageDisposable: vscode.Disposable | undefined;
 
-	private resultRepository: PahcerResultRepository;
+	private executionRepository: ExecutionRepository;
 	private metadataRepository: MetadataRepository;
 	private configRepository: ConfigRepository;
 
@@ -29,7 +29,7 @@ export class ComparisonViewController {
 		private context: vscode.ExtensionContext,
 		workspaceRoot: string,
 	) {
-		this.resultRepository = new PahcerResultRepository(workspaceRoot);
+		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.metadataRepository = new MetadataRepository(workspaceRoot);
 		this.configRepository = new ConfigRepository(workspaceRoot);
 	}
@@ -37,17 +37,17 @@ export class ComparisonViewController {
 	/**
 	 * 比較ビューを表示
 	 */
-	async showComparison(resultIds: string[]): Promise<void> {
-		// Load result data
-		const results: Array<{ id: string; data: PahcerResult | null }> = [];
-		for (const resultId of resultIds) {
-			const result = await this.resultRepository.loadResult(resultId);
-			if (result) {
-				results.push({ id: resultId, data: result });
+	async showComparison(executionIds: string[]): Promise<void> {
+		// Load execution data
+		const executions: Execution[] = [];
+		for (const executionId of executionIds) {
+			const execution = await this.executionRepository.loadExecution(executionId);
+			if (execution) {
+				executions.push(execution);
 			}
 		}
 
-		if (results.length === 0) {
+		if (executions.length === 0) {
 			// Close panel if no results selected
 			if (this.panel) {
 				this.panel.dispose();
@@ -57,18 +57,14 @@ export class ComparisonViewController {
 
 		// Load metadata for all results (contains analysis data)
 		const metadataMap = new Map<string, ResultMetadata>();
-		for (const resultId of resultIds) {
-			const metadata = await this.metadataRepository.load(resultId);
+		for (const executionId of executionIds) {
+			const metadata = await this.metadataRepository.load(executionId);
 			if (metadata) {
-				metadataMap.set(resultId, metadata);
+				metadataMap.set(executionId, metadata);
 			}
 		}
 
-		// Filter out null results and prepare comparison data
-		const validResults = results.filter(
-			(r): r is { id: string; data: PahcerResult } => r.data !== null,
-		);
-		const comparisonData = await this.prepareComparisonData(validResults, metadataMap);
+		const comparisonData = await this.prepareComparisonData(executions, metadataMap);
 
 		// Create or update panel
 		if (this.panel) {
@@ -124,13 +120,13 @@ export class ComparisonViewController {
 	 * 比較データを準備
 	 */
 	private async prepareComparisonData(
-		results: Array<{ id: string; data: PahcerResult }>,
+		executions: Execution[],
 		metadataMap: Map<string, ResultMetadata>,
 	) {
 		// Collect all seeds
 		const allSeeds = new Set<number>();
-		for (const result of results) {
-			for (const testCase of result.data.cases) {
+		for (const execution of executions) {
+			for (const testCase of execution.cases) {
 				allSeeds.add(testCase.seed);
 			}
 		}
@@ -140,13 +136,13 @@ export class ComparisonViewController {
 		const inputDataObj: Record<number, string> = {};
 		const stderrData: Record<string, Record<number, Record<string, number>>> = {};
 
-		for (const { id, data } of results) {
-			const metadata = metadataMap.get(id);
+		for (const execution of executions) {
+			const metadata = metadataMap.get(execution.id);
 			const analysis = metadata?.analysis || {};
 
-			stderrData[id] = {};
+			stderrData[execution.id] = {};
 
-			for (const testCase of data.cases) {
+			for (const testCase of execution.cases) {
 				const seed = testCase.seed;
 				const seedAnalysis = analysis[seed];
 
@@ -157,13 +153,13 @@ export class ComparisonViewController {
 					}
 
 					// Use stderr variables from analysis
-					stderrData[id][seed] = seedAnalysis.stderrVars || {};
+					stderrData[execution.id][seed] = seedAnalysis.stderrVars || {};
 				} else {
 					// Fallback to empty
 					if (!inputDataObj[seed]) {
 						inputDataObj[seed] = '';
 					}
-					stderrData[id][seed] = {};
+					stderrData[execution.id][seed] = {};
 				}
 			}
 		}
@@ -173,10 +169,10 @@ export class ComparisonViewController {
 
 		// Prepare data for React
 		return {
-			results: results.map((r) => ({
-				id: r.id,
-				time: getLongTitle(r.data),
-				cases: r.data.cases.map((c) => ({
+			results: executions.map((execution) => ({
+				id: execution.id,
+				time: getLongTitle(execution),
+				cases: execution.cases.map((c) => ({
 					seed: c.seed,
 					score: c.score,
 					relativeScore: c.relativeScore,

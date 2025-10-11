@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { PahcerResultRepository } from '../../infrastructure/pahcerResultRepository';
+import type { ExecutionRepository } from '../../infrastructure/executionRepository';
 import type { PahcerTreeItem, PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -7,10 +7,10 @@ import type { PahcerTreeItem, PahcerTreeViewController } from '../pahcerTreeView
  */
 export async function addCommentCommand(
 	item: PahcerTreeItem,
-	resultRepository: PahcerResultRepository,
+	executionRepository: ExecutionRepository,
 	treeViewController: PahcerTreeViewController,
 ): Promise<void> {
-	if (!item.resultId) {
+	if (!item.executionId) {
 		return;
 	}
 
@@ -26,7 +26,7 @@ export async function addCommentCommand(
 
 	// Update comment in pahcer's JSON file
 	try {
-		await resultRepository.updateComment(item.resultId, comment);
+		await executionRepository.updateExecutionComment(item.executionId, comment);
 
 		// Refresh tree view
 		treeViewController.refresh();
