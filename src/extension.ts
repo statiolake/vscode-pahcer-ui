@@ -20,13 +20,14 @@ import {
 } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
+import { ContextAdapter } from './infrastructure/contextAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { OutputFileRepository } from './infrastructure/outputFileRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { TaskAdapter } from './infrastructure/taskAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
 	const workspaceAdapter = new WorkspaceAdapter();
 	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
 
@@ -34,18 +35,15 @@ export function activate(context: vscode.ExtensionContext) {
 		return;
 	}
 
+	// Create context adapter for managing VSCode contexts
+	const contextAdapter = new ContextAdapter();
+
 	// Check pahcer installation and initialization status
 	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
 	const pahcerStatus = pahcerAdapter.checkStatus();
 
 	// Set context for viewsWelcome
-	if (pahcerStatus === PahcerStatus.NotInstalled) {
-		vscode.commands.executeCommand('setContext', 'pahcer.status', 'notInstalled');
-	} else if (pahcerStatus === PahcerStatus.NotInitialized) {
-		vscode.commands.executeCommand('setContext', 'pahcer.status', 'notInitialized');
-	} else {
-		vscode.commands.executeCommand('setContext', 'pahcer.status', 'ready');
-	}
+	await contextAdapter.setPahcerStatus(pahcerStatus);
 
 	// Register setup commands (always available)
 	context.subscriptions.push(
@@ -55,7 +53,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Initialize context (hide initialization view by default)
-	vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', false);
+	await contextAdapter.setShowInitialization(false);
 
 	// Always create TreeViewController (it handles pahcer status internally)
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
@@ -68,15 +66,16 @@ export function activate(context: vscode.ExtensionContext) {
 		context,
 		workspaceRoot,
 		taskAdapter,
+		contextAdapter,
 	);
 	const initializationWebView = vscode.window.registerWebviewViewProvider(
 		'pahcerInitialization',
 		initializationProvider,
 	);
 
-	const initializeCommand = vscode.commands.registerCommand('pahcer-ui.initialize', () => {
+	const initializeCommand = vscode.commands.registerCommand('pahcer-ui.initialize', async () => {
 		// Show initialization WebView by switching context
-		vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', true);
+		await contextAdapter.setShowInitialization(true);
 	});
 
 	context.subscriptions.push(initializationWebView, initializeCommand);
@@ -99,14 +98,15 @@ export function activate(context: vscode.ExtensionContext) {
 		taskAdapter,
 		outputFileRepository,
 		executionRepository,
+		contextAdapter,
 	);
 
 	// Initialize grouping context
-	const updateGroupingContext = () => {
+	const updateGroupingContext = async () => {
 		const mode = treeViewController.getGroupingMode();
-		vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
+		await contextAdapter.setGroupingMode(mode);
 	};
-	updateGroupingContext();
+	await updateGroupingContext();
 
 	// Register ALL commands (always available, but may error if pahcer not ready)
 	const allCommands = [
@@ -122,8 +122,8 @@ export function activate(context: vscode.ExtensionContext) {
 				treeViewController,
 			);
 		}),
-		vscode.commands.registerCommand('pahcer-ui.runWithOptions', () => {
-			vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', true);
+		vscode.commands.registerCommand('pahcer-ui.runWithOptions', async () => {
+			await contextAdapter.setShowRunOptions(true);
 		}),
 		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
 			changeSortOrderCommand(treeViewController),
@@ -191,7 +191,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Initialize context (show TreeView by default)
-	vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
+	await contextAdapter.setShowRunOptions(false);
 
 	// Handle checkbox state changes (always register)
 	treeView.onDidChangeCheckboxState(async (e) => {
@@ -207,11 +207,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// Update context for diff button visibility
 		const resultsWithCommitHash = await treeViewController.getCheckedResultsWithCommitHash();
-		vscode.commands.executeCommand(
-			'setContext',
-			'pahcer.canShowDiff',
-			resultsWithCommitHash.length === 2,
-		);
+		await contextAdapter.setCanShowDiff(resultsWithCommitHash.length === 2);
 	});
 
 	context.subscriptions.push(treeView, runOptionsWebView, ...allCommands);

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 import { TesterDownloader } from '../infrastructure/testerDownloader';
 
@@ -20,6 +21,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,
 		private readonly taskAdapter: TaskAdapter,
+		private readonly contextAdapter: ContextAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -97,7 +99,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		this.updateGitignore();
 
 		// Close initialization WebView and return to TreeView
-		await vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', false);
+		await this.contextAdapter.setShowInitialization(false);
 
 		// Execute pahcer init using task
 		await this.taskAdapter.runPahcerInit(

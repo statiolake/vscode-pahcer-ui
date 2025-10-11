@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
 import type { OutputFileRepository } from '../infrastructure/outputFileRepository';
@@ -19,6 +20,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly taskAdapter: TaskAdapter,
 		private readonly outputFileRepository: OutputFileRepository,
 		private readonly executionRepository: ExecutionRepository,
+		private readonly contextAdapter: ContextAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -65,7 +67,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		// Switch back to TreeView
-		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
+		await this.contextAdapter.setShowRunOptions(false);
 
 		// Execute pahcer run using task
 		await this.taskAdapter.runTask('Pahcer Run', command, this.workspaceRoot);
@@ -83,7 +85,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 
 	async cancel(): Promise<void> {
 		// Switch back to TreeView
-		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', false);
+		await this.contextAdapter.setShowRunOptions(false);
 	}
 
 	private async createTempConfig(options: RunOptions): Promise<string> {
