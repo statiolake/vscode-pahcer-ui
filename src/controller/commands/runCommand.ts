@@ -9,39 +9,41 @@ import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 /**
  * pahcer run コマンドハンドラ
  */
-export async function runCommand(
+export function runCommand(
 	workspaceAdapter: WorkspaceAdapter,
 	taskAdapter: TaskAdapter,
 	outputFileRepository: OutputFileRepository,
 	executionRepository: ExecutionRepository,
 	treeViewController: PahcerTreeViewController,
-): Promise<void> {
-	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
+): () => Promise<void> {
+	return async () => {
+		const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
 
-	if (!workspaceRoot) {
-		vscode.window.showErrorMessage('ワークスペースが開かれていません');
-		return;
-	}
+		if (!workspaceRoot) {
+			vscode.window.showErrorMessage('ワークスペースが開かれていません');
+			return;
+		}
 
-	// Git統合チェック＆コミット
-	let commitHash: string | null = null;
-	try {
-		commitHash = await checkAndCommitIfEnabled(workspaceRoot);
-	} catch (error) {
-		vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
-		return;
-	}
+		// Git統合チェック＆コミット
+		let commitHash: string | null = null;
+		try {
+			commitHash = await checkAndCommitIfEnabled(workspaceRoot);
+		} catch (error) {
+			vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
+			return;
+		}
 
-	await taskAdapter.runPahcer(workspaceRoot);
+		await taskAdapter.runPahcer(workspaceRoot);
 
-	// Task completed - copy output files and refresh
-	const latestExecution = await executionRepository.getLatestExecution();
-	if (latestExecution) {
-		await outputFileRepository.copyOutputFiles(
-			latestExecution.id,
-			latestExecution,
-			commitHash || undefined,
-		);
-	}
-	treeViewController.refresh();
+		// Task completed - copy output files and refresh
+		const latestExecution = await executionRepository.getLatestExecution();
+		if (latestExecution) {
+			await outputFileRepository.copyOutputFiles(
+				latestExecution.id,
+				latestExecution,
+				commitHash || undefined,
+			);
+		}
+		treeViewController.refresh();
+	};
 }

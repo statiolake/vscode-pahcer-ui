@@ -1,23 +1,26 @@
 import * as vscode from 'vscode';
 import { addCommentCommand } from './controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './controller/commands/changeSortOrderCommand';
+import { initializeCommand } from './controller/commands/initializeCommand';
 import {
-	openErrorFile,
-	openInputFile,
-	openOutputFile,
+	openErrorFileCommand,
+	openInputFileCommand,
+	openOutputFileCommand,
 } from './controller/commands/openFileCommand';
+import { openGitHubCommand } from './controller/commands/openGitHubCommand';
+import { refreshCommand } from './controller/commands/refreshCommand';
 import { runCommand } from './controller/commands/runCommand';
+import { runWithOptionsCommand } from './controller/commands/runWithOptionsCommand';
 import { showDiffCommand } from './controller/commands/showDiffCommand';
+import { showResultsNotFoundErrorCommand } from './controller/commands/showResultsNotFoundErrorCommand';
+import { showVisualizerCommand } from './controller/commands/showVisualizerCommand';
 import {
 	switchToExecutionCommand,
 	switchToSeedCommand,
 } from './controller/commands/switchModeCommand';
 import { ComparisonViewController } from './controller/comparisonViewController';
 import { InitializationWebViewProvider } from './controller/initializationWebViewProvider';
-import {
-	type PahcerTreeItem,
-	PahcerTreeViewController,
-} from './controller/pahcerTreeViewController';
+import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { ContextAdapter } from './infrastructure/contextAdapter';
@@ -27,16 +30,35 @@ import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { TaskAdapter } from './infrastructure/taskAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
-export async function activate(context: vscode.ExtensionContext) {
+/**
+ * アダプター（インフラ層コンポーネント）の集合
+ */
+interface Adapters {
+	workspaceAdapter: WorkspaceAdapter;
+	contextAdapter: ContextAdapter;
+	taskAdapter: TaskAdapter;
+	executionRepository: ExecutionRepository;
+	outputFileRepository: OutputFileRepository;
+}
+
+/**
+ * コントローラー（ビューコントローラー）の集合
+ */
+interface Controllers {
+	treeViewController: PahcerTreeViewController;
+	visualizerViewController: VisualizerViewController;
+	comparisonViewController: ComparisonViewController;
+}
+
+/**
+ * すべてのアダプターを初期化
+ */
+async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const workspaceAdapter = new WorkspaceAdapter();
-	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
-
-	if (!workspaceRoot) {
-		return;
-	}
-
-	// Create context adapter for managing VSCode contexts
 	const contextAdapter = new ContextAdapter();
+	const taskAdapter = new TaskAdapter();
+	const executionRepository = new ExecutionRepository(workspaceRoot);
+	const outputFileRepository = new OutputFileRepository(workspaceRoot);
 
 	// Check pahcer installation and initialization status
 	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
@@ -44,173 +66,221 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Set context for viewsWelcome
 	await contextAdapter.setPahcerStatus(pahcerStatus);
-
-	// Register setup commands (always available)
-	context.subscriptions.push(
-		vscode.commands.registerCommand('pahcer-ui.openGitHub', () => {
-			vscode.env.openExternal(vscode.Uri.parse('https://github.com/terry-u16/pahcer'));
-		}),
-	);
-
-	// Initialize context (hide initialization view by default)
 	await contextAdapter.setShowInitialization(false);
 
-	// Always create TreeViewController (it handles pahcer status internally)
+	return {
+		workspaceAdapter,
+		contextAdapter,
+		taskAdapter,
+		executionRepository,
+		outputFileRepository,
+	};
+}
+
+/**
+ * コントローラーを初期化
+ */
+function initializeControllers(
+	context: vscode.ExtensionContext,
+	workspaceRoot: string,
+): Controllers {
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
+	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
+	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
 
-	// Create infrastructure components (always needed)
-	const taskAdapter = new TaskAdapter();
+	return {
+		treeViewController,
+		visualizerViewController,
+		comparisonViewController,
+	};
+}
 
-	// Register initialization WebView and command (always register, regardless of pahcer status)
+/**
+ * 初期化ビューを登録
+ */
+function registerInitializationView(
+	context: vscode.ExtensionContext,
+	workspaceRoot: string,
+	adapters: Adapters,
+): vscode.Disposable {
 	const initializationProvider = new InitializationWebViewProvider(
 		context,
 		workspaceRoot,
-		taskAdapter,
-		contextAdapter,
-	);
-	const initializationWebView = vscode.window.registerWebviewViewProvider(
-		'pahcerInitialization',
-		initializationProvider,
+		adapters.taskAdapter,
+		adapters.contextAdapter,
 	);
 
-	const initializeCommand = vscode.commands.registerCommand('pahcer-ui.initialize', async () => {
-		// Show initialization WebView by switching context
-		await contextAdapter.setShowInitialization(true);
-	});
+	return vscode.window.registerWebviewViewProvider('pahcerInitialization', initializationProvider);
+}
 
-	context.subscriptions.push(initializationWebView, initializeCommand);
+/**
+ * TreeViewを登録
+ */
+async function registerTreeView(
+	workspaceRoot: string,
+	controllers: Controllers,
+	adapters: Adapters,
+): Promise<vscode.TreeView<unknown>> {
+	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
+	const pahcerStatus = pahcerAdapter.checkStatus();
 
-	// Create TreeView (always create, but behavior differs based on pahcer status)
 	const treeView = vscode.window.createTreeView('pahcerResults', {
-		treeDataProvider: treeViewController,
+		treeDataProvider: controllers.treeViewController,
 		showCollapseAll: pahcerStatus === PahcerStatus.Ready,
 		canSelectMany: false,
 	});
 
-	// Create all controllers (always create, but will error if used when not ready)
-	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
-	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
-	const executionRepository = new ExecutionRepository(workspaceRoot);
-	const outputFileRepository = new OutputFileRepository(workspaceRoot);
-	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
-		context,
-		workspaceRoot,
-		taskAdapter,
-		outputFileRepository,
-		executionRepository,
-		contextAdapter,
-	);
-
 	// Initialize grouping context
 	const updateGroupingContext = async () => {
-		const mode = treeViewController.getGroupingMode();
-		await contextAdapter.setGroupingMode(mode);
+		const mode = controllers.treeViewController.getGroupingMode();
+		await adapters.contextAdapter.setGroupingMode(mode);
 	};
 	await updateGroupingContext();
 
-	// Register ALL commands (always available, but may error if pahcer not ready)
-	const allCommands = [
-		vscode.commands.registerCommand('pahcer-ui.refresh', () => {
-			treeViewController.refresh();
-		}),
-		vscode.commands.registerCommand('pahcer-ui.run', async () => {
-			await runCommand(
-				workspaceAdapter,
-				taskAdapter,
-				outputFileRepository,
-				executionRepository,
-				treeViewController,
-			);
-		}),
-		vscode.commands.registerCommand('pahcer-ui.runWithOptions', async () => {
-			await contextAdapter.setShowRunOptions(true);
-		}),
-		vscode.commands.registerCommand('pahcer-ui.changeSortOrder', () =>
-			changeSortOrderCommand(treeViewController),
-		),
-		vscode.commands.registerCommand('pahcer-ui.switchToSeed', () =>
-			switchToSeedCommand(treeViewController, updateGroupingContext),
-		),
-		vscode.commands.registerCommand('pahcer-ui.switchToExecution', () =>
-			switchToExecutionCommand(treeViewController, updateGroupingContext),
-		),
-		vscode.commands.registerCommand(
-			'pahcer-ui.showVisualizer',
-			async (seed: number, executionId?: string) => {
-				await visualizerViewController.showVisualizerForCase(seed, executionId);
-			},
-		),
-		vscode.commands.registerCommand('pahcer-ui.showResultsNotFoundError', (seed: number) => {
-			const seedStr = String(seed).padStart(4, '0');
-			vscode.window.showErrorMessage(
-				`Seed ${seedStr} の結果が見つからないため、ビジュアライザを開けません。`,
-			);
-		}),
-		vscode.commands.registerCommand('pahcer-ui.addComment', (item: PahcerTreeItem) => {
-			addCommentCommand(item, executionRepository, treeViewController);
-		}),
-		vscode.commands.registerCommand('pahcer-ui.openInputFile', (item: PahcerTreeItem) => {
-			if (!item.seed) {
-				return;
-			}
-			return openInputFile(workspaceRoot, item.seed);
-		}),
-		vscode.commands.registerCommand('pahcer-ui.openOutputFile', (item: PahcerTreeItem) => {
-			if (
-				item &&
-				typeof item === 'object' &&
-				'seed' in item &&
-				typeof item.seed === 'number' &&
-				'executionId' in item &&
-				typeof item.executionId === 'string'
-			) {
-				return openOutputFile(workspaceRoot, item.executionId, item.seed);
-			}
-		}),
-		vscode.commands.registerCommand('pahcer-ui.openErrorFile', (item: PahcerTreeItem) => {
-			if (
-				item &&
-				typeof item === 'object' &&
-				'seed' in item &&
-				typeof item.seed === 'number' &&
-				'executionId' in item &&
-				typeof item.executionId === 'string'
-			) {
-				return openErrorFile(workspaceRoot, item.executionId, item.seed);
-			}
-		}),
-		vscode.commands.registerCommand('pahcer-ui.showDiff', () =>
-			showDiffCommand(treeViewController, workspaceRoot),
-		),
-	];
-
-	// Register RunOptions WebView Provider
-	const runOptionsWebView = vscode.window.registerWebviewViewProvider(
-		'pahcerRunOptions',
-		runOptionsWebViewProvider,
-	);
-
-	// Initialize context (show TreeView by default)
-	await contextAdapter.setShowRunOptions(false);
-
-	// Handle checkbox state changes (always register)
+	// Handle checkbox state changes
 	treeView.onDidChangeCheckboxState(async (e) => {
 		for (const [item] of e.items) {
 			if (item.executionId) {
-				treeViewController.toggleCheckbox(item.executionId);
+				controllers.treeViewController.toggleCheckbox(item.executionId);
 			}
 		}
 
 		// Auto-show comparison view when checkboxes change
-		const checkedResults = treeViewController.getCheckedResults();
-		await comparisonViewController.showComparison(checkedResults);
+		const checkedResults = controllers.treeViewController.getCheckedResults();
+		await controllers.comparisonViewController.showComparison(checkedResults);
 
 		// Update context for diff button visibility
-		const resultsWithCommitHash = await treeViewController.getCheckedResultsWithCommitHash();
-		await contextAdapter.setCanShowDiff(resultsWithCommitHash.length === 2);
+		const resultsWithCommitHash =
+			await controllers.treeViewController.getCheckedResultsWithCommitHash();
+		await adapters.contextAdapter.setCanShowDiff(resultsWithCommitHash.length === 2);
 	});
 
-	context.subscriptions.push(treeView, runOptionsWebView, ...allCommands);
+	return treeView;
+}
+
+/**
+ * 実行オプションビューを登録
+ */
+function registerRunOptionsView(
+	context: vscode.ExtensionContext,
+	workspaceRoot: string,
+	adapters: Adapters,
+): vscode.Disposable {
+	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
+		context,
+		workspaceRoot,
+		adapters.taskAdapter,
+		adapters.outputFileRepository,
+		adapters.executionRepository,
+		adapters.contextAdapter,
+	);
+
+	// Initialize context (show TreeView by default)
+	adapters.contextAdapter.setShowRunOptions(false);
+
+	return vscode.window.registerWebviewViewProvider('pahcerRunOptions', runOptionsWebViewProvider);
+}
+
+/**
+ * すべてのコマンドを登録
+ */
+function registerCommands(
+	workspaceRoot: string,
+	adapters: Adapters,
+	controllers: Controllers,
+): vscode.Disposable[] {
+	// Initialize grouping context update function
+	const updateGroupingContext = async () => {
+		const mode = controllers.treeViewController.getGroupingMode();
+		await adapters.contextAdapter.setGroupingMode(mode);
+	};
+
+	return [
+		vscode.commands.registerCommand('pahcer-ui.openGitHub', openGitHubCommand()),
+		vscode.commands.registerCommand(
+			'pahcer-ui.initialize',
+			initializeCommand(adapters.contextAdapter),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.refresh',
+			refreshCommand(controllers.treeViewController),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.run',
+			runCommand(
+				adapters.workspaceAdapter,
+				adapters.taskAdapter,
+				adapters.outputFileRepository,
+				adapters.executionRepository,
+				controllers.treeViewController,
+			),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.runWithOptions',
+			runWithOptionsCommand(adapters.contextAdapter),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.changeSortOrder',
+			changeSortOrderCommand(controllers.treeViewController),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.switchToSeed',
+			switchToSeedCommand(controllers.treeViewController, updateGroupingContext),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.switchToExecution',
+			switchToExecutionCommand(controllers.treeViewController, updateGroupingContext),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.showVisualizer',
+			showVisualizerCommand(controllers.visualizerViewController),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.showResultsNotFoundError',
+			showResultsNotFoundErrorCommand(),
+		),
+		vscode.commands.registerCommand(
+			'pahcer-ui.addComment',
+			addCommentCommand(adapters.executionRepository, controllers.treeViewController),
+		),
+		vscode.commands.registerCommand('pahcer-ui.openInputFile', openInputFileCommand(workspaceRoot)),
+		vscode.commands.registerCommand(
+			'pahcer-ui.openOutputFile',
+			openOutputFileCommand(workspaceRoot),
+		),
+		vscode.commands.registerCommand('pahcer-ui.openErrorFile', openErrorFileCommand(workspaceRoot)),
+		vscode.commands.registerCommand(
+			'pahcer-ui.showDiff',
+			showDiffCommand(controllers.treeViewController, workspaceRoot),
+		),
+	];
+}
+
+export async function activate(context: vscode.ExtensionContext) {
+	// Step 1: Get workspace root
+	const workspaceAdapter = new WorkspaceAdapter();
+	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
+
+	if (!workspaceRoot) {
+		return;
+	}
+
+	// Step 2: Initialize all adapters
+	const adapters = await initializeAdapters(workspaceRoot);
+
+	// Step 3: Initialize all controllers
+	const controllers = initializeControllers(context, workspaceRoot);
+
+	// Step 4: Register all views
+	const initializationView = registerInitializationView(context, workspaceRoot, adapters);
+	const treeView = await registerTreeView(workspaceRoot, controllers, adapters);
+	const runOptionsView = registerRunOptionsView(context, workspaceRoot, adapters);
+
+	// Step 5: Register all commands
+	const commands = registerCommands(workspaceRoot, adapters, controllers);
+
+	// Step 6: Add all disposables to context
+	context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);
 }
 
 export function deactivate() {}

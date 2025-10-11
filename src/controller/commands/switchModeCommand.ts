@@ -5,18 +5,22 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 /**
  * モード切り替えコマンドハンドラ
  */
-export async function switchToSeedCommand(
+export function switchToSeedCommand(
 	treeViewController: PahcerTreeViewController,
-	updateContext: () => void,
-): Promise<void> {
-	await treeViewController.setGroupingMode('bySeed');
-	updateContext();
+	updateContext: () => Promise<void>,
+): () => Promise<void> {
+	return async () => {
+		await treeViewController.setGroupingMode('bySeed');
+		await updateContext();
+	};
 }
 
-export async function switchToExecutionCommand(
+export function switchToExecutionCommand(
 	treeViewController: PahcerTreeViewController,
-	updateContext: () => void,
-): Promise<void> {
-	await treeViewController.setGroupingMode('byExecution');
-	updateContext();
+	updateContext: () => Promise<void>,
+): () => Promise<void> {
+	return async () => {
+		await treeViewController.setGroupingMode('byExecution');
+		await updateContext();
+	};
 }

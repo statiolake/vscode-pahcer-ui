@@ -6,38 +6,40 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 /**
  * チェックされた2つの結果の差分を表示
  */
-export async function showDiffCommand(
+export function showDiffCommand(
 	treeViewController: PahcerTreeViewController,
 	workspaceRoot: string,
-): Promise<void> {
-	const checkedExecutions = await treeViewController.getCheckedResultsWithCommitHash();
+): () => Promise<void> {
+	return async () => {
+		const checkedExecutions = await treeViewController.getCheckedResultsWithCommitHash();
 
-	if (checkedExecutions.length !== 2) {
-		vscode.window.showErrorMessage('コミットハッシュを持つ実行結果を2つ選択してください');
-		return;
-	}
+		if (checkedExecutions.length !== 2) {
+			vscode.window.showErrorMessage('コミットハッシュを持つ実行結果を2つ選択してください');
+			return;
+		}
 
-	// Sort by startTime to ensure older is left, newer is right
-	const sorted = checkedExecutions.sort(
-		(a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-	);
-
-	const [older, newer] = sorted;
-
-	if (!older.commitHash || !newer.commitHash) {
-		vscode.window.showErrorMessage('選択された結果にコミットハッシュがありません');
-		return;
-	}
-
-	try {
-		const gitAdapter = new GitAdapter(workspaceRoot);
-		await gitAdapter.showDiff(
-			older.commitHash,
-			newer.commitHash,
-			getTitleWithHash(older),
-			getTitleWithHash(newer),
+		// Sort by startTime to ensure older is left, newer is right
+		const sorted = checkedExecutions.sort(
+			(a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
 		);
-	} catch (error) {
-		vscode.window.showErrorMessage(`差分表示に失敗しました: ${error}`);
-	}
+
+		const [older, newer] = sorted;
+
+		if (!older.commitHash || !newer.commitHash) {
+			vscode.window.showErrorMessage('選択された結果にコミットハッシュがありません');
+			return;
+		}
+
+		try {
+			const gitAdapter = new GitAdapter(workspaceRoot);
+			await gitAdapter.showDiff(
+				older.commitHash,
+				newer.commitHash,
+				getTitleWithHash(older),
+				getTitleWithHash(newer),
+			);
+		} catch (error) {
+			vscode.window.showErrorMessage(`差分表示に失敗しました: ${error}`);
+		}
+	};
 }
