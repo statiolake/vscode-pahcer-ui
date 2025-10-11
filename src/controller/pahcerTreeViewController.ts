@@ -93,7 +93,6 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		} else {
 			this.checkedResults.add(resultId);
 		}
-		this.refresh();
 	}
 
 	/**
