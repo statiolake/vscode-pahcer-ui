@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
 import type { ExecutionRepository } from '../../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../../infrastructure/gitIntegration';
-import type { OutputFileRepository } from '../../infrastructure/outputFileRepository';
+import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../../infrastructure/taskAdapter';
 import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 
@@ -12,7 +12,7 @@ import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 export function runCommand(
 	workspaceAdapter: WorkspaceAdapter,
 	taskAdapter: TaskAdapter,
-	outputFileRepository: OutputFileRepository,
+	inOutRepository: InOutRepository,
 	executionRepository: ExecutionRepository,
 	treeViewController: PahcerTreeViewController,
 ): () => Promise<void> {
@@ -38,7 +38,7 @@ export function runCommand(
 		// Task completed - copy output files and refresh
 		const latestExecution = await executionRepository.getLatestExecution();
 		if (latestExecution) {
-			await outputFileRepository.copyOutputFiles(
+			await inOutRepository.copyOutputFiles(
 				latestExecution.id,
 				latestExecution,
 				commitHash || undefined,

@@ -1,125 +1,102 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as vscode from 'vscode';
+import type { EditorAdapter } from '../../infrastructure/editorAdapter';
+import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
 /**
- * 指定されたseedの入力ファイルを開くコマンドハンドラ
+ * 入力ファイルを開くコマンドハンドラ
+ *
+ * コントローラ層の責務:
+ * - UIイベント（TreeItemクリック）を処理
+ * - インフラ層にファイルパス解決を委譲
+ * - エディタ操作をEditorAdapterに委譲
  */
-export function openInputFileCommand(workspaceRoot: string): (item: PahcerTreeItem) => void {
-	return (item: PahcerTreeItem) => {
+export function openInputFileCommand(
+	inOutRepository: InOutRepository,
+	editorAdapter: EditorAdapter,
+): (item: PahcerTreeItem) => Promise<void> {
+	return async (item: PahcerTreeItem) => {
 		if (!item.seed) {
 			return;
 		}
 
-		const seedStr = String(item.seed).padStart(4, '0');
-		const inputPath = path.join(workspaceRoot, 'tools', 'in', `${seedStr}.txt`);
-
-		if (!fs.existsSync(inputPath)) {
-			vscode.window.showErrorMessage(`入力ファイルが見つかりません: ${inputPath}`);
+		if (!inOutRepository.exists('in', item.seed)) {
+			editorAdapter.showErrorMessage(`入力ファイルが見つかりません: ${item.seed}`);
 			return;
 		}
 
-		vscode.workspace.openTextDocument(inputPath).then((document) => {
-			vscode.window.showTextDocument(document);
-		});
+		const inputPath = inOutRepository.getPath('in', item.seed);
+		try {
+			await editorAdapter.openFile(inputPath);
+		} catch (e) {
+			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
+		}
 	};
 }
 
 /**
- * 指定されたseedの出力ファイルを開くコマンドハンドラ
+ * 出力ファイルを開くコマンドハンドラ
+ *
+ * コントローラ層の責務:
+ * - UIイベント（TreeItemクリック）を処理
+ * - インフラ層にファイルパス解決を委譲
+ * - フォールバック処理のロジック
+ * - エディタ操作をEditorAdapterに委譲
  */
-export function openOutputFileCommand(workspaceRoot: string): (item: PahcerTreeItem) => void {
-	return (item: PahcerTreeItem) => {
-		if (
-			!item ||
-			typeof item !== 'object' ||
-			!('seed' in item) ||
-			typeof item.seed !== 'number' ||
-			!('executionId' in item) ||
-			typeof item.executionId !== 'string'
-		) {
+export function openOutputFileCommand(
+	inOutRepository: InOutRepository,
+	editorAdapter: EditorAdapter,
+): (item: PahcerTreeItem) => Promise<void> {
+	return async (item: PahcerTreeItem) => {
+		if (!item.seed || !item.executionId) {
 			return;
 		}
 
-		const seedStr = String(item.seed).padStart(4, '0');
-
-		// First, try to open from .pahcer-ui/results/result_{resultId}/out/{seed}.txt
-		const savedOutputPath = path.join(
-			workspaceRoot,
-			'.pahcer-ui',
-			'results',
-			`result_${item.executionId}`,
-			'out',
-			`${seedStr}.txt`,
-		);
-
-		if (fs.existsSync(savedOutputPath)) {
-			vscode.workspace.openTextDocument(savedOutputPath).then((document) => {
-				vscode.window.showTextDocument(document);
-			});
+		if (!inOutRepository.exists('out', item.seed, item.executionId)) {
+			editorAdapter.showErrorMessage(
+				`出力ファイルが見つかりません: ${item.seed}@${item.executionId}`,
+			);
 			return;
 		}
 
-		// Fallback to tools/out/{seed}.txt (latest execution)
-		const outputPath = path.join(workspaceRoot, 'tools', 'out', `${seedStr}.txt`);
-
-		if (!fs.existsSync(outputPath)) {
-			vscode.window.showErrorMessage(`出力ファイルが見つかりません: ${outputPath}`);
-			return;
+		const outputPath = inOutRepository.getPath('out', item.seed, item.executionId);
+		try {
+			await editorAdapter.openFile(outputPath);
+		} catch (e) {
+			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
 		}
-
-		vscode.workspace.openTextDocument(outputPath).then((document) => {
-			vscode.window.showTextDocument(document);
-		});
 	};
 }
 
 /**
- * 指定されたseedのエラーファイルを開くコマンドハンドラ
+ * エラーファイルを開くコマンドハンドラ
+ *
+ * コントローラ層の責務:
+ * - UIイベント（TreeItemクリック）を処理
+ * - インフラ層にファイルパス解決を委譲
+ * - フォールバック処理のロジック
+ * - エディタ操作をEditorAdapterに委譲
  */
-export function openErrorFileCommand(workspaceRoot: string): (item: PahcerTreeItem) => void {
-	return (item: PahcerTreeItem) => {
-		if (
-			!item ||
-			typeof item !== 'object' ||
-			!('seed' in item) ||
-			typeof item.seed !== 'number' ||
-			!('executionId' in item) ||
-			typeof item.executionId !== 'string'
-		) {
+export function openErrorFileCommand(
+	inOutRepository: InOutRepository,
+	editorAdapter: EditorAdapter,
+): (item: PahcerTreeItem) => Promise<void> {
+	return async (item: PahcerTreeItem) => {
+		if (!item.seed || !item.executionId) {
 			return;
 		}
 
-		const seedStr = String(item.seed).padStart(4, '0');
-
-		// First, try to open from .pahcer-ui/results/result_{resultId}/err/{seed}.txt
-		const savedErrorPath = path.join(
-			workspaceRoot,
-			'.pahcer-ui',
-			'results',
-			`result_${item.executionId}`,
-			'err',
-			`${seedStr}.txt`,
-		);
-
-		if (fs.existsSync(savedErrorPath)) {
-			vscode.workspace.openTextDocument(savedErrorPath).then((document) => {
-				vscode.window.showTextDocument(document);
-			});
+		if (!inOutRepository.exists('err', item.seed, item.executionId)) {
+			editorAdapter.showErrorMessage(
+				`エラーファイルが見つかりません: ${item.seed}@${item.executionId}`,
+			);
 			return;
 		}
 
-		// Fallback to tools/err/{seed}.txt (latest execution)
-		const errorPath = path.join(workspaceRoot, 'tools', 'err', `${seedStr}.txt`);
-
-		if (!fs.existsSync(errorPath)) {
-			vscode.window.showErrorMessage(`エラーファイルが見つかりません: ${errorPath}`);
-			return;
+		const errorPath = inOutRepository.getPath('err', item.seed, item.executionId);
+		try {
+			await editorAdapter.openFile(errorPath);
+		} catch (e) {
+			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
 		}
-
-		vscode.workspace.openTextDocument(errorPath).then((document) => {
-			vscode.window.showTextDocument(document);
-		});
 	};
 }

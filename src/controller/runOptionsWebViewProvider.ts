@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
-import type { OutputFileRepository } from '../infrastructure/outputFileRepository';
+import type { InOutRepository } from '../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 
 interface RunOptions {
@@ -18,7 +18,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,
 		private readonly taskAdapter: TaskAdapter,
-		private readonly outputFileRepository: OutputFileRepository,
+		private readonly inOutRepository: InOutRepository,
 		private readonly executionRepository: ExecutionRepository,
 		private readonly contextAdapter: ContextAdapter,
 	) {}
@@ -75,7 +75,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		// Task completed - copy output files
 		const latestExecution = await this.executionRepository.getLatestExecution();
 		if (latestExecution) {
-			await this.outputFileRepository.copyOutputFiles(
+			await this.inOutRepository.copyOutputFiles(
 				latestExecution.id,
 				latestExecution,
 				commitHash || undefined,

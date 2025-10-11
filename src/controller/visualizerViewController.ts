@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import { ConfigAdapter } from '../infrastructure/configAdapter';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
-import { InputFileRepository } from '../infrastructure/inputFileRepository';
-import { OutputFileRepository } from '../infrastructure/outputFileRepository';
+import { InOutRepository } from '../infrastructure/inOutRepository';
 import { VisualizerCache } from '../infrastructure/visualizerCache';
 import { VisualizerDownloader } from '../infrastructure/visualizerDownloader';
 
@@ -12,8 +11,7 @@ import { VisualizerDownloader } from '../infrastructure/visualizerDownloader';
 export class VisualizerViewController {
 	private static currentPanel: vscode.WebviewPanel | undefined;
 
-	private inputFileRepository: InputFileRepository;
-	private outputFileRepository: OutputFileRepository;
+	private inOutRepository: InOutRepository;
 	private executionRepository: ExecutionRepository;
 	private visualizerDownloader: VisualizerDownloader;
 	private visualizerCache: VisualizerCache;
@@ -22,8 +20,7 @@ export class VisualizerViewController {
 	constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
 		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
 
-		this.inputFileRepository = new InputFileRepository(workspaceRoot);
-		this.outputFileRepository = new OutputFileRepository(workspaceRoot);
+		this.inOutRepository = new InOutRepository(workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
 		this.visualizerCache = new VisualizerCache(visualizerDir);
@@ -101,8 +98,8 @@ export class VisualizerViewController {
 		}
 
 		// Read test case input and output
-		const input = (await this.inputFileRepository.load(seed)) || '';
-		const output = (await this.outputFileRepository.load(seed, resultId)) || '';
+		const input = (await this.inOutRepository.load('in', seed)) || '';
+		const output = (await this.inOutRepository.load('out', seed, resultId)) || '';
 
 		// Get current zoom level from settings
 		const savedZoomLevel = this.configAdapter.getVisualizerZoomLevel();

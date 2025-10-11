@@ -24,8 +24,9 @@ import { PahcerTreeViewController } from './controller/pahcerTreeViewController'
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { ContextAdapter } from './infrastructure/contextAdapter';
+import { EditorAdapter } from './infrastructure/editorAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
-import { OutputFileRepository } from './infrastructure/outputFileRepository';
+import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { TaskAdapter } from './infrastructure/taskAdapter';
 import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
@@ -38,7 +39,8 @@ interface Adapters {
 	contextAdapter: ContextAdapter;
 	taskAdapter: TaskAdapter;
 	executionRepository: ExecutionRepository;
-	outputFileRepository: OutputFileRepository;
+	inOutRepository: InOutRepository;
+	editorAdapter: EditorAdapter;
 }
 
 /**
@@ -58,7 +60,8 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const contextAdapter = new ContextAdapter();
 	const taskAdapter = new TaskAdapter();
 	const executionRepository = new ExecutionRepository(workspaceRoot);
-	const outputFileRepository = new OutputFileRepository(workspaceRoot);
+	const inOutRepository = new InOutRepository(workspaceRoot);
+	const editorAdapter = new EditorAdapter();
 
 	// Check pahcer installation and initialization status
 	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
@@ -73,7 +76,8 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		contextAdapter,
 		taskAdapter,
 		executionRepository,
-		outputFileRepository,
+		inOutRepository,
+		editorAdapter,
 	};
 }
 
@@ -170,7 +174,7 @@ function registerRunOptionsView(
 		context,
 		workspaceRoot,
 		adapters.taskAdapter,
-		adapters.outputFileRepository,
+		adapters.inOutRepository,
 		adapters.executionRepository,
 		adapters.contextAdapter,
 	);
@@ -210,7 +214,7 @@ function registerCommands(
 			runCommand(
 				adapters.workspaceAdapter,
 				adapters.taskAdapter,
-				adapters.outputFileRepository,
+				adapters.inOutRepository,
 				adapters.executionRepository,
 				controllers.treeViewController,
 			),
@@ -243,12 +247,18 @@ function registerCommands(
 			'pahcer-ui.addComment',
 			addCommentCommand(adapters.executionRepository, controllers.treeViewController),
 		),
-		vscode.commands.registerCommand('pahcer-ui.openInputFile', openInputFileCommand(workspaceRoot)),
+		vscode.commands.registerCommand(
+			'pahcer-ui.openInputFile',
+			openInputFileCommand(adapters.inOutRepository, adapters.editorAdapter),
+		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openOutputFile',
-			openOutputFileCommand(workspaceRoot),
+			openOutputFileCommand(adapters.inOutRepository, adapters.editorAdapter),
 		),
-		vscode.commands.registerCommand('pahcer-ui.openErrorFile', openErrorFileCommand(workspaceRoot)),
+		vscode.commands.registerCommand(
+			'pahcer-ui.openErrorFile',
+			openErrorFileCommand(adapters.inOutRepository, adapters.editorAdapter),
+		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showDiff',
 			showDiffCommand(controllers.treeViewController, workspaceRoot),
