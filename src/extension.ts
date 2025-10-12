@@ -23,10 +23,8 @@ import { InitializationWebViewProvider } from './controller/initializationWebVie
 import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
-import { ConfigAdapter } from './infrastructure/configAdapter';
 import { ConfigFileRepository } from './infrastructure/configFileRepository';
 import { ContextAdapter } from './infrastructure/contextAdapter';
-import { DialogAdapter } from './infrastructure/dialogAdapter';
 import { EditorAdapter } from './infrastructure/editorAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
@@ -47,8 +45,6 @@ interface Adapters {
 	editorAdapter: EditorAdapter;
 	configFileRepository: ConfigFileRepository;
 	gitignoreAdapter: GitignoreAdapter;
-	configAdapter: ConfigAdapter;
-	dialogAdapter: DialogAdapter;
 }
 
 /**
@@ -72,8 +68,6 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const editorAdapter = new EditorAdapter();
 	const configFileRepository = new ConfigFileRepository(workspaceRoot);
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
-	const configAdapter = new ConfigAdapter();
-	const dialogAdapter = new DialogAdapter();
 
 	// Check pahcer installation and initialization status
 	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
@@ -92,8 +86,6 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		editorAdapter,
 		configFileRepository,
 		gitignoreAdapter,
-		configAdapter,
-		dialogAdapter,
 	};
 }
 
@@ -103,14 +95,9 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 function initializeControllers(
 	context: vscode.ExtensionContext,
 	workspaceRoot: string,
-	adapters: Adapters,
 ): Controllers {
 	const treeViewController = new PahcerTreeViewController(workspaceRoot);
-	const visualizerViewController = new VisualizerViewController(
-		context,
-		workspaceRoot,
-		adapters.dialogAdapter,
-	);
+	const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
 	const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
 
 	return {
@@ -136,7 +123,6 @@ function registerInitializationView(
 		adapters.configFileRepository,
 		adapters.gitignoreAdapter,
 		adapters.workspaceAdapter,
-		adapters.dialogAdapter,
 	);
 
 	return vscode.window.registerWebviewViewProvider('pahcerInitialization', initializationProvider);
@@ -203,8 +189,6 @@ function registerRunOptionsView(
 		adapters.executionRepository,
 		adapters.contextAdapter,
 		adapters.configFileRepository,
-		adapters.configAdapter,
-		adapters.dialogAdapter,
 	);
 
 	// Initialize context (show TreeView by default)
@@ -245,8 +229,6 @@ function registerCommands(
 				adapters.inOutRepository,
 				adapters.executionRepository,
 				controllers.treeViewController,
-				adapters.configAdapter,
-				adapters.dialogAdapter,
 			),
 		),
 		vscode.commands.registerCommand(
@@ -255,7 +237,7 @@ function registerCommands(
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.changeSortOrder',
-			changeSortOrderCommand(controllers.treeViewController, adapters.dialogAdapter),
+			changeSortOrderCommand(controllers.treeViewController),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.switchToSeed',
@@ -271,43 +253,27 @@ function registerCommands(
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showResultsNotFoundError',
-			showResultsNotFoundErrorCommand(adapters.dialogAdapter),
+			showResultsNotFoundErrorCommand(),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.addComment',
-			addCommentCommand(
-				adapters.executionRepository,
-				controllers.treeViewController,
-				adapters.dialogAdapter,
-			),
+			addCommentCommand(adapters.executionRepository, controllers.treeViewController),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openInputFile',
-			openInputFileCommand(
-				adapters.inOutRepository,
-				adapters.editorAdapter,
-				adapters.dialogAdapter,
-			),
+			openInputFileCommand(adapters.inOutRepository, adapters.editorAdapter),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openOutputFile',
-			openOutputFileCommand(
-				adapters.inOutRepository,
-				adapters.editorAdapter,
-				adapters.dialogAdapter,
-			),
+			openOutputFileCommand(adapters.inOutRepository, adapters.editorAdapter),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openErrorFile',
-			openErrorFileCommand(
-				adapters.inOutRepository,
-				adapters.editorAdapter,
-				adapters.dialogAdapter,
-			),
+			openErrorFileCommand(adapters.inOutRepository, adapters.editorAdapter),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showDiff',
-			showDiffCommand(controllers.treeViewController, workspaceRoot, adapters.dialogAdapter),
+			showDiffCommand(controllers.treeViewController, workspaceRoot),
 		),
 	];
 }
@@ -325,7 +291,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const adapters = await initializeAdapters(workspaceRoot);
 
 	// Step 3: Initialize all controllers
-	const controllers = initializeControllers(context, workspaceRoot, adapters);
+	const controllers = initializeControllers(context, workspaceRoot);
 
 	// Step 4: Register all views
 	const initializationView = registerInitializationView(context, workspaceRoot, adapters);

@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
-import type { DialogAdapter } from '../infrastructure/dialogAdapter';
 import type { GitignoreAdapter } from '../infrastructure/gitignoreAdapter';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 import { TesterDownloader } from '../infrastructure/testerDownloader';
@@ -27,7 +26,6 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		private readonly configFileRepository: ConfigFileRepository,
 		private readonly gitignoreAdapter: GitignoreAdapter,
 		private readonly workspaceAdapter: WorkspaceAdapter,
-		private readonly dialogAdapter: DialogAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -57,10 +55,10 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		// Download tester if URL is provided
 		if (options.testerUrl) {
 			try {
-				this.dialogAdapter.showInformationMessage('ローカルテスターをダウンロード中...');
+				vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
 				const downloader = new TesterDownloader(this.workspaceRoot);
 				await downloader.downloadAndExtract(options.testerUrl);
-				this.dialogAdapter.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
+				vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
 
 				// Check if tester suggests interactive problem
 				const hasInteractiveTester = this.configFileRepository.hasTester();
@@ -74,7 +72,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 						? 'インタラクティブ'
 						: '非インタラクティブ';
 
-					const result = await this.dialogAdapter.showWarningMessage(
+					const result = await vscode.window.showWarningMessage(
 						'検出されたインタラクティブ設定に変更しますか？',
 						{
 							modal: true,
@@ -94,7 +92,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 				}
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : String(error);
-				this.dialogAdapter.showErrorMessage(
+				vscode.window.showErrorMessage(
 					`ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
 				);
 			}

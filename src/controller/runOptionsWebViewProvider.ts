@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
-import type { ConfigAdapter } from '../infrastructure/configAdapter';
 import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
-import type { DialogAdapter } from '../infrastructure/dialogAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
 import type { InOutRepository } from '../infrastructure/inOutRepository';
@@ -23,8 +21,6 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly executionRepository: ExecutionRepository,
 		private readonly contextAdapter: ContextAdapter,
 		private readonly configFileRepository: ConfigFileRepository,
-		private readonly configAdapter: ConfigAdapter,
-		private readonly dialogAdapter: DialogAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -57,13 +53,9 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		// Git統合チェック＆コミット
 		let commitHash: string | null = null;
 		try {
-			commitHash = await checkAndCommitIfEnabled(
-				this.workspaceRoot,
-				this.configAdapter,
-				this.dialogAdapter,
-			);
+			commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
 		} catch (error) {
-			this.dialogAdapter.showErrorMessage(`gitの操作に失敗しました: ${error}`);
+			// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
 			return;
 		}
 

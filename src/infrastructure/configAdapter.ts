@@ -74,20 +74,4 @@ export class ConfigAdapter {
 		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
 		await config.update('visualizerZoomLevel', zoomLevel, vscode.ConfigurationTarget.Global);
 	}
-
-	/**
-	 * Git統合の有効/無効を取得
-	 */
-	getGitIntegration(): boolean | null {
-		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-		return config.get<boolean | null>('gitIntegration') ?? null;
-	}
-
-	/**
-	 * Git統合の有効/無効を設定
-	 */
-	async setGitIntegration(enabled: boolean): Promise<void> {
-		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-		await config.update('gitIntegration', enabled, vscode.ConfigurationTarget.Workspace);
-	}
 }

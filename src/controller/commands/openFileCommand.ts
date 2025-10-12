@@ -1,4 +1,3 @@
-import type { DialogAdapter } from '../../infrastructure/dialogAdapter';
 import type { EditorAdapter } from '../../infrastructure/editorAdapter';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
@@ -14,7 +13,6 @@ import type { PahcerTreeItem } from '../pahcerTreeViewController';
 export function openInputFileCommand(
 	inOutRepository: InOutRepository,
 	editorAdapter: EditorAdapter,
-	dialogAdapter: DialogAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed) {
@@ -22,7 +20,7 @@ export function openInputFileCommand(
 		}
 
 		if (!inOutRepository.exists('in', item.seed)) {
-			dialogAdapter.showErrorMessage(`入力ファイルが見つかりません: ${item.seed}`);
+			editorAdapter.showErrorMessage(`入力ファイルが見つかりません: ${item.seed}`);
 			return;
 		}
 
@@ -30,7 +28,7 @@ export function openInputFileCommand(
 		try {
 			await editorAdapter.openFile(inputPath);
 		} catch (e) {
-			dialogAdapter.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
+			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
 		}
 	};
 }
@@ -47,7 +45,6 @@ export function openInputFileCommand(
 export function openOutputFileCommand(
 	inOutRepository: InOutRepository,
 	editorAdapter: EditorAdapter,
-	dialogAdapter: DialogAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed || !item.executionId) {
@@ -55,7 +52,7 @@ export function openOutputFileCommand(
 		}
 
 		if (!inOutRepository.exists('out', item.seed, item.executionId)) {
-			dialogAdapter.showErrorMessage(
+			editorAdapter.showErrorMessage(
 				`出力ファイルが見つかりません: ${item.seed}@${item.executionId}`,
 			);
 			return;
@@ -65,7 +62,7 @@ export function openOutputFileCommand(
 		try {
 			await editorAdapter.openFile(outputPath);
 		} catch (e) {
-			dialogAdapter.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
+			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
 		}
 	};
 }
@@ -82,7 +79,6 @@ export function openOutputFileCommand(
 export function openErrorFileCommand(
 	inOutRepository: InOutRepository,
 	editorAdapter: EditorAdapter,
-	dialogAdapter: DialogAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed || !item.executionId) {
@@ -90,7 +86,7 @@ export function openErrorFileCommand(
 		}
 
 		if (!inOutRepository.exists('err', item.seed, item.executionId)) {
-			dialogAdapter.showErrorMessage(
+			editorAdapter.showErrorMessage(
 				`エラーファイルが見つかりません: ${item.seed}@${item.executionId}`,
 			);
 			return;
@@ -100,7 +96,7 @@ export function openErrorFileCommand(
 		try {
 			await editorAdapter.openFile(errorPath);
 		} catch (e) {
-			dialogAdapter.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
+			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
 		}
 	};
 }

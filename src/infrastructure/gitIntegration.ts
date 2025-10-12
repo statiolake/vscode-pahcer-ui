@@ -1,16 +1,12 @@
-import type { ConfigAdapter } from './configAdapter';
-import type { DialogAdapter } from './dialogAdapter';
+import * as vscode from 'vscode';
 import { GitAdapter } from './gitAdapter';
 
 /**
  * Git統合の設定を確認し、必要なら初回ダイアログを表示
  */
-export async function checkAndCommitIfEnabled(
-	workspaceRoot: string,
-	configAdapter: ConfigAdapter,
-	dialogAdapter: DialogAdapter,
-): Promise<string | null> {
-	let gitIntegration = configAdapter.getGitIntegration();
+export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<string | null> {
+	const config = vscode.workspace.getConfiguration('pahcer-ui');
+	let gitIntegration = config.get<boolean | null>('gitIntegration');
 
 	// 初回（未設定）の場合はダイアログを表示
 	if (gitIntegration === null) {
@@ -18,11 +14,11 @@ export async function checkAndCommitIfEnabled(
 
 		// Gitリポジトリでない場合は無効化
 		if (!gitAdapter.isGitRepository()) {
-			await configAdapter.setGitIntegration(false);
+			await config.update('gitIntegration', false, vscode.ConfigurationTarget.Workspace);
 			return null;
 		}
 
-		const result = await dialogAdapter.showWarningMessage(
+		const result = await vscode.window.showWarningMessage(
 			'Pahcer UIでGit統合を有効にしますか？',
 			{
 				modal: true,
@@ -36,10 +32,10 @@ export async function checkAndCommitIfEnabled(
 		);
 
 		if (result !== undefined && result.title === '有効にする') {
-			await configAdapter.setGitIntegration(true);
+			await config.update('gitIntegration', true, vscode.ConfigurationTarget.Workspace);
 			gitIntegration = true;
 		} else {
-			await configAdapter.setGitIntegration(false);
+			await config.update('gitIntegration', false, vscode.ConfigurationTarget.Workspace);
 			gitIntegration = false;
 		}
 	}
@@ -58,7 +54,7 @@ export async function checkAndCommitIfEnabled(
 		const timestamp = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 		const commitHash = await gitAdapter.commitAll(`Run at ${timestamp}`);
 
-		dialogAdapter.showInformationMessage(`コミット作成: ${commitHash.slice(0, 7)}`);
+		vscode.window.showInformationMessage(`コミット作成: ${commitHash.slice(0, 7)}`);
 		return commitHash;
 	}
 
