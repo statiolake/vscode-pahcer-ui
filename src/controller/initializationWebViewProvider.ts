@@ -1,10 +1,10 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { GitignoreAdapter } from '../infrastructure/gitignoreAdapter';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 import { TesterDownloader } from '../infrastructure/testerDownloader';
-import type { WorkspaceAdapter } from '../infrastructure/workspaceAdapter';
 
 interface InitOptions {
 	problemName: string;
@@ -25,7 +25,6 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		private readonly contextAdapter: ContextAdapter,
 		private readonly configFileRepository: ConfigFileRepository,
 		private readonly gitignoreAdapter: GitignoreAdapter,
-		private readonly workspaceAdapter: WorkspaceAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -137,7 +136,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		);
 
 		// Get current directory name as default project name
-		const defaultProjectName = this.workspaceAdapter.getWorkspaceName() || 'project';
+		const defaultProjectName = path.basename(this.workspaceRoot) || 'project';
 
 		return `<!DOCTYPE html>
 <html lang="ja">

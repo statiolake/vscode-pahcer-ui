@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { ConfigAdapter } from '../infrastructure/configAdapter';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { InOutRepository } from '../infrastructure/inOutRepository';
 import { VisualizerCache } from '../infrastructure/visualizerCache';
@@ -15,7 +14,7 @@ export class VisualizerViewController {
 	private executionRepository: ExecutionRepository;
 	private visualizerDownloader: VisualizerDownloader;
 	private visualizerCache: VisualizerCache;
-	private configAdapter: ConfigAdapter;
+	private readonly CONFIG_SECTION = 'pahcer-ui';
 
 	constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
 		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
@@ -24,7 +23,6 @@ export class VisualizerViewController {
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
 		this.visualizerCache = new VisualizerCache(visualizerDir);
-		this.configAdapter = new ConfigAdapter();
 	}
 
 	/**
@@ -102,7 +100,8 @@ export class VisualizerViewController {
 		const output = (await this.inOutRepository.load('out', seed, resultId)) || '';
 
 		// Get current zoom level from settings
-		const savedZoomLevel = this.configAdapter.getVisualizerZoomLevel();
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		const savedZoomLevel = config.get<number>('visualizerZoomLevel') || 1.0;
 
 		// Reuse existing panel if available, otherwise create new one
 		if (VisualizerViewController.currentPanel) {
@@ -136,7 +135,12 @@ export class VisualizerViewController {
 			// Listen for messages from the webview
 			panel.webview.onDidReceiveMessage(async (message) => {
 				if (message.type === 'saveZoomLevel') {
-					await this.configAdapter.setVisualizerZoomLevel(message.zoomLevel);
+					const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+					await config.update(
+						'visualizerZoomLevel',
+						message.zoomLevel,
+						vscode.ConfigurationTarget.Global,
+					);
 				}
 			});
 

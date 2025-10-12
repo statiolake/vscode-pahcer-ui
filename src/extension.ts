@@ -25,24 +25,20 @@ import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvide
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { ConfigFileRepository } from './infrastructure/configFileRepository';
 import { ContextAdapter } from './infrastructure/contextAdapter';
-import { EditorAdapter } from './infrastructure/editorAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { TaskAdapter } from './infrastructure/taskAdapter';
-import { WorkspaceAdapter } from './infrastructure/workspaceAdapter';
 
 /**
  * アダプター（インフラ層コンポーネント）の集合
  */
 interface Adapters {
-	workspaceAdapter: WorkspaceAdapter;
 	contextAdapter: ContextAdapter;
 	taskAdapter: TaskAdapter;
 	executionRepository: ExecutionRepository;
 	inOutRepository: InOutRepository;
-	editorAdapter: EditorAdapter;
 	configFileRepository: ConfigFileRepository;
 	gitignoreAdapter: GitignoreAdapter;
 }
@@ -60,12 +56,10 @@ interface Controllers {
  * すべてのアダプターを初期化
  */
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
-	const workspaceAdapter = new WorkspaceAdapter();
 	const contextAdapter = new ContextAdapter();
 	const taskAdapter = new TaskAdapter();
 	const executionRepository = new ExecutionRepository(workspaceRoot);
 	const inOutRepository = new InOutRepository(workspaceRoot);
-	const editorAdapter = new EditorAdapter();
 	const configFileRepository = new ConfigFileRepository(workspaceRoot);
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
 
@@ -78,12 +72,10 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	await contextAdapter.setShowInitialization(false);
 
 	return {
-		workspaceAdapter,
 		contextAdapter,
 		taskAdapter,
 		executionRepository,
 		inOutRepository,
-		editorAdapter,
 		configFileRepository,
 		gitignoreAdapter,
 	};
@@ -122,7 +114,6 @@ function registerInitializationView(
 		adapters.contextAdapter,
 		adapters.configFileRepository,
 		adapters.gitignoreAdapter,
-		adapters.workspaceAdapter,
 	);
 
 	return vscode.window.registerWebviewViewProvider('pahcerInitialization', initializationProvider);
@@ -224,7 +215,6 @@ function registerCommands(
 		vscode.commands.registerCommand(
 			'pahcer-ui.run',
 			runCommand(
-				adapters.workspaceAdapter,
 				adapters.taskAdapter,
 				adapters.inOutRepository,
 				adapters.executionRepository,
@@ -261,15 +251,15 @@ function registerCommands(
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openInputFile',
-			openInputFileCommand(adapters.inOutRepository, adapters.editorAdapter),
+			openInputFileCommand(adapters.inOutRepository),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openOutputFile',
-			openOutputFileCommand(adapters.inOutRepository, adapters.editorAdapter),
+			openOutputFileCommand(adapters.inOutRepository),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openErrorFile',
-			openErrorFileCommand(adapters.inOutRepository, adapters.editorAdapter),
+			openErrorFileCommand(adapters.inOutRepository),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showDiff',
@@ -280,8 +270,7 @@ function registerCommands(
 
 export async function activate(context: vscode.ExtensionContext) {
 	// Step 1: Get workspace root
-	const workspaceAdapter = new WorkspaceAdapter();
-	const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
 	if (!workspaceRoot) {
 		return;

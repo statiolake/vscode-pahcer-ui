@@ -8,7 +8,6 @@ import type {
 	SeedSortOrder,
 } from '../domain/services/sortingService';
 import { sortExecutionsForSeed, sortTestCases } from '../domain/services/sortingService';
-import { ConfigAdapter } from '../infrastructure/configAdapter';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { PahcerAdapter, PahcerStatus } from '../infrastructure/pahcerAdapter';
 import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
@@ -45,13 +44,12 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 	private pahcerAdapter: PahcerAdapter;
 	private executionRepository: ExecutionRepository;
-	private configAdapter: ConfigAdapter;
 	private treeItemBuilder: TreeItemBuilder;
+	private readonly CONFIG_SECTION = 'pahcer-ui';
 
 	constructor(workspaceRoot: string) {
 		this.pahcerAdapter = new PahcerAdapter(workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
-		this.configAdapter = new ConfigAdapter();
 		this.treeItemBuilder = new TreeItemBuilder();
 	}
 
@@ -66,7 +64,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * グルーピングモードを設定
 	 */
 	async setGroupingMode(mode: GroupingMode): Promise<void> {
-		await this.configAdapter.setGroupingMode(mode);
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		await config.update('groupingMode', mode, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
@@ -74,7 +73,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * グルーピングモードを取得
 	 */
 	getGroupingMode(): GroupingMode {
-		return this.configAdapter.getGroupingMode();
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		return config.get<GroupingMode>('groupingMode') || 'byExecution';
 	}
 
 	/**
@@ -99,7 +99,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * 実行ごとのソート順を設定
 	 */
 	async setExecutionSortOrder(order: ExecutionSortOrder): Promise<void> {
-		await this.configAdapter.setExecutionSortOrder(order);
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		await config.update('executionSortOrder', order, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
@@ -107,14 +108,16 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * 実行ごとのソート順を取得
 	 */
 	getExecutionSortOrder(): ExecutionSortOrder {
-		return this.configAdapter.getExecutionSortOrder();
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		return config.get<ExecutionSortOrder>('executionSortOrder') || 'seedAsc';
 	}
 
 	/**
 	 * Seedごとのソート順を設定
 	 */
 	async setSeedSortOrder(order: SeedSortOrder): Promise<void> {
-		await this.configAdapter.setSeedSortOrder(order);
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		await config.update('seedSortOrder', order, vscode.ConfigurationTarget.Global);
 		this.refresh();
 	}
 
@@ -122,7 +125,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 * Seedごとのソート順を取得
 	 */
 	getSeedSortOrder(): SeedSortOrder {
-		return this.configAdapter.getSeedSortOrder();
+		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+		return config.get<SeedSortOrder>('seedSortOrder') || 'executionDesc';
 	}
 
 	/**

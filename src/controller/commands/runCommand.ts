@@ -4,20 +4,18 @@ import type { ExecutionRepository } from '../../infrastructure/executionReposito
 import { checkAndCommitIfEnabled } from '../../infrastructure/gitIntegration';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../../infrastructure/taskAdapter';
-import type { WorkspaceAdapter } from '../../infrastructure/workspaceAdapter';
 
 /**
  * pahcer run コマンドハンドラ
  */
 export function runCommand(
-	workspaceAdapter: WorkspaceAdapter,
 	taskAdapter: TaskAdapter,
 	inOutRepository: InOutRepository,
 	executionRepository: ExecutionRepository,
 	treeViewController: PahcerTreeViewController,
 ): () => Promise<void> {
 	return async () => {
-		const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
+		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
 		if (!workspaceRoot) {
 			vscode.window.showErrorMessage('ワークスペースが開かれていません');

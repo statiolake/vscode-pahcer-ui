@@ -1,4 +1,4 @@
-import type { EditorAdapter } from '../../infrastructure/editorAdapter';
+import * as vscode from 'vscode';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
@@ -8,11 +8,10 @@ import type { PahcerTreeItem } from '../pahcerTreeViewController';
  * コントローラ層の責務:
  * - UIイベント（TreeItemクリック）を処理
  * - インフラ層にファイルパス解決を委譲
- * - エディタ操作をEditorAdapterに委譲
+ * - エディタ操作
  */
 export function openInputFileCommand(
 	inOutRepository: InOutRepository,
-	editorAdapter: EditorAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed) {
@@ -20,15 +19,16 @@ export function openInputFileCommand(
 		}
 
 		if (!inOutRepository.exists('in', item.seed)) {
-			editorAdapter.showErrorMessage(`入力ファイルが見つかりません: ${item.seed}`);
+			vscode.window.showErrorMessage(`入力ファイルが見つかりません: ${item.seed}`);
 			return;
 		}
 
 		const inputPath = inOutRepository.getPath('in', item.seed);
 		try {
-			await editorAdapter.openFile(inputPath);
+			const document = await vscode.workspace.openTextDocument(inputPath);
+			await vscode.window.showTextDocument(document);
 		} catch (e) {
-			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
+			vscode.window.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
 		}
 	};
 }
@@ -40,11 +40,10 @@ export function openInputFileCommand(
  * - UIイベント（TreeItemクリック）を処理
  * - インフラ層にファイルパス解決を委譲
  * - フォールバック処理のロジック
- * - エディタ操作をEditorAdapterに委譲
+ * - エディタ操作
  */
 export function openOutputFileCommand(
 	inOutRepository: InOutRepository,
-	editorAdapter: EditorAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed || !item.executionId) {
@@ -52,7 +51,7 @@ export function openOutputFileCommand(
 		}
 
 		if (!inOutRepository.exists('out', item.seed, item.executionId)) {
-			editorAdapter.showErrorMessage(
+			vscode.window.showErrorMessage(
 				`出力ファイルが見つかりません: ${item.seed}@${item.executionId}`,
 			);
 			return;
@@ -60,9 +59,10 @@ export function openOutputFileCommand(
 
 		const outputPath = inOutRepository.getPath('out', item.seed, item.executionId);
 		try {
-			await editorAdapter.openFile(outputPath);
+			const document = await vscode.workspace.openTextDocument(outputPath);
+			await vscode.window.showTextDocument(document);
 		} catch (e) {
-			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
+			vscode.window.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
 		}
 	};
 }
@@ -74,11 +74,10 @@ export function openOutputFileCommand(
  * - UIイベント（TreeItemクリック）を処理
  * - インフラ層にファイルパス解決を委譲
  * - フォールバック処理のロジック
- * - エディタ操作をEditorAdapterに委譲
+ * - エディタ操作
  */
 export function openErrorFileCommand(
 	inOutRepository: InOutRepository,
-	editorAdapter: EditorAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed || !item.executionId) {
@@ -86,7 +85,7 @@ export function openErrorFileCommand(
 		}
 
 		if (!inOutRepository.exists('err', item.seed, item.executionId)) {
-			editorAdapter.showErrorMessage(
+			vscode.window.showErrorMessage(
 				`エラーファイルが見つかりません: ${item.seed}@${item.executionId}`,
 			);
 			return;
@@ -94,9 +93,10 @@ export function openErrorFileCommand(
 
 		const errorPath = inOutRepository.getPath('err', item.seed, item.executionId);
 		try {
-			await editorAdapter.openFile(errorPath);
+			const document = await vscode.workspace.openTextDocument(errorPath);
+			await vscode.window.showTextDocument(document);
 		} catch (e) {
-			editorAdapter.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
+			vscode.window.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
 		}
 	};
 }
