@@ -5,14 +5,6 @@ import type { TestCase } from '../models/testCase';
 export type { GroupingMode } from './sortingService';
 
 /**
- * 実行ごとにグルーピングされたデータ
- */
-export interface ExecutionGroup {
-	execution: Execution;
-	cases: TestCase[];
-}
-
-/**
  * Seedごとにグルーピングされたデータ
  */
 export interface SeedGroup {
@@ -21,16 +13,6 @@ export interface SeedGroup {
 		execution: Execution;
 		testCase: TestCase;
 	}>;
-}
-
-/**
- * 実行結果を実行ごとにグルーピング（純粋関数）
- */
-export function groupByExecution(executions: Execution[]): ExecutionGroup[] {
-	return executions.map((execution) => ({
-		execution,
-		cases: execution.cases,
-	}));
 }
 
 /**

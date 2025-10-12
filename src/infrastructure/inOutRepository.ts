@@ -82,41 +82,6 @@ export class InOutRepository {
 	}
 
 	/**
-	 * 入力ファイルのパスを取得（後方互換性のため）
-	 */
-	getInputPath(seed: number): string {
-		return this.getLatestPath('in', seed);
-	}
-
-	/**
-	 * 最新の出力ファイルのパスを取得（後方互換性のため）
-	 */
-	getLatestOutputPath(seed: number): string {
-		return this.getLatestPath('out', seed);
-	}
-
-	/**
-	 * 過去の実行結果の出力ファイルのパスを取得（後方互換性のため）
-	 */
-	getOutputPath(resultId: string, seed: number): string {
-		return this.getArchivedPath('out', resultId, seed);
-	}
-
-	/**
-	 * 最新のエラーファイルのパスを取得（後方互換性のため）
-	 */
-	getLatestErrorPath(seed: number): string {
-		return this.getLatestPath('err', seed);
-	}
-
-	/**
-	 * 過去の実行結果のエラーファイルのパスを取得（後方互換性のため）
-	 */
-	getErrorPath(resultId: string, seed: number): string {
-		return this.getArchivedPath('err', resultId, seed);
-	}
-
-	/**
 	 * 出力ファイルをコピーし、解析を実行してmeta.jsonに保存
 	 */
 	async copyOutputFiles(
