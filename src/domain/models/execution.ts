@@ -21,12 +21,6 @@ export interface Execution {
 }
 
 /**
- * 後方互換性のため、PahcerResultはExecutionのエイリアス
- * @deprecated Executionを使用してください
- */
-export type PahcerResult = Execution;
-
-/**
  * 実行結果の短いタイトル（MM/DD HH:MM）
  */
 export function getShortTitle(execution: Execution): string {
