@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
 import { getTitleWithHash } from '../../domain/models/execution';
+import type { DialogAdapter } from '../../infrastructure/dialogAdapter';
 import { GitAdapter } from '../../infrastructure/gitAdapter';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
@@ -9,12 +9,13 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 export function showDiffCommand(
 	treeViewController: PahcerTreeViewController,
 	workspaceRoot: string,
+	dialogAdapter: DialogAdapter,
 ): () => Promise<void> {
 	return async () => {
 		const checkedExecutions = await treeViewController.getCheckedResultsWithCommitHash();
 
 		if (checkedExecutions.length !== 2) {
-			vscode.window.showErrorMessage('コミットハッシュを持つ実行結果を2つ選択してください');
+			dialogAdapter.showErrorMessage('コミットハッシュを持つ実行結果を2つ選択してください');
 			return;
 		}
 
@@ -26,7 +27,7 @@ export function showDiffCommand(
 		const [older, newer] = sorted;
 
 		if (!older.commitHash || !newer.commitHash) {
-			vscode.window.showErrorMessage('選択された結果にコミットハッシュがありません');
+			dialogAdapter.showErrorMessage('選択された結果にコミットハッシュがありません');
 			return;
 		}
 
@@ -39,7 +40,7 @@ export function showDiffCommand(
 				getTitleWithHash(newer),
 			);
 		} catch (error) {
-			vscode.window.showErrorMessage(`差分表示に失敗しました: ${error}`);
+			dialogAdapter.showErrorMessage(`差分表示に失敗しました: ${error}`);
 		}
 	};
 }

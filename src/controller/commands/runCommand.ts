@@ -1,5 +1,6 @@
-import * as vscode from 'vscode';
 import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
+import type { ConfigAdapter } from '../../infrastructure/configAdapter';
+import type { DialogAdapter } from '../../infrastructure/dialogAdapter';
 import type { ExecutionRepository } from '../../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../../infrastructure/gitIntegration';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
@@ -15,21 +16,23 @@ export function runCommand(
 	inOutRepository: InOutRepository,
 	executionRepository: ExecutionRepository,
 	treeViewController: PahcerTreeViewController,
+	configAdapter: ConfigAdapter,
+	dialogAdapter: DialogAdapter,
 ): () => Promise<void> {
 	return async () => {
 		const workspaceRoot = workspaceAdapter.getWorkspaceRoot();
 
 		if (!workspaceRoot) {
-			vscode.window.showErrorMessage('ワークスペースが開かれていません');
+			dialogAdapter.showErrorMessage('ワークスペースが開かれていません');
 			return;
 		}
 
 		// Git統合チェック＆コミット
 		let commitHash: string | null = null;
 		try {
-			commitHash = await checkAndCommitIfEnabled(workspaceRoot);
+			commitHash = await checkAndCommitIfEnabled(workspaceRoot, configAdapter, dialogAdapter);
 		} catch (error) {
-			vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
+			dialogAdapter.showErrorMessage(`gitの操作に失敗しました: ${error}`);
 			return;
 		}
 

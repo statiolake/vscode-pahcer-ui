@@ -58,8 +58,7 @@ export class GitAdapter {
 				.trim();
 
 			if (!numstatOutput) {
-				vscode.window.showInformationMessage('変更されたファイルはありません');
-				return;
+				throw new Error('変更されたファイルはありません');
 			}
 
 			// Parse numstat output: "added deleted filename" or "- - filename" for binary
@@ -93,17 +92,15 @@ export class GitAdapter {
 				});
 
 			if (files.length === 0) {
-				vscode.window.showInformationMessage('表示対象の変更ファイルはありません');
-				return;
+				throw new Error('表示対象の変更ファイルはありません');
 			}
 
 			// Check if there are too many files
 			const MAX_FILES = 10;
 			if (files.length > MAX_FILES) {
-				vscode.window.showErrorMessage(
+				throw new Error(
 					`変更ファイルが多すぎます（${files.length}個）。差分表示は${MAX_FILES}個以下のファイルでのみ利用できます。`,
 				);
-				return;
 			}
 
 			// Open diff for each file

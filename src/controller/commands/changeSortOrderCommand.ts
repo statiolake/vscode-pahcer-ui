@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import type { DialogAdapter } from '../../infrastructure/dialogAdapter';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -6,6 +6,7 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
  */
 export function changeSortOrderCommand(
 	treeViewController: PahcerTreeViewController,
+	dialogAdapter: DialogAdapter,
 ): () => Promise<void> {
 	return async () => {
 		const mode = treeViewController.getGroupingMode();
@@ -21,7 +22,7 @@ export function changeSortOrderCommand(
 				{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
 			];
 
-			const selected = await vscode.window.showQuickPick(options, {
+			const selected = await dialogAdapter.showQuickPick(options, {
 				placeHolder: `現在: ${options.find((o) => o.value === currentOrder)?.label}`,
 			});
 
@@ -37,7 +38,7 @@ export function changeSortOrderCommand(
 				{ label: '絶対スコアの降順', value: 'absoluteScoreDesc' as const },
 			];
 
-			const selected = await vscode.window.showQuickPick(options, {
+			const selected = await dialogAdapter.showQuickPick(options, {
 				placeHolder: `現在: ${options.find((o) => o.value === currentOrder)?.label}`,
 			});
 

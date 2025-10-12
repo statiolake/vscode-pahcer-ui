@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigAdapter } from '../infrastructure/configAdapter';
+import type { DialogAdapter } from '../infrastructure/dialogAdapter';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { InOutRepository } from '../infrastructure/inOutRepository';
 import { VisualizerCache } from '../infrastructure/visualizerCache';
@@ -16,8 +17,13 @@ export class VisualizerViewController {
 	private visualizerDownloader: VisualizerDownloader;
 	private visualizerCache: VisualizerCache;
 	private configAdapter: ConfigAdapter;
+	private dialogAdapter: DialogAdapter;
 
-	constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
+	constructor(
+		_context: vscode.ExtensionContext,
+		workspaceRoot: string,
+		dialogAdapter: DialogAdapter,
+	) {
 		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
 
 		this.inOutRepository = new InOutRepository(workspaceRoot);
@@ -25,6 +31,7 @@ export class VisualizerViewController {
 		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
 		this.visualizerCache = new VisualizerCache(visualizerDir);
 		this.configAdapter = new ConfigAdapter();
+		this.dialogAdapter = dialogAdapter;
 	}
 
 	/**
@@ -36,7 +43,7 @@ export class VisualizerViewController {
 
 		// Get visualizer URL if HTML file not found
 		if (!htmlFileName) {
-			const url = await vscode.window.showInputBox({
+			const url = await this.dialogAdapter.showInputBox({
 				prompt: 'AtCoder公式ビジュアライザのURLを入力してください',
 				placeHolder: 'https://img.atcoder.jp/ahc054/YDAxDRZr_v2.html?lang=ja',
 				validateInput: (value) => {
@@ -59,7 +66,7 @@ export class VisualizerViewController {
 			}
 
 			// Download visualizer files
-			await vscode.window.withProgress(
+			await this.dialogAdapter.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
 					title: 'ビジュアライザをダウンロード中...',
@@ -72,7 +79,7 @@ export class VisualizerViewController {
 		}
 
 		if (!htmlFileName) {
-			vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
+			this.dialogAdapter.showErrorMessage('ビジュアライザファイルが見つかりません');
 			return;
 		}
 

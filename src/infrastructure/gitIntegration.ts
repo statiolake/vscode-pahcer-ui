@@ -1,12 +1,16 @@
-import * as vscode from 'vscode';
+import type { ConfigAdapter } from './configAdapter';
+import type { DialogAdapter } from './dialogAdapter';
 import { GitAdapter } from './gitAdapter';
 
 /**
  * Git統合の設定を確認し、必要なら初回ダイアログを表示
  */
-export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<string | null> {
-	const config = vscode.workspace.getConfiguration('pahcer-ui');
-	let gitIntegration = config.get<boolean | null>('gitIntegration');
+export async function checkAndCommitIfEnabled(
+	workspaceRoot: string,
+	configAdapter: ConfigAdapter,
+	dialogAdapter: DialogAdapter,
+): Promise<string | null> {
+	let gitIntegration = configAdapter.getGitIntegration();
 
 	// 初回（未設定）の場合はダイアログを表示
 	if (gitIntegration === null) {
@@ -14,11 +18,11 @@ export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<st
 
 		// Gitリポジトリでない場合は無効化
 		if (!gitAdapter.isGitRepository()) {
-			await config.update('gitIntegration', false, vscode.ConfigurationTarget.Workspace);
+			await configAdapter.setGitIntegration(false);
 			return null;
 		}
 
-		const result = await vscode.window.showWarningMessage(
+		const result = await dialogAdapter.showWarningMessage(
 			'Pahcer UIでGit統合を有効にしますか？',
 			{
 				modal: true,
@@ -32,10 +36,10 @@ export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<st
 		);
 
 		if (result !== undefined && result.title === '有効にする') {
-			await config.update('gitIntegration', true, vscode.ConfigurationTarget.Workspace);
+			await configAdapter.setGitIntegration(true);
 			gitIntegration = true;
 		} else {
-			await config.update('gitIntegration', false, vscode.ConfigurationTarget.Workspace);
+			await configAdapter.setGitIntegration(false);
 			gitIntegration = false;
 		}
 	}
@@ -54,7 +58,7 @@ export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<st
 		const timestamp = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 		const commitHash = await gitAdapter.commitAll(`Run at ${timestamp}`);
 
-		vscode.window.showInformationMessage(`コミット作成: ${commitHash.slice(0, 7)}`);
+		dialogAdapter.showInformationMessage(`コミット作成: ${commitHash.slice(0, 7)}`);
 		return commitHash;
 	}
 
