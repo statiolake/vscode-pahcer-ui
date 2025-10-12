@@ -23,9 +23,11 @@ import { InitializationWebViewProvider } from './controller/initializationWebVie
 import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
 import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
 import { VisualizerViewController } from './controller/visualizerViewController';
+import { ConfigFileRepository } from './infrastructure/configFileRepository';
 import { ContextAdapter } from './infrastructure/contextAdapter';
 import { EditorAdapter } from './infrastructure/editorAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
+import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { TaskAdapter } from './infrastructure/taskAdapter';
@@ -41,6 +43,8 @@ interface Adapters {
 	executionRepository: ExecutionRepository;
 	inOutRepository: InOutRepository;
 	editorAdapter: EditorAdapter;
+	configFileRepository: ConfigFileRepository;
+	gitignoreAdapter: GitignoreAdapter;
 }
 
 /**
@@ -62,6 +66,8 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const executionRepository = new ExecutionRepository(workspaceRoot);
 	const inOutRepository = new InOutRepository(workspaceRoot);
 	const editorAdapter = new EditorAdapter();
+	const configFileRepository = new ConfigFileRepository(workspaceRoot);
+	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
 
 	// Check pahcer installation and initialization status
 	const pahcerAdapter = new PahcerAdapter(workspaceRoot);
@@ -78,6 +84,8 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		executionRepository,
 		inOutRepository,
 		editorAdapter,
+		configFileRepository,
+		gitignoreAdapter,
 	};
 }
 
@@ -112,6 +120,9 @@ function registerInitializationView(
 		workspaceRoot,
 		adapters.taskAdapter,
 		adapters.contextAdapter,
+		adapters.configFileRepository,
+		adapters.gitignoreAdapter,
+		adapters.workspaceAdapter,
 	);
 
 	return vscode.window.registerWebviewViewProvider('pahcerInitialization', initializationProvider);
@@ -177,6 +188,7 @@ function registerRunOptionsView(
 		adapters.inOutRepository,
 		adapters.executionRepository,
 		adapters.contextAdapter,
+		adapters.configFileRepository,
 	);
 
 	// Initialize context (show TreeView by default)

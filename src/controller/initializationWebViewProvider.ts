@@ -1,9 +1,10 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
+import type { GitignoreAdapter } from '../infrastructure/gitignoreAdapter';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 import { TesterDownloader } from '../infrastructure/testerDownloader';
+import type { WorkspaceAdapter } from '../infrastructure/workspaceAdapter';
 
 interface InitOptions {
 	problemName: string;
@@ -22,6 +23,9 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		private readonly workspaceRoot: string,
 		private readonly taskAdapter: TaskAdapter,
 		private readonly contextAdapter: ContextAdapter,
+		private readonly configFileRepository: ConfigFileRepository,
+		private readonly gitignoreAdapter: GitignoreAdapter,
+		private readonly workspaceAdapter: WorkspaceAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -57,8 +61,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 				vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
 
 				// Check if tester suggests interactive problem
-				const testerRsPath = path.join(this.workspaceRoot, 'tools', 'src', 'bin', 'tester.rs');
-				const hasInteractiveTester = fs.existsSync(testerRsPath);
+				const hasInteractiveTester = this.configFileRepository.hasTester();
 
 				// If detected interactive status differs from user selection, confirm
 				if (hasInteractiveTester !== options.isInteractive) {
@@ -121,21 +124,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 	 */
 	private updateGitignore(): void {
 		try {
-			const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
-			let content = '';
-
-			// Read existing .gitignore if it exists
-			if (fs.existsSync(gitignorePath)) {
-				content = fs.readFileSync(gitignorePath, 'utf8');
-			}
-
-			// Check if tools/target is already in .gitignore
-			if (!content.includes('tools/target')) {
-				// Add tools/target to .gitignore
-				const newLine = content.endsWith('\n') || content === '' ? '' : '\n';
-				content += `${newLine}tools/target\n`;
-				fs.writeFileSync(gitignorePath, content, 'utf8');
-			}
+			this.gitignoreAdapter.addEntry('tools/target');
 		} catch (error) {
 			// Silently ignore errors - not critical
 			console.error('Failed to update .gitignore:', error);
@@ -148,7 +137,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		);
 
 		// Get current directory name as default project name
-		const defaultProjectName = path.basename(this.workspaceRoot);
+		const defaultProjectName = this.workspaceAdapter.getWorkspaceName() || 'project';
 
 		return `<!DOCTYPE html>
 <html lang="ja">

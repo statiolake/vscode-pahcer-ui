@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 /**
@@ -19,5 +20,13 @@ export class WorkspaceAdapter {
 			vscode.workspace.workspaceFolders !== undefined &&
 			vscode.workspace.workspaceFolders.length > 0
 		);
+	}
+
+	/**
+	 * ワークスペース名（ディレクトリ名）を取得
+	 */
+	getWorkspaceName(): string | undefined {
+		const root = this.getWorkspaceRoot();
+		return root ? path.basename(root) : undefined;
 	}
 }

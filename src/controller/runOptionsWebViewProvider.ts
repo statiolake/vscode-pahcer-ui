@@ -1,6 +1,5 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
 import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
@@ -21,6 +20,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly inOutRepository: InOutRepository,
 		private readonly executionRepository: ExecutionRepository,
 		private readonly contextAdapter: ContextAdapter,
+		private readonly configFileRepository: ConfigFileRepository,
 	) {}
 
 	resolveWebviewView(
@@ -89,13 +89,8 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async createTempConfig(options: RunOptions): Promise<string> {
-		const originalConfigPath = path.join(this.workspaceRoot, 'pahcer_config.toml');
-
-		if (!fs.existsSync(originalConfigPath)) {
-			throw new Error(`pahcer_config.toml not found: ${originalConfigPath}`);
-		}
-
-		let configContent = fs.readFileSync(originalConfigPath, 'utf-8');
+		// Read original config from infrastructure layer
+		let configContent = this.configFileRepository.read();
 
 		// Replace start_seed and end_seed
 		configContent = configContent.replace(
@@ -104,16 +99,8 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		);
 		configContent = configContent.replace(/end_seed\s*=\s*\d+/, `end_seed = ${options.endSeed}`);
 
-		// Write to temporary file in .pahcer-ui directory
-		const tempDir = path.join(this.workspaceRoot, '.pahcer-ui');
-		if (!fs.existsSync(tempDir)) {
-			fs.mkdirSync(tempDir, { recursive: true });
-		}
-
-		const tempConfigPath = path.join(tempDir, 'temp_pahcer_config.toml');
-		fs.writeFileSync(tempConfigPath, configContent, 'utf-8');
-
-		return tempConfigPath;
+		// Create temp config file via infrastructure layer
+		return this.configFileRepository.createTempConfig(configContent);
 	}
 
 	private getHtmlContent(webview: vscode.Webview): string {
