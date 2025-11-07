@@ -113,7 +113,7 @@ export class VisualizerDownloader {
 						const wasmContent = await this.fetchUrlBinary(wasmUrl);
 						const wasmPath = path.join(this.visualizerDir, path.basename(wasmFile));
 						fs.writeFileSync(wasmPath, wasmContent);
-					} catch (e) {
+					} catch (_e) {
 						// WASM file might not exist, that's ok
 						console.log(`WASM file not found: ${wasmUrl}`);
 					}

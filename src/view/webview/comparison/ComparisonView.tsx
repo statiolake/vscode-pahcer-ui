@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import type { ComparisonData } from './types';
-import { StatsTable } from './components/StatsTable';
+import { useEffect, useState } from 'react';
+import { postMessage } from '../shared/utils/vscode';
 import { ComparisonChart } from './components/ComparisonChart';
 import { ControlPanel } from './components/ControlPanel';
-import { postMessage } from '../shared/utils/vscode';
+import { StatsTable } from './components/StatsTable';
+import type { ComparisonData } from './types';
 
 interface Props {
 	initialData: ComparisonData;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useId, useState } from 'react';
 import { postMessage } from '../shared/utils/vscode';
 
 interface RunOptions {
@@ -8,6 +8,10 @@ interface RunOptions {
 }
 
 export function RunOptionsView() {
+	const startSeedId = useId();
+	const endSeedId = useId();
+	const freezeBestScoresId = useId();
+
 	const [startSeed, setStartSeed] = useState(0);
 	const [endSeed, setEndSeed] = useState(100);
 	const [freezeBestScores, setFreezeBestScores] = useState(false);
@@ -103,11 +107,11 @@ export function RunOptionsView() {
 
 			<div style={formStyle}>
 				<div style={fieldStyle}>
-					<label htmlFor="startSeed" style={labelStyle}>
+					<label htmlFor={startSeedId} style={labelStyle}>
 						開始 Seed
 					</label>
 					<input
-						id="startSeed"
+						id={startSeedId}
 						type="number"
 						value={startSeed}
 						onChange={(e) => setStartSeed(Number(e.target.value))}
@@ -118,11 +122,11 @@ export function RunOptionsView() {
 				</div>
 
 				<div style={fieldStyle}>
-					<label htmlFor="endSeed" style={labelStyle}>
+					<label htmlFor={endSeedId} style={labelStyle}>
 						終了 Seed
 					</label>
 					<input
-						id="endSeed"
+						id={endSeedId}
 						type="number"
 						value={endSeed}
 						onChange={(e) => setEndSeed(Number(e.target.value))}
@@ -138,12 +142,12 @@ export function RunOptionsView() {
 				<div style={fieldStyle}>
 					<div style={checkboxContainerStyle}>
 						<input
-							id="freezeBestScores"
+							id={freezeBestScoresId}
 							type="checkbox"
 							checked={freezeBestScores}
 							onChange={(e) => setFreezeBestScores(e.target.checked)}
 						/>
-						<label htmlFor="freezeBestScores" style={{ cursor: 'pointer' }}>
+						<label htmlFor={freezeBestScoresId} style={{ cursor: 'pointer' }}>
 							ベストスコアを更新しない (--freeze-best-scores)
 						</label>
 					</div>

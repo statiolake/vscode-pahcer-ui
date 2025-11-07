@@ -11,7 +11,6 @@ export interface Execution {
 	caseCount: number;
 	totalScore: number;
 	totalScoreLog10: number;
-	totalRelativeScore: number;
 	maxExecutionTime: number;
 	comment: string;
 	tagName: string | null;
@@ -76,5 +75,9 @@ export function getAverageScore(execution: Execution): number {
  * 平均相対スコアを計算する
  */
 export function getAverageRelativeScore(execution: Execution): number {
-	return execution.caseCount > 0 ? execution.totalRelativeScore / execution.caseCount : 0;
+	if (execution.caseCount === 0) {
+		return 0;
+	}
+	const totalRelativeScore = execution.cases.reduce((sum, c) => sum + c.relativeScore, 0);
+	return totalRelativeScore / execution.caseCount;
 }

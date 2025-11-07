@@ -1,5 +1,3 @@
-import * as vscode from 'vscode';
-import type { GroupingMode } from '../../domain/services/sortingService';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**

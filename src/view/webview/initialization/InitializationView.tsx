@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useId, useState } from 'react';
 
 interface InitOptions {
 	problemName: string;
@@ -9,6 +9,13 @@ interface InitOptions {
 }
 
 export const InitializationView: React.FC = () => {
+	// Generate unique IDs for form elements
+	const problemNameId = useId();
+	const objectiveId = useId();
+	const languageId = useId();
+	const isInteractiveId = useId();
+	const testerUrlId = useId();
+
 	// Get default project name from data attribute
 	const defaultProjectName =
 		document.getElementById('root')?.getAttribute('data-default-project-name') || '';
@@ -103,11 +110,11 @@ export const InitializationView: React.FC = () => {
 
 			<div style={formStyle}>
 				<div style={fieldStyle}>
-					<label htmlFor="problemName" style={labelStyle}>
+					<label htmlFor={problemNameId} style={labelStyle}>
 						問題名
 					</label>
 					<input
-						id="problemName"
+						id={problemNameId}
 						type="text"
 						value={problemName}
 						onChange={(e) => setProblemName(e.target.value)}
@@ -118,11 +125,11 @@ export const InitializationView: React.FC = () => {
 				</div>
 
 				<div style={fieldStyle}>
-					<label htmlFor="objective" style={labelStyle}>
+					<label htmlFor={objectiveId} style={labelStyle}>
 						最適化の目的
 					</label>
 					<select
-						id="objective"
+						id={objectiveId}
 						value={objective}
 						onChange={(e) => setObjective(e.target.value as 'max' | 'min')}
 						style={inputStyle}
@@ -134,11 +141,11 @@ export const InitializationView: React.FC = () => {
 				</div>
 
 				<div style={fieldStyle}>
-					<label htmlFor="language" style={labelStyle}>
+					<label htmlFor={languageId} style={labelStyle}>
 						使用言語
 					</label>
 					<select
-						id="language"
+						id={languageId}
 						value={language}
 						onChange={(e) => setLanguage(e.target.value as 'rust' | 'cpp' | 'python' | 'go')}
 						style={inputStyle}
@@ -156,12 +163,12 @@ export const InitializationView: React.FC = () => {
 				<div style={fieldStyle}>
 					<div style={checkboxContainerStyle}>
 						<input
-							id="isInteractive"
+							id={isInteractiveId}
 							type="checkbox"
 							checked={isInteractive}
 							onChange={(e) => setIsInteractive(e.target.checked)}
 						/>
-						<label htmlFor="isInteractive" style={{ cursor: 'pointer' }}>
+						<label htmlFor={isInteractiveId} style={{ cursor: 'pointer' }}>
 							インタラクティブ問題
 						</label>
 					</div>
@@ -169,11 +176,11 @@ export const InitializationView: React.FC = () => {
 				</div>
 
 				<div style={fieldStyle}>
-					<label htmlFor="testerUrl" style={labelStyle}>
+					<label htmlFor={testerUrlId} style={labelStyle}>
 						ローカルテスターURL（オプション）
 					</label>
 					<input
-						id="testerUrl"
+						id={testerUrlId}
 						type="text"
 						value={testerUrl}
 						onChange={(e) => setTesterUrl(e.target.value)}

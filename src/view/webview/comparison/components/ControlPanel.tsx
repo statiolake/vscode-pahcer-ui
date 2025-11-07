@@ -1,4 +1,3 @@
-import React from 'react';
 import { isValidExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
 

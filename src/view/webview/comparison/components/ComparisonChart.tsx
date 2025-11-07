@@ -1,22 +1,22 @@
-import React, { useMemo, useState } from 'react';
-import { Line, Scatter } from 'react-chartjs-2';
 import {
-	Chart as ChartJS,
+	type ActiveElement,
 	CategoryScale,
+	type ChartEvent,
+	Chart as ChartJS,
+	Legend,
 	LinearScale,
-	PointElement,
 	LineElement,
+	PointElement,
 	Title,
 	Tooltip,
-	Legend,
-	type ChartEvent,
-	type ActiveElement,
 	type TooltipItem,
 } from 'chart.js';
-import type { ComparisonData, ChartDataPoint } from '../types';
+import { useMemo, useState } from 'react';
+import { Line, Scatter } from 'react-chartjs-2';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
 import { postMessage } from '../../shared/utils/vscode';
+import type { ChartDataPoint, ComparisonData } from '../types';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -101,18 +101,18 @@ export function ComparisonChart({
 				borderColor: gridColor,
 				borderWidth: 1,
 				callbacks: {
-					label: function (context: TooltipItem<'line' | 'scatter'>) {
+					label: (context: TooltipItem<'line' | 'scatter'>) => {
 						const point = context.raw as ChartDataPoint;
-						const lines = [context.dataset.label + ': ' + point.y.toLocaleString()];
+						const lines = [`${context.dataset.label}: ${point.y.toLocaleString()}`];
 
 						if (point.group && point.group.length > 1) {
 							lines.push(`(${point.group.length} 件を集約)`);
-							lines.push('x: ' + point.x);
+							lines.push(`x: ${point.x}`);
 						} else {
-							lines.push('seed: ' + point.seed);
-							lines.push('x: ' + point.x);
+							lines.push(`seed: ${point.seed}`);
+							lines.push(`x: ${point.x}`);
 							if (point.variables) {
-								lines.push('vars: ' + JSON.stringify(point.variables));
+								lines.push(`vars: ${JSON.stringify(point.variables)}`);
 							}
 						}
 						return lines;
@@ -175,7 +175,8 @@ export function ComparisonChart({
 			{popup && (
 				<>
 					{/* Backdrop to close popup */}
-					<div
+					<button
+						type="button"
 						style={{
 							position: 'fixed',
 							top: 0,
@@ -183,8 +184,13 @@ export function ComparisonChart({
 							right: 0,
 							bottom: 0,
 							zIndex: 999,
+							background: 'none',
+							border: 'none',
+							cursor: 'default',
+							padding: 0,
 						}}
 						onClick={handleClosePopup}
+						aria-label="Close popup"
 					/>
 					{/* Popup */}
 					<div
@@ -207,19 +213,23 @@ export function ComparisonChart({
 						</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
 							{popup.point.group?.map((item) => (
-								<a
+								<button
 									key={item.seed}
-									href="#"
-									onClick={(e) => {
-										e.preventDefault();
+									type="button"
+									onClick={() => {
 										handleSeedClick(popup.point.resultId, item.seed);
 									}}
 									style={{
+										background: 'none',
+										border: 'none',
 										color: 'var(--vscode-textLink-foreground)',
 										textDecoration: 'none',
 										padding: '4px 8px',
 										borderRadius: '2px',
 										cursor: 'pointer',
+										textAlign: 'left',
+										fontFamily: 'inherit',
+										fontSize: 'inherit',
 									}}
 									onMouseEnter={(e) => {
 										e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
@@ -231,7 +241,7 @@ export function ComparisonChart({
 									}}
 								>
 									Seed {item.seed}: {item.y.toLocaleString()}
-								</a>
+								</button>
 							))}
 						</div>
 					</div>
@@ -253,7 +263,7 @@ function prepareChartData(
 	const features = parseFeatures(featuresStr);
 	const { results, seeds, inputData, stderrData } = data;
 
-	const datasets = results.map((result, index) => {
+	const datasets = results.map((result, _index) => {
 		const color = getColorForResultId(result.id);
 		const filteredSeeds = seeds.filter((seed) => {
 			if (!skipFailed) return true;
@@ -324,7 +334,7 @@ function prepareChartData(
 			if (!groupedByX.has(key)) {
 				groupedByX.set(key, []);
 			}
-			groupedByX.get(key)!.push(seedData);
+			groupedByX.get(key)?.push(seedData);
 		}
 
 		// Step 3: For each group, evaluate Y axis with arrays

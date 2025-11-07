@@ -1,5 +1,4 @@
 import type { Execution } from '../models/execution';
-import type { TestCase } from '../models/testCase';
 
 /**
  * Seed別の統計情報

@@ -258,7 +258,7 @@
 		"build": "pnpm run check-types && pnpm run lint && node esbuild.js --production && node esbuild.webview.js --production",
 		"package": "vsce package --no-dependencies",
 		"check-types": "tsc --noEmit",
-		"lint": "eslint src",
+		"lint": "eslint src && biome check .",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
 		"biome:check": "biome check .",

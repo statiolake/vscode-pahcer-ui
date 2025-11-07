@@ -1,5 +1,4 @@
 import * as fs from 'node:fs';
-import * as readline from 'node:readline';
 import { parseStderrVariables as domainParseStderr } from '../domain/services/stderrParser';
 
 /**
@@ -7,28 +6,16 @@ import { parseStderrVariables as domainParseStderr } from '../domain/services/st
  * ストリーミング処理で大きなファイルにも対応
  */
 export class FileAnalyzer {
+	private constructor() {}
+
 	/**
 	 * ファイルの1行目だけを読み込む（ストリーミング）
 	 */
 	static async readFirstLine(filePath: string): Promise<string> {
-		if (!fs.existsSync(filePath)) {
-			return '';
-		}
-
-		const fileStream = fs.createReadStream(filePath, { encoding: 'utf-8' });
-		const rl = readline.createInterface({
-			input: fileStream,
-			crlfDelay: Number.POSITIVE_INFINITY,
-		});
-
 		try {
-			for await (const line of rl) {
-				// 最初の行だけ読んで即座にストリームを閉じる
-				rl.close();
-				fileStream.close();
-				return line.trim();
-			}
-			return '';
+			const content = await fs.promises.readFile(filePath, 'utf-8');
+			const lines = content.split('\n');
+			return lines[0]?.trim() || '';
 		} catch (error) {
 			console.warn(`Failed to read first line from ${filePath}:`, error);
 			return '';
@@ -36,56 +23,22 @@ export class FileAnalyzer {
 	}
 
 	/**
-	 * ファイルの先頭N行と末尾N行を読み込む（ストリーミング）
+	 * ファイルの先頭N行と末尾N行を読み込む（メモリ読み込み）
 	 */
 	static async readHeadAndTail(
 		filePath: string,
 		headLines = 100,
 		tailLines = 100,
 	): Promise<{ head: string; tail: string }> {
-		if (!fs.existsSync(filePath)) {
-			return { head: '', tail: '' };
-		}
-
-		const fileStream = fs.createReadStream(filePath, { encoding: 'utf-8' });
-		const rl = readline.createInterface({
-			input: fileStream,
-			crlfDelay: Number.POSITIVE_INFINITY,
-		});
-
-		const head: string[] = [];
-		const tail: string[] = [];
-		let lineCount = 0;
-
 		try {
-			for await (const line of rl) {
-				lineCount++;
-
-				// 先頭100行はそのまま保存
-				if (lineCount <= headLines) {
-					head.push(line);
-				} else {
-					// 末尾100行用のリングバッファ
-					tail.push(line);
-					if (tail.length > tailLines) {
-						tail.shift(); // 最古の行を削除
-					}
-				}
-			}
-
-			// ファイルが200行以下なら先頭のみ返す（tailは空）
-			if (lineCount <= headLines + tailLines) {
-				return { head: head.join('\n'), tail: '' };
-			}
-
-			// それ以外は先頭100行と末尾100行を分けて返す
-			return { head: head.join('\n'), tail: tail.join('\n') };
+			const content = await fs.promises.readFile(filePath, 'utf-8');
+			const lines = content.split('\n');
+			const head = lines.slice(0, headLines).join('\n');
+			const tail = lines.length > headLines ? lines.slice(-tailLines).join('\n') : '';
+			return { head, tail };
 		} catch (error) {
 			console.warn(`Failed to read head and tail from ${filePath}:`, error);
 			return { head: '', tail: '' };
-		} finally {
-			rl.close();
-			fileStream.close();
 		}
 	}
 

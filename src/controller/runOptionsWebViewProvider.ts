@@ -54,7 +54,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		let commitHash: string | null = null;
 		try {
 			commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
-		} catch (error) {
+		} catch (_error) {
 			// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
 			return;
 		}

@@ -11,7 +11,7 @@ export function parseStderrVariables(content: string): Record<string, number> {
 		if (match) {
 			const varName = match[1];
 			const value = parseFloat(match[2]);
-			if (!isNaN(value)) {
+			if (!Number.isNaN(value)) {
 				variables[varName] = value;
 			}
 		}
