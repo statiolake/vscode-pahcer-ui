@@ -253,17 +253,15 @@
 		}
 	},
 	"scripts": {
-		"vscode:prepublish": "pnpm run build",
-		"compile": "pnpm run check-types && pnpm run lint && node esbuild.js && node esbuild.webview.js",
-		"build": "pnpm run check-types && pnpm run lint && node esbuild.js --production && node esbuild.webview.js --production",
+		"vscode:prepublish": "npm run build",
+		"compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js",
+		"build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
 		"package": "vsce package --no-dependencies",
 		"check-types": "tsc --noEmit",
 		"lint": "eslint src && biome check .",
-		"format": "biome format --write .",
-		"format:check": "biome format .",
-		"biome:check": "biome check .",
-		"biome:fix": "biome check --write .",
-		"prepare": "husky"
+		"format": "biome check --write . && biome format --write .",
+		"prepare": "husky",
+		"lint-staged": "lint-staged"
 	},
 	"lint-staged": {
 		"*.{js,ts,json}": [

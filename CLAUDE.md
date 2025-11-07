@@ -6,7 +6,7 @@
 
 ## 開発環境
 
-- **パッケージマネージャー**: pnpm を使用しています（npm や yarn は使用しないでください）
+- **パッケージマネージャー**: npm を使用しています
 - **pahcer ツール**: pahcer フォルダに Rust で実装されたコマンドラインツールがあります
 - **ビルドツール**: esbuild を使用（拡張機能本体とWebView UIを個別にバンドル）
 - **フォーマッター**: Biome を使用
@@ -435,16 +435,16 @@ Seedごとモード:
 - **クラス名**: PascalCase
 - **関数名**: camelCase
 - **型名**: PascalCase
-- **フォーマッター**: Biome（`pnpm run format`）
-- **Linter**: ESLint（`pnpm run lint`）
-- **型チェック**: `pnpm run check-types`
+- **フォーマッター**: Biome（`npm run format`）
+- **Linter**: ESLint（`npm run lint`）
+- **型チェック**: `npm run check-types`
 
 ### テスト
 
 現時点では自動テストは実装されていませんが、以下を手動で確認：
 
-1. 型チェック: `pnpm run check-types`
-2. ビルド: `pnpm run build`
+1. 型チェック: `npm run check-types`
+2. ビルド: `npm run build`
 3. 動作確認: VS CodeでF5を押して拡張機能を起動
 
 詳細は [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) を参照。
@@ -457,12 +457,12 @@ Seedごとモード:
 
 ```bash
 # 型チェック
-pnpm run check-types
+npm run check-types
 
 # クリーンビルド
 rm -rf dist node_modules
-pnpm install
-pnpm run build
+npm install
+npm run build
 ```
 
 ### 依存関係のエラー

@@ -232,35 +232,35 @@
 
 ## 11. コマンド一覧
 
-| コマンドID | タイトル | 機能 |
-|-----------|---------|------|
-| `pahcer-ui.run` | テストを実行 | pahcer run をターミナルで実行 |
-| `pahcer-ui.refresh` | 結果を更新 | TreeViewを手動リフレッシュ |
-| `pahcer-ui.switchToSeed` | Seedごとにグルーピング | Seedごと表示モードに切り替え |
-| `pahcer-ui.switchToExecution` | 実行ごとにグルーピング | 実行ごと表示モードに切り替え |
-| `pahcer-ui.toggleComparisonMode` | 比較モードを切り替え | チェックボックス表示のON/OFF |
-| `pahcer-ui.addComment` | コメントを追加 | 実行結果にコメントを追加/編集 |
-| `pahcer-ui.changeSortOrder` | 並び順を変更 | ソート順を選択 |
-| `pahcer-ui.showVisualizer` | ビジュアライザを表示 | ビジュアライザを開く（内部コマンド） |
+| コマンドID                       | タイトル               | 機能                                 |
+|----------------------------------|------------------------|--------------------------------------|
+| `pahcer-ui.run`                  | テストを実行           | pahcer run をターミナルで実行        |
+| `pahcer-ui.refresh`              | 結果を更新             | TreeViewを手動リフレッシュ           |
+| `pahcer-ui.switchToSeed`         | Seedごとにグルーピング | Seedごと表示モードに切り替え         |
+| `pahcer-ui.switchToExecution`    | 実行ごとにグルーピング | 実行ごと表示モードに切り替え         |
+| `pahcer-ui.toggleComparisonMode` | 比較モードを切り替え   | チェックボックス表示のON/OFF         |
+| `pahcer-ui.addComment`           | コメントを追加         | 実行結果にコメントを追加/編集        |
+| `pahcer-ui.changeSortOrder`      | 並び順を変更           | ソート順を選択                       |
+| `pahcer-ui.showVisualizer`       | ビジュアライザを表示   | ビジュアライザを開く（内部コマンド） |
 
 ## 12. 主要なクラス/ファイル
 
-| ファイル | 役割 |
-|---------|------|
-| `src/extension.ts` | エントリポイント、コマンド登録、ファイル監視 |
-| `src/pahcerResultsProvider.ts` | TreeViewデータプロバイダー、グルーピング・ソート処理 |
-| `src/visualizerView.ts` | ビジュアライザのダウンロード・表示管理 |
-| `src/comparisonView.ts` | 比較ビューのWebView管理 |
-| `src/configManager.ts` | 比較モード設定の読み書き |
-| `src/pahcerPanel.ts` | （未使用?）レガシーパネル実装 |
-| `webview/comparison/ComparisonView.tsx` | 比較ビューのReactコンポーネント |
-| `webview/comparison/components/ComparisonChart.tsx` | Chart.jsを使った比較グラフ |
-| `webview/comparison/components/StatsTable.tsx` | 統計テーブル |
-| `webview/comparison/components/ControlPanel.tsx` | コントロールパネル |
+| ファイル                                            | 役割                                                 |
+|-----------------------------------------------------|------------------------------------------------------|
+| `src/extension.ts`                                  | エントリポイント、コマンド登録、ファイル監視         |
+| `src/pahcerResultsProvider.ts`                      | TreeViewデータプロバイダー、グルーピング・ソート処理 |
+| `src/visualizerView.ts`                             | ビジュアライザのダウンロード・表示管理               |
+| `src/comparisonView.ts`                             | 比較ビューのWebView管理                              |
+| `src/configManager.ts`                              | 比較モード設定の読み書き                             |
+| `src/pahcerPanel.ts`                                | （未使用?）レガシーパネル実装                        |
+| `webview/comparison/ComparisonView.tsx`             | 比較ビューのReactコンポーネント                      |
+| `webview/comparison/components/ComparisonChart.tsx` | Chart.jsを使った比較グラフ                           |
+| `webview/comparison/components/StatsTable.tsx`      | 統計テーブル                                         |
+| `webview/comparison/components/ControlPanel.tsx`    | コントロールパネル                                   |
 
 ## 13. 技術スタック
 
 - **拡張機能本体**: TypeScript + VS Code Extension API
 - **WebView（比較ビュー）**: React + Chart.js
-- **パッケージマネージャー**: pnpm
+- **パッケージマネージャー**: npm
 - **ビルドツール**: esbuild

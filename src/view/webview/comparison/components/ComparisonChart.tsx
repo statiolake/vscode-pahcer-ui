@@ -3,6 +3,7 @@ import {
 	CategoryScale,
 	type ChartEvent,
 	Chart as ChartJS,
+	type ChartType,
 	Legend,
 	LinearScale,
 	LineElement,
@@ -101,7 +102,7 @@ export function ComparisonChart({
 				borderColor: gridColor,
 				borderWidth: 1,
 				callbacks: {
-					label: (context: TooltipItem<'line' | 'scatter'>) => {
+					label: (context: TooltipItem<ChartType>) => {
 						const point = context.raw as ChartDataPoint;
 						const lines = [`${context.dataset.label}: ${point.y.toLocaleString()}`];
 

@@ -36,7 +36,7 @@ AtCoder Heuristic Contest (AHC) のローカルテスト並列実行ツール「
 
 - [pahcer](https://github.com/terry-u16/pahcer) がインストールされていること
 - `pahcer init` が実行済みであること
-- pnpm がインストールされていること（開発時）
+- npm がインストールされていること（開発時）
 
 ## 使い方
 
@@ -70,10 +70,10 @@ AtCoder Heuristic Contest (AHC) のローカルテスト並列実行ツール「
 
 ```bash
 # 依存関係のインストール
-pnpm install
+npm install
 
 # ビルド
-pnpm run compile
+npm run compile
 
 # 拡張機能のデバッグ実行
 F5 キーを押す
