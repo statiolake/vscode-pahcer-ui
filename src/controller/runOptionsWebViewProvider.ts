@@ -2,7 +2,10 @@ import * as vscode from 'vscode';
 import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
-import { checkAndCommitIfEnabled } from '../infrastructure/gitIntegration';
+import {
+	commitResultsAfterExecution,
+	commitSourceBeforeExecution,
+} from '../infrastructure/gitIntegration';
 import type { InOutRepository } from '../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 
@@ -50,12 +53,12 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	async runWithOptions(options: RunOptions): Promise<void> {
-		// Git統合チェック＆コミット
+		// Git統合: 実行前にソースコードをコミット
 		let commitHash: string | null = null;
 		try {
-			commitHash = await checkAndCommitIfEnabled(this.workspaceRoot);
-		} catch (_error) {
-			// エラーメッセージは checkAndCommitIfEnabled 内で表示済み
+			commitHash = await commitSourceBeforeExecution(this.workspaceRoot);
+		} catch (error) {
+			vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
 			return;
 		}
 
@@ -75,11 +78,19 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		// Task completed - copy output files
 		const latestExecution = await this.executionRepository.getLatestExecution();
 		if (latestExecution) {
+			// output ファイルをコピーして meta.json に commitHash を保存
 			await this.inOutRepository.copyOutputFiles(
 				latestExecution.id,
 				latestExecution,
 				commitHash || undefined,
 			);
+
+			// Git統合: 実行後に結果をコミット
+			try {
+				await commitResultsAfterExecution(this.workspaceRoot, latestExecution);
+			} catch (error) {
+				vscode.window.showErrorMessage(`結果コミットに失敗しました: ${error}`);
+			}
 		}
 	}
 

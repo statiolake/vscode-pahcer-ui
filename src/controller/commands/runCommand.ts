@@ -1,7 +1,10 @@
 import * as vscode from 'vscode';
 import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
 import type { ExecutionRepository } from '../../infrastructure/executionRepository';
-import { checkAndCommitIfEnabled } from '../../infrastructure/gitIntegration';
+import {
+	commitResultsAfterExecution,
+	commitSourceBeforeExecution,
+} from '../../infrastructure/gitIntegration';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../../infrastructure/taskAdapter';
 
@@ -22,10 +25,10 @@ export function runCommand(
 			return;
 		}
 
-		// Git統合チェック＆コミット
+		// Git統合: 実行前にソースコードをコミット
 		let commitHash: string | null = null;
 		try {
-			commitHash = await checkAndCommitIfEnabled(workspaceRoot);
+			commitHash = await commitSourceBeforeExecution(workspaceRoot);
 		} catch (error) {
 			vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
 			return;
@@ -33,14 +36,22 @@ export function runCommand(
 
 		await taskAdapter.runPahcer(workspaceRoot);
 
-		// Task completed - copy output files and refresh
+		// Task completed - copy output files
 		const latestExecution = await executionRepository.getLatestExecution();
 		if (latestExecution) {
+			// output ファイルをコピーして meta.json に commitHash を保存
 			await inOutRepository.copyOutputFiles(
 				latestExecution.id,
 				latestExecution,
 				commitHash || undefined,
 			);
+
+			// Git統合: 実行後に結果をコミット
+			try {
+				await commitResultsAfterExecution(workspaceRoot, latestExecution);
+			} catch (error) {
+				vscode.window.showErrorMessage(`結果コミットに失敗しました: ${error}`);
+			}
 		}
 		treeViewController.refresh();
 	};

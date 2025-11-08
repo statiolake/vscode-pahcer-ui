@@ -1,10 +1,56 @@
 import * as vscode from 'vscode';
+import type { Execution } from '../domain/models/execution';
 import { GitAdapter } from './gitAdapter';
 
 /**
- * Git統合の設定を確認し、必要なら初回ダイアログを表示
+ * pahcer実行後に結果ファイルをコミット（output + results + meta.json）
  */
-export async function checkAndCommitIfEnabled(workspaceRoot: string): Promise<string | null> {
+export async function commitResultsAfterExecution(
+	workspaceRoot: string,
+	execution: Execution,
+): Promise<string | null> {
+	const config = vscode.workspace.getConfiguration('pahcer-ui');
+	const gitIntegration = config.get<boolean>('gitIntegration');
+
+	// Git統合が無効な場合は何もしない
+	if (gitIntegration !== true) {
+		return null;
+	}
+
+	try {
+		const gitAdapter = new GitAdapter(workspaceRoot);
+		const now = new Date();
+
+		// Format as local time ISO format (YYYY-MM-DDTHH:mm:ss)
+		const year = now.getFullYear();
+		const month = String(now.getMonth() + 1).padStart(2, '0');
+		const day = String(now.getDate()).padStart(2, '0');
+		const hours = String(now.getHours()).padStart(2, '0');
+		const minutes = String(now.getMinutes()).padStart(2, '0');
+		const seconds = String(now.getSeconds()).padStart(2, '0');
+		const timestamp = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+
+		// 平均スコアを計算
+		const averageScore = execution.caseCount > 0 ? execution.totalScore / execution.caseCount : 0;
+
+		// コミットメッセージを作成
+		const message = `Results at ${timestamp} - ${execution.caseCount} cases, total score: ${execution.totalScore}, avg: ${averageScore.toFixed(2)}`;
+
+		const commitHash = await gitAdapter.commitAll(message);
+
+		vscode.window.showInformationMessage(`結果コミット作成: ${commitHash.slice(0, 7)}`);
+		return commitHash;
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		vscode.window.showWarningMessage(`結果コミット作成に失敗しました: ${errorMessage}`);
+		return null;
+	}
+}
+
+/**
+ * pahcer実行前にソースコードをコミット
+ */
+export async function commitSourceBeforeExecution(workspaceRoot: string): Promise<string | null> {
 	const config = vscode.workspace.getConfiguration('pahcer-ui');
 	let gitIntegration = config.get<boolean | null>('gitIntegration');
 

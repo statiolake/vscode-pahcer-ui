@@ -114,6 +114,32 @@ export class InOutRepository {
 	}
 
 	/**
+	 * 既存のmeta.jsonを更新（コミットハッシュなど）
+	 */
+	async saveExecutionMetadata(resultId: string, updates: { commitHash?: string }): Promise<void> {
+		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
+		const metaPath = path.join(destDir, 'meta.json');
+
+		if (!fs.existsSync(metaPath)) {
+			return;
+		}
+
+		try {
+			const content = fs.readFileSync(metaPath, 'utf-8');
+			const metadata = JSON.parse(content);
+
+			// Update with new values
+			if (updates.commitHash) {
+				metadata.commitHash = updates.commitHash;
+			}
+
+			fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
+		} catch (e) {
+			console.error(`Failed to update meta.json for result ${resultId}:`, e);
+		}
+	}
+
+	/**
 	 * ファイル解析を実行してmeta.jsonに保存
 	 */
 	private async analyzeAndSaveMetadata(
