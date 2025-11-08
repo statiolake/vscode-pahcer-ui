@@ -8,16 +8,18 @@ import * as path from 'node:path';
 export class VisualizerDownloader {
 	private readonly MAX_DEPTH = 3;
 
-	constructor(private visualizerDir: string) {
-		if (!fs.existsSync(visualizerDir)) {
-			fs.mkdirSync(visualizerDir, { recursive: true });
-		}
-	}
+	constructor(private visualizerDir: string) {}
 
 	/**
 	 * ビジュアライザをダウンロード
 	 */
 	async download(url: string): Promise<string> {
+		// Ensure visualizer directory exists
+		if (!fs.existsSync(this.visualizerDir)) {
+			fs.mkdirSync(this.visualizerDir, { recursive: true });
+			console.log(`[VisualizerDownloader] Created directory: ${this.visualizerDir}`);
+		}
+
 		// Remove query parameters for file operations
 		const urlObj = new URL(url);
 		const cleanUrl = `${urlObj.origin}${urlObj.pathname}`;

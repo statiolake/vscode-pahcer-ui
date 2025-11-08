@@ -257,6 +257,7 @@
 		"compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js",
 		"build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
 		"package": "vsce package --no-dependencies",
+		"publish": "vsce publish",
 		"check-types": "tsc --noEmit",
 		"lint": "eslint src && biome check .",
 		"format": "biome check --write . && biome format --write .",
