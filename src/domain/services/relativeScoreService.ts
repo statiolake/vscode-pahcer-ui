@@ -25,9 +25,9 @@ export function calculateRelativeScore(
 	referenceScore: number | null | undefined,
 	objective: Objective,
 ): number {
-	// 参照スコアがない場合は100%を返す
+	// 参照スコアがない場合は0%を返す
 	if (!referenceScore || referenceScore <= 0 || currentScore <= 0) {
-		return 100.0;
+		return 0.0;
 	}
 
 	switch (objective) {
@@ -38,8 +38,10 @@ export function calculateRelativeScore(
 			// 最小化問題: (referenceScore / currentScore) * 100
 			return (referenceScore / currentScore) * 100.0;
 		default:
-			// 予期しないobjectiveの場合
-			return 100.0;
+			// このような objective は存在しないはずなので、never でコンパイル時検査する
+			return ((_: never) => {
+				throw Error('unknown objective');
+			})(objective);
 	}
 }
 
