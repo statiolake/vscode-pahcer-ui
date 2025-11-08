@@ -18,6 +18,8 @@ async function build() {
 				outfile: `dist/${name}.js`,
 				platform: 'browser',
 				target: 'es2020',
+				jsx: 'automatic',
+				jsxImportSource: 'react',
 				loader: {
 					'.tsx': 'tsx',
 					'.ts': 'ts',

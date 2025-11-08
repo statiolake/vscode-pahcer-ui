@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { type CSSProperties, type FC, useId, useState } from 'react';
 
 interface InitOptions {
 	problemName: string;
@@ -8,7 +8,7 @@ interface InitOptions {
 	testerUrl: string;
 }
 
-export const InitializationView: React.FC = () => {
+export const InitializationView: FC = () => {
 	// Generate unique IDs for form elements
 	const problemNameId = useId();
 	const objectiveId = useId();
@@ -48,7 +48,7 @@ export const InitializationView: React.FC = () => {
 		});
 	};
 
-	const containerStyle: React.CSSProperties = {
+	const containerStyle: CSSProperties = {
 		padding: '20px',
 		color: 'var(--vscode-foreground)',
 		backgroundColor: 'var(--vscode-editor-background)',
@@ -57,25 +57,25 @@ export const InitializationView: React.FC = () => {
 		flexDirection: 'column',
 	};
 
-	const formStyle: React.CSSProperties = {
+	const formStyle: CSSProperties = {
 		display: 'flex',
 		flexDirection: 'column',
 		gap: '20px',
 		maxWidth: '600px',
 	};
 
-	const fieldStyle: React.CSSProperties = {
+	const fieldStyle: CSSProperties = {
 		display: 'flex',
 		flexDirection: 'column',
 		gap: '8px',
 	};
 
-	const labelStyle: React.CSSProperties = {
+	const labelStyle: CSSProperties = {
 		fontSize: '14px',
 		fontWeight: 'bold',
 	};
 
-	const inputStyle: React.CSSProperties = {
+	const inputStyle: CSSProperties = {
 		padding: '6px 8px',
 		backgroundColor: 'var(--vscode-input-background)',
 		color: 'var(--vscode-input-foreground)',
@@ -83,13 +83,13 @@ export const InitializationView: React.FC = () => {
 		fontSize: '13px',
 	};
 
-	const checkboxContainerStyle: React.CSSProperties = {
+	const checkboxContainerStyle: CSSProperties = {
 		display: 'flex',
 		alignItems: 'center',
 		gap: '8px',
 	};
 
-	const buttonStyle: React.CSSProperties = {
+	const buttonStyle: CSSProperties = {
 		padding: '8px 16px',
 		border: 'none',
 		cursor: 'pointer',
@@ -98,7 +98,7 @@ export const InitializationView: React.FC = () => {
 		color: 'var(--vscode-button-foreground)',
 	};
 
-	const descriptionStyle: React.CSSProperties = {
+	const descriptionStyle: CSSProperties = {
 		fontSize: '12px',
 		color: 'var(--vscode-descriptionForeground)',
 		marginTop: '4px',

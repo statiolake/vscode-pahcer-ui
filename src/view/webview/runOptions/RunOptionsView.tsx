@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { type CSSProperties, useId, useState } from 'react';
 import { postMessage } from '../shared/utils/vscode';
 
 interface RunOptions {
@@ -29,7 +29,7 @@ export function RunOptionsView() {
 		postMessage({ command: 'cancelRunOptions' });
 	};
 
-	const containerStyle: React.CSSProperties = {
+	const containerStyle: CSSProperties = {
 		padding: '20px',
 		color: 'var(--vscode-foreground)',
 		backgroundColor: 'var(--vscode-editor-background)',
@@ -38,25 +38,25 @@ export function RunOptionsView() {
 		flexDirection: 'column',
 	};
 
-	const formStyle: React.CSSProperties = {
+	const formStyle: CSSProperties = {
 		display: 'flex',
 		flexDirection: 'column',
 		gap: '20px',
 		maxWidth: '600px',
 	};
 
-	const fieldStyle: React.CSSProperties = {
+	const fieldStyle: CSSProperties = {
 		display: 'flex',
 		flexDirection: 'column',
 		gap: '8px',
 	};
 
-	const labelStyle: React.CSSProperties = {
+	const labelStyle: CSSProperties = {
 		fontSize: '14px',
 		fontWeight: 'bold',
 	};
 
-	const inputStyle: React.CSSProperties = {
+	const inputStyle: CSSProperties = {
 		padding: '6px 8px',
 		backgroundColor: 'var(--vscode-input-background)',
 		color: 'var(--vscode-input-foreground)',
@@ -64,38 +64,38 @@ export function RunOptionsView() {
 		fontSize: '13px',
 	};
 
-	const checkboxContainerStyle: React.CSSProperties = {
+	const checkboxContainerStyle: CSSProperties = {
 		display: 'flex',
 		alignItems: 'center',
 		gap: '8px',
 	};
 
-	const buttonContainerStyle: React.CSSProperties = {
+	const buttonContainerStyle: CSSProperties = {
 		display: 'flex',
 		gap: '10px',
 		marginTop: '20px',
 	};
 
-	const buttonStyle: React.CSSProperties = {
+	const buttonStyle: CSSProperties = {
 		padding: '8px 16px',
 		border: 'none',
 		cursor: 'pointer',
 		fontSize: '13px',
 	};
 
-	const primaryButtonStyle: React.CSSProperties = {
+	const primaryButtonStyle: CSSProperties = {
 		...buttonStyle,
 		backgroundColor: 'var(--vscode-button-background)',
 		color: 'var(--vscode-button-foreground)',
 	};
 
-	const secondaryButtonStyle: React.CSSProperties = {
+	const secondaryButtonStyle: CSSProperties = {
 		...buttonStyle,
 		backgroundColor: 'var(--vscode-button-secondaryBackground)',
 		color: 'var(--vscode-button-secondaryForeground)',
 	};
 
-	const descriptionStyle: React.CSSProperties = {
+	const descriptionStyle: CSSProperties = {
 		fontSize: '12px',
 		color: 'var(--vscode-descriptionForeground)',
 		marginTop: '4px',
