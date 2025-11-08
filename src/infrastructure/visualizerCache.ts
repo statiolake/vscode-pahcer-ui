@@ -16,11 +16,19 @@ export class VisualizerCache {
 	 */
 	getCachedHtmlFileName(): string | null {
 		if (!fs.existsSync(this.visualizerDir)) {
+			console.log(`[VisualizerCache] Cache directory does not exist: ${this.visualizerDir}`);
 			return null;
 		}
 
 		const files = fs.readdirSync(this.visualizerDir);
+		console.log(`[VisualizerCache] Files in cache directory:`, files);
+
 		const htmlFile = files.find((f) => f.endsWith('.html'));
+		if (htmlFile) {
+			console.log(`[VisualizerCache] Found cached HTML file: ${htmlFile}`);
+		} else {
+			console.log(`[VisualizerCache] No HTML file found in cache`);
+		}
 		return htmlFile || null;
 	}
 

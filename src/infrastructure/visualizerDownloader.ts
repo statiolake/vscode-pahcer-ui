@@ -6,6 +6,8 @@ import * as path from 'node:path';
  * ビジュアライザのダウンロード処理
  */
 export class VisualizerDownloader {
+	private readonly MAX_DEPTH = 3;
+
 	constructor(private visualizerDir: string) {
 		if (!fs.existsSync(visualizerDir)) {
 			fs.mkdirSync(visualizerDir, { recursive: true });
@@ -20,30 +22,89 @@ export class VisualizerDownloader {
 		const urlObj = new URL(url);
 		const cleanUrl = `${urlObj.origin}${urlObj.pathname}`;
 
-		// Download main HTML
-		const htmlContent = await this.fetchUrl(cleanUrl);
+		console.log(`[VisualizerDownloader] Starting download from: ${cleanUrl}`);
+
+		// Download main HTML with recursion
 		const htmlFileName = path.basename(urlObj.pathname);
-		const htmlPath = path.join(this.visualizerDir, htmlFileName);
-		fs.writeFileSync(htmlPath, htmlContent);
+		await this.downloadResourceRecursive(cleanUrl, 0);
 
-		// Parse and download dependencies
-		await this.downloadDependencies(htmlContent, cleanUrl);
-
+		console.log(`[VisualizerDownloader] Download completed`);
 		return htmlFileName;
 	}
 
 	/**
-	 * 依存ファイルをダウンロード
+	 * リソース（HTML/JS）を再帰的にダウンロード
+	 * @param url ダウンロードするリソースのURL
+	 * @param depth 再帰の深さ（循環参照防止）
 	 */
-	private async downloadDependencies(htmlContent: string, baseUrl: string): Promise<void> {
-		const baseUrlObj = new URL(baseUrl);
-		const baseDir = baseUrlObj.pathname.substring(0, baseUrlObj.pathname.lastIndexOf('/'));
+	private async downloadResourceRecursive(url: string, depth: number): Promise<void> {
+		// 深さチェック
+		if (depth > this.MAX_DEPTH) {
+			console.log(
+				`[VisualizerDownloader] Max recursion depth (${this.MAX_DEPTH}) reached, stopping recursion`,
+			);
+			return;
+		}
 
-		// Find script and link tags
+		const baseUrlObj = new URL(url);
+		const baseDir = baseUrlObj.pathname.substring(0, baseUrlObj.pathname.lastIndexOf('/'));
+		const fileName = path.basename(url);
+		const filePath = path.join(this.visualizerDir, fileName);
+
+		// すでにダウンロード済みならスキップ
+		if (fs.existsSync(filePath)) {
+			console.log(`[VisualizerDownloader] File already exists, skipping: ${fileName}`);
+			return;
+		}
+
+		// ファイルをダウンロード
+		console.log(`[VisualizerDownloader] Downloading: ${url} (depth: ${depth})`);
+		const content = await this.fetchUrl(url);
+		fs.writeFileSync(filePath, content);
+		console.log(`[VisualizerDownloader] Saved: ${fileName} (size: ${content.length} bytes)`);
+
+		// HTMLファイルの場合：依存ファイルを抽出して再帰ダウンロード
+		if (fileName.endsWith('.html')) {
+			await this.downloadDependenciesFromHtml(content, baseUrlObj, baseDir, depth);
+		}
+		// JavaScriptファイルの場合：import文を抽出して再帰ダウンロード
+		else if (fileName.endsWith('.js')) {
+			await this.downloadDependenciesFromJs(content, baseUrlObj, baseDir, depth);
+
+			// JSファイルに対応するWASMファイルを試行的にダウンロード
+			const wasmFileName = fileName.replace('.js', '_bg.wasm');
+			const wasmUrl = `${baseUrlObj.origin}${baseDir}/${wasmFileName}`;
+			console.log(`[VisualizerDownloader] Checking for WASM file: ${wasmFileName}`);
+
+			try {
+				const wasmPath = path.join(this.visualizerDir, wasmFileName);
+				// WASMファイルは既存チェックなし（毎回試す）
+				const wasmContent = await this.fetchUrlBinary(wasmUrl);
+				fs.writeFileSync(wasmPath, wasmContent);
+				console.log(
+					`[VisualizerDownloader] WASM file downloaded: ${wasmFileName} (size: ${wasmContent.length} bytes)`,
+				);
+			} catch (e) {
+				console.warn(
+					`[VisualizerDownloader] WASM file not found: ${wasmFileName}`,
+					e instanceof Error ? e.message : String(e),
+				);
+			}
+		}
+	}
+
+	/**
+	 * HTMLファイルから依存ファイルを抽出して再帰ダウンロード
+	 */
+	private async downloadDependenciesFromHtml(
+		htmlContent: string,
+		baseUrlObj: URL,
+		baseDir: string,
+		depth: number,
+	): Promise<void> {
 		const scriptRegex = /<script[^>]+src=["']([^"']+)["']/g;
 		const linkRegex = /<link[^>]+href=["']([^"']+)["']/g;
 		const imgRegex = /<img[^>]+src=["']([^"']+)["']/g;
-		// Also look for ES module imports
 		const importRegex = /from\s+["']([^"']+\.js)["']/g;
 
 		const dependencies = new Set<string>();
@@ -70,58 +131,97 @@ export class VisualizerDownloader {
 			match = importRegex.exec(htmlContent);
 		}
 
-		// Download each dependency
+		if (dependencies.size === 0) {
+			console.log(`[VisualizerDownloader] No dependencies found in HTML`);
+			return;
+		}
+
+		console.log(
+			`[VisualizerDownloader] Found ${dependencies.size} dependencies in HTML:`,
+			Array.from(dependencies),
+		);
+
+		// 各依存ファイルをダウンロード
 		for (const dep of dependencies) {
 			try {
-				// Skip protocol-relative and absolute external URLs
-				if (dep.startsWith('//') || dep.startsWith('http://') || dep.startsWith('https://')) {
-					// Handle protocol-relative URLs (//img.atcoder.jp/...)
-					if (dep.startsWith('//img.atcoder.jp/')) {
-						const fullUrl = `https:${dep}`;
-						const fileName = path.basename(new URL(fullUrl).pathname);
-						const depPath = path.join(this.visualizerDir, fileName);
-
-						if (!fs.existsSync(depPath)) {
-							console.log(`Downloading ${fullUrl}`);
-							const depContent = await this.fetchUrl(fullUrl);
-							fs.writeFileSync(depPath, depContent);
-						}
-					}
-					continue;
-				}
-
-				// Handle relative paths
-				const depUrl = dep.startsWith('./')
-					? `${baseUrlObj.origin}${baseDir}/${dep.substring(2)}`
-					: `${baseUrlObj.origin}${baseDir}/${dep}`;
-
-				console.log(`Downloading ${depUrl}`);
-				const depContent = await this.fetchUrl(depUrl);
-
-				const depPath = path.join(this.visualizerDir, path.basename(dep));
-				fs.writeFileSync(depPath, depContent);
-
-				// If it's a .js file, also try to download the .wasm file
-				if (dep.endsWith('.js')) {
-					const wasmFile = dep.replace('.js', '_bg.wasm');
-					const wasmUrl = wasmFile.startsWith('./')
-						? `${baseUrlObj.origin}${baseDir}/${wasmFile.substring(2)}`
-						: `${baseUrlObj.origin}${baseDir}/${wasmFile}`;
-
-					try {
-						console.log(`Trying to download ${wasmUrl}`);
-						const wasmContent = await this.fetchUrlBinary(wasmUrl);
-						const wasmPath = path.join(this.visualizerDir, path.basename(wasmFile));
-						fs.writeFileSync(wasmPath, wasmContent);
-					} catch (_e) {
-						// WASM file might not exist, that's ok
-						console.log(`WASM file not found: ${wasmUrl}`);
-					}
+				const depUrl = this.resolveUrl(dep, baseUrlObj, baseDir);
+				if (depUrl) {
+					await this.downloadResourceRecursive(depUrl, depth + 1);
 				}
 			} catch (e) {
-				console.error(`Failed to download dependency ${dep}:`, e);
+				console.error(
+					`[VisualizerDownloader] Failed to download dependency ${dep}:`,
+					e instanceof Error ? e.message : String(e),
+				);
 			}
 		}
+	}
+
+	/**
+	 * JavaScriptファイルから import 文を抽出して再帰ダウンロード
+	 */
+	private async downloadDependenciesFromJs(
+		jsContent: string,
+		baseUrlObj: URL,
+		baseDir: string,
+		depth: number,
+	): Promise<void> {
+		const importRegex = /from\s+["']([^"']+\.js)["']/g;
+
+		const dependencies = new Set<string>();
+
+		let match: RegExpExecArray | null;
+		match = importRegex.exec(jsContent);
+		while (match !== null) {
+			dependencies.add(match[1]);
+			match = importRegex.exec(jsContent);
+		}
+
+		if (dependencies.size === 0) {
+			console.log(`[VisualizerDownloader] No imports found in JS file`);
+			return;
+		}
+
+		console.log(
+			`[VisualizerDownloader] Found ${dependencies.size} imports in JS file:`,
+			Array.from(dependencies),
+		);
+
+		// 各インポートファイルをダウンロード
+		for (const dep of dependencies) {
+			try {
+				const depUrl = this.resolveUrl(dep, baseUrlObj, baseDir);
+				if (depUrl) {
+					await this.downloadResourceRecursive(depUrl, depth + 1);
+				}
+			} catch (e) {
+				console.error(
+					`[VisualizerDownloader] Failed to download import ${dep}:`,
+					e instanceof Error ? e.message : String(e),
+				);
+			}
+		}
+	}
+
+	/**
+	 * 相対パスまたはプロトコル相対URLを完全なURLに変換
+	 */
+	private resolveUrl(dep: string, baseUrlObj: URL, baseDir: string): string | null {
+		// プロトコル相対URLの場合（//img.atcoder.jp/...）
+		if (dep.startsWith('//img.atcoder.jp/')) {
+			return `https:${dep}`;
+		}
+
+		// 外部URLはスキップ
+		if (dep.startsWith('//') || dep.startsWith('http://') || dep.startsWith('https://')) {
+			console.log(`[VisualizerDownloader] Skipping external URL: ${dep}`);
+			return null;
+		}
+
+		// 相対パスを解決
+		return dep.startsWith('./')
+			? `${baseUrlObj.origin}${baseDir}/${dep.substring(2)}`
+			: `${baseUrlObj.origin}${baseDir}/${dep}`;
 	}
 
 	/**
@@ -131,10 +231,19 @@ export class VisualizerDownloader {
 		return new Promise((resolve, reject) => {
 			https
 				.get(url, (res) => {
+					console.log(`[VisualizerDownloader] HTTP response for ${url}: ${res.statusCode}`);
+
 					if (res.statusCode === 301 || res.statusCode === 302) {
 						if (res.headers.location) {
+							console.log(`[VisualizerDownloader] Redirecting to: ${res.headers.location}`);
 							return this.fetchUrl(res.headers.location).then(resolve).catch(reject);
 						}
+					}
+
+					if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+						return reject(
+							new Error(`HTTP ${res.statusCode}: ${res.statusMessage || 'Unknown error'}`),
+						);
 					}
 
 					let data = '';
@@ -143,7 +252,13 @@ export class VisualizerDownloader {
 					});
 					res.on('end', () => resolve(data));
 				})
-				.on('error', reject);
+				.on('error', (e) => {
+					console.error(
+						`[VisualizerDownloader] Network error for ${url}:`,
+						e instanceof Error ? e.message : String(e),
+					);
+					reject(e);
+				});
 		});
 	}
 
@@ -154,17 +269,32 @@ export class VisualizerDownloader {
 		return new Promise((resolve, reject) => {
 			https
 				.get(url, (res) => {
+					console.log(`[VisualizerDownloader] HTTP response for ${url}: ${res.statusCode}`);
+
 					if (res.statusCode === 301 || res.statusCode === 302) {
 						if (res.headers.location) {
+							console.log(`[VisualizerDownloader] Redirecting to: ${res.headers.location}`);
 							return this.fetchUrlBinary(res.headers.location).then(resolve).catch(reject);
 						}
+					}
+
+					if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+						return reject(
+							new Error(`HTTP ${res.statusCode}: ${res.statusMessage || 'Unknown error'}`),
+						);
 					}
 
 					const chunks: Buffer[] = [];
 					res.on('data', (chunk) => chunks.push(chunk));
 					res.on('end', () => resolve(Buffer.concat(chunks)));
 				})
-				.on('error', reject);
+				.on('error', (e) => {
+					console.error(
+						`[VisualizerDownloader] Network error for ${url}:`,
+						e instanceof Error ? e.message : String(e),
+					);
+					reject(e);
+				});
 		});
 	}
 }

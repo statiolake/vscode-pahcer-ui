@@ -29,11 +29,19 @@ export class VisualizerViewController {
 	 * ビジュアライザを表示
 	 */
 	async showVisualizerForCase(seed: number, resultId?: string): Promise<void> {
+		console.log(
+			`[VisualizerViewController] Showing visualizer for seed: ${seed}, resultId: ${resultId}`,
+		);
+
 		// Check if visualizer is already downloaded
 		let htmlFileName = this.visualizerCache.getCachedHtmlFileName();
 
 		// Get visualizer URL if HTML file not found
 		if (!htmlFileName) {
+			console.log(
+				`[VisualizerViewController] No cached visualizer found, requesting URL from user`,
+			);
+
 			const url = await vscode.window.showInputBox({
 				prompt: 'AtCoder公式ビジュアライザのURLを入力してください',
 				placeHolder: 'https://img.atcoder.jp/ahc054/YDAxDRZr_v2.html?lang=ja',
@@ -53,8 +61,11 @@ export class VisualizerViewController {
 			});
 
 			if (!url) {
+				console.log(`[VisualizerViewController] User cancelled URL input`);
 				return;
 			}
+
+			console.log(`[VisualizerViewController] User provided URL: ${url}`);
 
 			// Download visualizer files
 			await vscode.window.withProgress(
@@ -64,12 +75,25 @@ export class VisualizerViewController {
 					cancellable: false,
 				},
 				async () => {
-					htmlFileName = await this.visualizerDownloader.download(url);
+					try {
+						console.log(`[VisualizerViewController] Starting download`);
+						htmlFileName = await this.visualizerDownloader.download(url);
+						console.log(`[VisualizerViewController] Download completed: ${htmlFileName}`);
+					} catch (e) {
+						console.error(
+							`[VisualizerViewController] Download failed:`,
+							e instanceof Error ? e.message : String(e),
+						);
+						throw e;
+					}
 				},
 			);
+		} else {
+			console.log(`[VisualizerViewController] Using cached visualizer: ${htmlFileName}`);
 		}
 
 		if (!htmlFileName) {
+			console.error(`[VisualizerViewController] HTML file name is empty`);
 			vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
 			return;
 		}
@@ -166,13 +190,20 @@ export class VisualizerViewController {
 	 * リソースパスをWebView URIに変換
 	 */
 	private convertResourcePaths(html: string, webview: vscode.Webview): string {
+		console.log(`[VisualizerViewController] Converting resource paths in HTML`);
+
 		// Convert relative paths to webview URIs
 		html = html.replace(/src=["']\.\/([^"']+)["']/g, (match, fileName) => {
 			if (this.visualizerCache.resourceExists(fileName)) {
 				const resourceUri = webview.asWebviewUri(
 					vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
 				);
+				console.log(
+					`[VisualizerViewController] Converted relative path: ./${fileName} -> ${resourceUri}`,
+				);
 				return `src="${resourceUri}"`;
+			} else {
+				console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
 			}
 			return match;
 		});
@@ -185,7 +216,12 @@ export class VisualizerViewController {
 					const resourceUri = webview.asWebviewUri(
 						vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
 					);
+					console.log(
+						`[VisualizerViewController] Converted protocol-relative URL: ${fileName} -> ${resourceUri}`,
+					);
 					return `src="${resourceUri}"`;
+				} else {
+					console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
 				}
 				return match;
 			},
@@ -197,11 +233,17 @@ export class VisualizerViewController {
 				const resourceUri = webview.asWebviewUri(
 					vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
 				);
+				console.log(
+					`[VisualizerViewController] Converted module import: ./${fileName} -> ${resourceUri}`,
+				);
 				return `from "${resourceUri}"`;
+			} else {
+				console.warn(`[VisualizerViewController] Module not found: ${fileName}`);
 			}
 			return match;
 		});
 
+		console.log(`[VisualizerViewController] Resource path conversion completed`);
 		return html;
 	}
 
