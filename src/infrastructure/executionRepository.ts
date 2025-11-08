@@ -49,7 +49,7 @@ function convertToDomainModel(
 	// 相対スコアを再計算するかどうかを判定
 	const shouldRecalculateRelativeScore = bestScores && objective;
 
-	const cases = raw.cases.map((c, index) => {
+	const cases = raw.cases.map((c) => {
 		const seedStr = String(c.seed).padStart(4, '0');
 		const foundOutput = existingFiles.has(`${seedStr}.txt`);
 
@@ -58,13 +58,6 @@ function convertToDomainModel(
 		if (shouldRecalculateRelativeScore) {
 			const bestScore = bestScores.get(c.seed);
 			relativeScore = calculateRelativeScore(c.score, bestScore, objective);
-
-			// 最初の3件のみログ出力
-			if (index < 3) {
-				console.log(
-					`[convertToDomainModel] Seed ${c.seed}: score=${c.score}, bestScore=${bestScore}, objective=${objective}, relativeScore=${relativeScore.toFixed(2)}%`,
-				);
-			}
 		}
 
 		return {
@@ -124,15 +117,6 @@ export class ExecutionRepository {
 		// 相対スコア再計算に必要なデータを先に読み込む
 		const bestScores = await this.bestScoresRepository.loadBestScores();
 		const settings = await this.settingsRepository.loadSettings();
-
-		console.log('[ExecutionRepository] Loaded best scores:', bestScores.size, 'entries');
-		console.log('[ExecutionRepository] Settings objective:', settings.objective);
-		if (bestScores.size > 0) {
-			console.log(
-				'[ExecutionRepository] Sample best scores:',
-				Array.from(bestScores.entries()).slice(0, 3),
-			);
-		}
 
 		const files = fs
 			.readdirSync(jsonDir)

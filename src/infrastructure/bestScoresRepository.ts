@@ -26,7 +26,6 @@ export class BestScoresRepository {
 
 		// ファイルが存在しない場合は空のマップを返す
 		if (!fs.existsSync(bestScoresPath)) {
-			console.warn(`[BestScoresRepository] File not found: ${bestScoresPath}`);
 			return new Map();
 		}
 
@@ -43,10 +42,6 @@ export class BestScoresRepository {
 					bestScores.set(seed, score);
 				}
 			}
-
-			console.log(
-				`[BestScoresRepository] Loaded ${bestScores.size} best scores from ${bestScoresPath}`,
-			);
 
 			return bestScores;
 		} catch (e) {
