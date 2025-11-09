@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { RunPahcerUseCase } from './application/runPahcerUseCase';
 import { addCommentCommand } from './controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './controller/commands/changeSortOrderCommand';
 import { initializeCommand } from './controller/commands/initializeCommand';
@@ -54,6 +55,13 @@ interface Controllers {
 }
 
 /**
+ * ユースケース層の集合
+ */
+interface UseCases {
+	runPahcerUseCase: RunPahcerUseCase;
+}
+
+/**
  * すべてのアダプターを初期化
  */
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
@@ -64,14 +72,8 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
 	const gitAdapter = new GitAdapter(workspaceRoot);
 
-	// Create PahcerAdapter with all dependencies for run/init operations
-	const pahcerAdapter = new PahcerAdapter(
-		pahcerConfigFileRepository,
-		gitAdapter,
-		inOutRepository,
-		executionRepository,
-		workspaceRoot,
-	);
+	// Create slim PahcerAdapter (infrastructure-only)
+	const pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository, workspaceRoot);
 
 	const pahcerStatus = pahcerAdapter.checkStatus();
 
@@ -87,6 +89,24 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		pahcerConfigFileRepository: pahcerConfigFileRepository,
 		gitignoreAdapter,
 		gitAdapter,
+	};
+}
+
+/**
+ * ユースケースを初期化
+ */
+function initializeUseCases(workspaceRoot: string, adapters: Adapters): UseCases {
+	const runPahcerUseCase = new RunPahcerUseCase(
+		adapters.pahcerAdapter,
+		adapters.gitAdapter,
+		adapters.inOutRepository,
+		adapters.executionRepository,
+		adapters.pahcerConfigFileRepository,
+		workspaceRoot,
+	);
+
+	return {
+		runPahcerUseCase,
 	};
 }
 
@@ -134,8 +154,7 @@ async function registerTreeView(
 	controllers: Controllers,
 	adapters: Adapters,
 ): Promise<vscode.TreeView<unknown>> {
-	const pahcerAdapter = new PahcerAdapter(adapters.pahcerConfigFileRepository);
-	const pahcerStatus = pahcerAdapter.checkStatus();
+	const pahcerStatus = adapters.pahcerAdapter.checkStatus();
 
 	const treeView = vscode.window.createTreeView('pahcerResults', {
 		treeDataProvider: controllers.treeViewController,
@@ -176,11 +195,12 @@ async function registerTreeView(
  */
 function registerRunOptionsView(
 	context: vscode.ExtensionContext,
+	useCases: UseCases,
 	adapters: Adapters,
 ): vscode.Disposable {
 	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
 		context,
-		adapters.pahcerAdapter,
+		useCases.runPahcerUseCase,
 		adapters.contextAdapter,
 	);
 
@@ -197,6 +217,7 @@ function registerCommands(
 	workspaceRoot: string,
 	adapters: Adapters,
 	controllers: Controllers,
+	useCases: UseCases,
 ): vscode.Disposable[] {
 	// Initialize grouping context update function
 	const updateGroupingContext = async () => {
@@ -216,7 +237,7 @@ function registerCommands(
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.run',
-			runCommand(adapters.pahcerAdapter, controllers.treeViewController),
+			runCommand(useCases.runPahcerUseCase, controllers.treeViewController),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.runWithOptions',
@@ -276,18 +297,21 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Step 2: Initialize all adapters
 	const adapters = await initializeAdapters(workspaceRoot);
 
-	// Step 3: Initialize all controllers
+	// Step 3: Initialize all use cases
+	const useCases = initializeUseCases(workspaceRoot, adapters);
+
+	// Step 4: Initialize all controllers
 	const controllers = initializeControllers(context, workspaceRoot);
 
-	// Step 4: Register all views
+	// Step 5: Register all views
 	const initializationView = registerInitializationView(context, workspaceRoot, adapters);
 	const treeView = await registerTreeView(controllers, adapters);
-	const runOptionsView = registerRunOptionsView(context, adapters);
+	const runOptionsView = registerRunOptionsView(context, useCases, adapters);
 
-	// Step 5: Register all commands
-	const commands = registerCommands(workspaceRoot, adapters, controllers);
+	// Step 6: Register all commands
+	const commands = registerCommands(workspaceRoot, adapters, controllers, useCases);
 
-	// Step 6: Add all disposables to context
+	// Step 7: Add all disposables to context
 	context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);
 }
 

@@ -1,9 +1,5 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Execution } from '../domain/models/execution';
-import type { SeedAnalysis } from '../domain/models/resultMetadata';
-import { FileAnalyzer } from './fileAnalyzer';
-import { TestCaseRepository } from './testCaseRepository';
 
 /**
  * ファイルタイプ
@@ -16,7 +12,10 @@ export type FileType = 'in' | 'out' | 'err';
  * 責務:
  * - ファイルパスの一元管理（tools/in, tools/out, tools/err, .pahcer-ui/results）
  * - ファイルの読み込み・存在確認
- * - 実行結果のコピーと解析
+ * - 実行結果のコピー
+ *
+ * 責務外（ユースケース層で実装）:
+ * - ファイルの解析（TestCaseへの変換）
  */
 export class InOutRepository {
 	constructor(private workspaceRoot: string) {}
@@ -83,13 +82,10 @@ export class InOutRepository {
 	}
 
 	/**
-	 * 出力ファイルをコピーし、解析を実行してmeta.jsonに保存
+	 * 出力ファイルをコピー
+	 * 注：解析処理はユースケース層で実装
 	 */
-	async copyOutputFiles(
-		resultId: string,
-		execution: Execution,
-		commitHash?: string,
-	): Promise<void> {
+	async copyOutputFiles(resultId: string): Promise<void> {
 		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
 
 		if (!fs.existsSync(destDir)) {
@@ -109,83 +105,5 @@ export class InOutRepository {
 			const errDestDir = path.join(destDir, 'err');
 			fs.cpSync(toolsErrDir, errDestDir, { recursive: true });
 		}
-
-		// Analyze files and save to meta.json
-		await this.analyzeAndSaveMetadata(resultId, execution.id, commitHash);
-	}
-
-	/**
-	 * 既存のmeta.jsonを更新（コミットハッシュなど）
-	 */
-	async saveExecutionMetadata(resultId: string, updates: { commitHash?: string }): Promise<void> {
-		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
-		const metaPath = path.join(destDir, 'meta.json');
-
-		if (!fs.existsSync(metaPath)) {
-			return;
-		}
-
-		try {
-			const content = fs.readFileSync(metaPath, 'utf-8');
-			const metadata = JSON.parse(content);
-
-			// Update with new values
-			if (updates.commitHash) {
-				metadata.commitHash = updates.commitHash;
-			}
-
-			fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
-		} catch (e) {
-			console.error(`Failed to update meta.json for result ${resultId}:`, e);
-		}
-	}
-
-	/**
-	 * ファイル解析を実行してmeta.jsonに保存
-	 */
-	private async analyzeAndSaveMetadata(
-		resultId: string,
-		executionId: string,
-		commitHash?: string,
-	): Promise<void> {
-		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
-		const metaPath = path.join(destDir, 'meta.json');
-
-		// Load test cases and collect seeds for this execution
-		const testCaseRepository = new TestCaseRepository(this.workspaceRoot);
-		const allTestCases = await testCaseRepository.loadAllTestCases();
-		const executionTestCases = allTestCases.filter((tc) => tc.executionId === executionId);
-		const seeds = executionTestCases.map((tc) => tc.seed);
-
-		// Prepare file paths for parallel reading
-		const inputPaths = seeds.map((seed) => this.getLatestPath('in', seed));
-		const stderrPaths = seeds.map((seed) => this.getArchivedPath('err', resultId, seed));
-
-		// Parallel file analysis
-		const [inputResults, stderrResults] = await Promise.all([
-			FileAnalyzer.readFirstLinesParallel(inputPaths),
-			FileAnalyzer.parseStderrVariablesParallel(stderrPaths),
-		]);
-
-		// Build analysis object
-		const analysis: Record<number, SeedAnalysis> = {};
-		for (let i = 0; i < seeds.length; i++) {
-			const seed = seeds[i];
-			const inputPath = inputPaths[i];
-			const stderrPath = stderrPaths[i];
-
-			analysis[seed] = {
-				firstInputLine: inputResults.get(inputPath) || '',
-				stderrVars: stderrResults.get(stderrPath) || {},
-			};
-		}
-
-		// Save metadata
-		const metadata = {
-			commitHash,
-			analysis,
-		};
-
-		fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
 	}
 }

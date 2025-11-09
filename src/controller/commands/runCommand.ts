@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
+import type { RunPahcerUseCase } from '../../application/runPahcerUseCase';
 import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
-import type { PahcerAdapter } from '../../infrastructure/pahcerAdapter';
 
 /**
  * pahcer run コマンドハンドラ
  */
 export function runCommand(
-	pahcerAdapter: PahcerAdapter,
+	runPahcerUseCase: RunPahcerUseCase,
 	treeViewController: PahcerTreeViewController,
 ): () => Promise<void> {
 	return async () => {
 		try {
-			await pahcerAdapter.run();
+			await runPahcerUseCase.run();
 			treeViewController.refresh();
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);

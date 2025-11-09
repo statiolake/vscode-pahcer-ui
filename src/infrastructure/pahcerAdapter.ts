@@ -1,11 +1,6 @@
 import { execSync } from 'node:child_process';
-import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import type { ExecutionRepository } from './executionRepository';
-import type { GitAdapter } from './gitAdapter';
-import type { InOutRepository } from './inOutRepository';
 import type { PahcerConfigFileRepository } from './pahcerConfigFileRepository';
-import { TestCaseRepository } from './testCaseRepository';
 
 /**
  * pahcerのインストール状態
@@ -29,26 +24,18 @@ export interface PahcerRunOptions {
 }
 
 /**
- * pahcer run の実行結果
- */
-export interface PahcerRunResult {
-	exitCode: number | undefined;
-	commitHash: string | null;
-	resultId: string | null;
-	caseCount: number;
-	totalScore: number;
-}
-
-/**
  * pahcer CLIツールの実行と状態をチェックするアダプター
+ *
+ * 責務:
+ * - pahcer CLIコマンドの実行
+ * - pahcerのインストール・初期化状態の確認
+ *
+ * 注：ビジネスロジック（Git統合、ファイルコピー、解析）はRunPahcerUseCaseに委譲
  */
 export class PahcerAdapter {
 	constructor(
 		private pahcerConfigFileRepository: PahcerConfigFileRepository,
-		private gitAdapter?: GitAdapter,
-		private inOutRepository?: InOutRepository,
-		private executionRepository?: ExecutionRepository,
-		private workspaceRoot?: string,
+		private workspaceRoot: string,
 	) {}
 
 	/**
@@ -69,37 +56,16 @@ export class PahcerAdapter {
 	}
 
 	/**
-	 * pahcer run を実行（Git統合、出力ファイルコピー含む）
+	 * pahcer run コマンドを実行（コマンド実行のみ）
+	 * @param options 実行オプション
+	 * @param tempConfigPath テンポラリ設定ファイルパス（あれば使用）
+	 * @returns 終了コード
 	 */
-	async run(options?: PahcerRunOptions): Promise<PahcerRunResult> {
-		if (!this.workspaceRoot) {
-			throw new Error('workspaceRoot is required for run()');
-		}
-
-		const result: PahcerRunResult = {
-			exitCode: undefined,
-			commitHash: null,
-			resultId: null,
-			caseCount: 0,
-			totalScore: 0,
-		};
-
-		// Step 1: Git統合 - 実行前にソースコードをコミット
-		if (this.gitAdapter) {
-			try {
-				result.commitHash = await this.gitAdapter.commitSourceBeforeExecution();
-			} catch (error) {
-				throw new Error(`gitの操作に失敗しました: ${error}`);
-			}
-		}
-
-		// Step 2: テンポラリ設定ファイルを作成（必要な場合）
-		let tempConfigPath: string | null = null;
-		if (options?.startSeed !== undefined || options?.endSeed !== undefined) {
-			tempConfigPath = await this.createTempConfig(options);
-		}
-
-		// Step 3: コマンドラインを組み立てる
+	async run(
+		options?: PahcerRunOptions,
+		tempConfigPath?: string | null,
+	): Promise<number | undefined> {
+		// Step 1: コマンドラインを組み立てる
 		let command = 'pahcer run';
 		if (tempConfigPath) {
 			command += ` --setting-file "${tempConfigPath}"`;
@@ -108,44 +74,8 @@ export class PahcerAdapter {
 			command += ' --freeze-best-scores';
 		}
 
-		// Step 4: タスクを作成して実行
-		result.exitCode = await this.executeTask('Pahcer Run', command);
-
-		// Step 5: テンポラリ設定ファイルをクリーンアップ
-		if (tempConfigPath && fs.existsSync(tempConfigPath)) {
-			fs.unlinkSync(tempConfigPath);
-		}
-
-		// Step 6: 出力ファイルをコピーしてメタデータを保存
-		if (this.inOutRepository && this.executionRepository) {
-			const latestExecution = await this.executionRepository.getLatestExecution();
-			if (latestExecution) {
-				result.resultId = latestExecution.id;
-				await this.inOutRepository.copyOutputFiles(
-					latestExecution.id,
-					latestExecution,
-					result.commitHash || undefined,
-				);
-
-				// Step 7: Git統合 - 実行後に結果をコミット
-				if (this.gitAdapter) {
-					try {
-						const testCaseRepository = new TestCaseRepository(this.workspaceRoot);
-						const allTestCases = await testCaseRepository.loadAllTestCases();
-						const executionTestCases = allTestCases.filter(
-							(tc) => tc.executionId === latestExecution.id,
-						);
-						result.caseCount = executionTestCases.length;
-						result.totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
-						await this.gitAdapter.commitResultsAfterExecution(result.caseCount, result.totalScore);
-					} catch (error) {
-						throw new Error(`結果コミットに失敗しました: ${error}`);
-					}
-				}
-			}
-		}
-
-		return result;
+		// Step 2: タスクを作成して実行
+		return this.executeTask('Pahcer Run', command);
 	}
 
 	/**
@@ -208,35 +138,6 @@ export class PahcerAdapter {
 				}
 			});
 		});
-	}
-
-	/**
-	 * テンポラリ設定ファイルを作成
-	 */
-	private async createTempConfig(options: PahcerRunOptions): Promise<string> {
-		if (!this.workspaceRoot) {
-			throw new Error('workspaceRoot is required for createTempConfig()');
-		}
-
-		// Read original config from infrastructure layer
-		let configContent = this.pahcerConfigFileRepository.read();
-
-		// Replace start_seed and end_seed if specified
-		if (options.startSeed !== undefined) {
-			configContent = configContent.replace(
-				/start_seed\s*=\s*\d+/,
-				`start_seed = ${options.startSeed}`,
-			);
-		}
-		if (options.endSeed !== undefined) {
-			configContent = configContent.replace(/end_seed\s*=\s*\d+/, `end_seed = ${options.endSeed}`);
-		}
-
-		// Create temp file with modified config
-		const tempFilePath = `${this.workspaceRoot}/.pahcer-temp-config.toml`;
-		fs.writeFileSync(tempFilePath, configContent);
-
-		return tempFilePath;
 	}
 
 	/**

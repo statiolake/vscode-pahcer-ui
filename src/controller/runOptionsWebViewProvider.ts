@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
+import type { RunPahcerUseCase } from '../application/runPahcerUseCase';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
-import type { PahcerAdapter } from '../infrastructure/pahcerAdapter';
 
 interface RunOptions {
 	startSeed: number;
@@ -11,7 +11,7 @@ interface RunOptions {
 export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
-		private readonly pahcerAdapter: PahcerAdapter,
+		private readonly runPahcerUseCase: RunPahcerUseCase,
 		private readonly contextAdapter: ContextAdapter,
 	) {}
 
@@ -47,7 +47,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 			await this.contextAdapter.setShowRunOptions(false);
 
 			// Execute pahcer run with options
-			await this.pahcerAdapter.run({
+			await this.runPahcerUseCase.run({
 				startSeed: options.startSeed,
 				endSeed: options.endSeed,
 				freezeBestScores: options.freezeBestScores,

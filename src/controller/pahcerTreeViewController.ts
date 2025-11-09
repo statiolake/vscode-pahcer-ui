@@ -66,7 +66,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 	constructor(workspaceRoot: string) {
 		const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
-		this.pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository);
+		this.pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository, workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
 		this.pahcerConfigRepository = new PahcerConfigRepository(pahcerConfigFileRepository);
