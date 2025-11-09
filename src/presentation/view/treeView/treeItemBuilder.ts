@@ -139,7 +139,7 @@ export class TreeItemBuilder {
 	buildSeedItem(stats: SeedStats): vscode.TreeItem {
 		const seedStr = String(stats.seed).padStart(4, '0');
 		const label = seedStr;
-		const description = `${stats.count} runs - Avg: ${stats.averageScore.toFixed(2)} (${stats.averageRelativeScore.toFixed(3)}%)`;
+		const description = `${stats.count} runs - Avg: ${stats.averageScore.toFixed(2)}`;
 
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
 		item.contextValue = 'seed';

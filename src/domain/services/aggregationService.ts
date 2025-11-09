@@ -9,7 +9,7 @@ export interface SeedStats {
 	bestScore: number | null;
 	count: number;
 	averageScore: number;
-	averageRelativeScore: number;
+	maxExecutionTime: number;
 }
 
 /**
@@ -36,23 +36,14 @@ export function calculateSeedStats(
 	// 各 seed の統計を計算
 	for (const [seed, cases] of seedMap.entries()) {
 		let totalScore = 0;
-		let totalRelativeScore = 0;
-		let acCount = 0;
+		let maxExecutionTime = 0;
 
 		const bestScore = bestScores.get(seed) ?? null;
 
 		for (const tc of cases) {
 			totalScore += tc.score;
-			if (tc.score > 0) {
-				acCount++;
-				// 相対スコアを計算
-				if (bestScore !== null) {
-					// ここではobjectiveを使わず、bestScoresには既にobjective考慮済み
-					// 相対スコアは (new / ref) * 100 で計算
-					totalRelativeScore += (tc.score / bestScore) * 100;
-				} else {
-					totalRelativeScore += 100;
-				}
+			if (tc.executionTime > maxExecutionTime) {
+				maxExecutionTime = tc.executionTime;
 			}
 		}
 
@@ -62,7 +53,7 @@ export function calculateSeedStats(
 			bestScore,
 			count: cases.length,
 			averageScore: cases.length > 0 ? totalScore / cases.length : 0,
-			averageRelativeScore: acCount > 0 ? totalRelativeScore / acCount : 0,
+			maxExecutionTime,
 		});
 	}
 
