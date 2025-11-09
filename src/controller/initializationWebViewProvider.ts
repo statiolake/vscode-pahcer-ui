@@ -1,10 +1,9 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { GitignoreAdapter } from '../infrastructure/gitignoreAdapter';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
-import { TesterDownloader } from '../infrastructure/testerDownloader';
+import { type DownloadedTester, TesterDownloader } from '../infrastructure/testerDownloader';
 
 interface InitOptions {
 	problemName: string;
@@ -23,7 +22,6 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		private readonly workspaceRoot: string,
 		private readonly taskAdapter: TaskAdapter,
 		private readonly contextAdapter: ContextAdapter,
-		private readonly configFileRepository: ConfigFileRepository,
 		private readonly gitignoreAdapter: GitignoreAdapter,
 	) {}
 
@@ -51,50 +49,9 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 	private async handleInitialize(options: InitOptions): Promise<void> {
 		let finalIsInteractive = options.isInteractive;
 
-		// Download tester if URL is provided
 		if (options.testerUrl) {
-			try {
-				vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
-				const downloader = new TesterDownloader(this.workspaceRoot);
-				await downloader.downloadAndExtract(options.testerUrl);
-				vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
-
-				// Check if tester suggests interactive problem
-				const hasInteractiveTester = this.configFileRepository.hasTester();
-
-				// If detected interactive status differs from user selection, confirm
-				if (hasInteractiveTester !== options.isInteractive) {
-					const detectedType = hasInteractiveTester
-						? 'インタラクティブ問題'
-						: '非インタラクティブ問題';
-					const userSelectedType = options.isInteractive
-						? 'インタラクティブ'
-						: '非インタラクティブ';
-
-					const result = await vscode.window.showWarningMessage(
-						'検出されたインタラクティブ設定に変更しますか？',
-						{
-							modal: true,
-							detail:
-								`ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
-								`指定された問題タイプ: ${userSelectedType}\n` +
-								`検出された問題タイプ: ${detectedType}\n\n` +
-								`検出された問題タイプで続けますか？`,
-						},
-						{ title: hasInteractiveTester ? 'インタラクティブに変更' : '非インタラクティブに変更' },
-						{ title: 'このまま続行', isCloseAffordance: true },
-					);
-
-					if (result !== undefined && result.title !== 'このまま続行') {
-						finalIsInteractive = hasInteractiveTester;
-					}
-				}
-			} catch (error) {
-				const errorMessage = error instanceof Error ? error.message : String(error);
-				vscode.window.showErrorMessage(
-					`ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
-				);
-			}
+			const result = await this.downloadTester(options.testerUrl, options.isInteractive);
+			finalIsInteractive = result.isInteractive;
 		}
 
 		// Update .gitignore to add tools/target
@@ -116,6 +73,56 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		setTimeout(async () => {
 			await vscode.commands.executeCommand('pahcer-ui.refresh');
 		}, 2000);
+	}
+
+	private async downloadTester(
+		testerUrl: string,
+		isInteractive: boolean,
+	): Promise<{ isInteractive: boolean }> {
+		let tester: DownloadedTester;
+		try {
+			vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
+			const downloader = new TesterDownloader(this.workspaceRoot);
+			tester = await downloader.downloadAndExtract(testerUrl);
+			vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(
+				`ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
+			);
+			return { isInteractive };
+		}
+
+		// もし推測されているタイプとテスターのタイプが異なるのであれば、ここで確認する
+		if (tester.seemsInteractive !== isInteractive) {
+			const detectedType = tester.seemsInteractive
+				? 'インタラクティブ問題'
+				: '非インタラクティブ問題';
+			const userSelectedType = isInteractive ? 'インタラクティブ' : '非インタラクティブ';
+
+			const answer = await vscode.window.showWarningMessage(
+				'検出されたインタラクティブ設定に変更しますか？',
+				{
+					modal: true,
+					detail:
+						`ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
+						`指定された問題タイプ: ${userSelectedType}\n` +
+						`検出された問題タイプ: ${detectedType}\n\n` +
+						`検出された問題タイプで続けますか？`,
+				},
+				{
+					title: tester.seemsInteractive ? 'インタラクティブに変更' : '非インタラクティブに変更',
+				},
+				{ title: 'このまま続行', isCloseAffordance: true },
+			);
+
+			if (answer !== undefined && answer.title !== 'このまま続行') {
+				// これは「〜に変更」の選択肢を選んだということなので、推測されたタイプに変更
+				isInteractive = tester.seemsInteractive;
+			}
+		}
+
+		return { isInteractive };
 	}
 
 	/**

@@ -7,6 +7,10 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 
+export type DownloadedTester = {
+	seemsInteractive: boolean;
+};
+
 /**
  * ローカルテスターのダウンロードと展開を行うアダプター
  */
@@ -16,7 +20,7 @@ export class TesterDownloader {
 	/**
 	 * ZIPファイルをダウンロードして展開
 	 */
-	async downloadAndExtract(url: string): Promise<void> {
+	async downloadAndExtract(url: string): Promise<DownloadedTester> {
 		const zipPath = path.join(this.workspaceRoot, 'tester.zip');
 
 		try {
@@ -26,21 +30,21 @@ export class TesterDownloader {
 			// Extract ZIP file to workspace root
 			await this.extractZip(zipPath, this.workspaceRoot);
 
-			// Remove ZIP file
-			fs.unlinkSync(zipPath);
-		} catch (error) {
-			// Clean up on error
+			return {
+				seemsInteractive: this.estimateIsInteractive(),
+			};
+		} finally {
+			// エラーでもそうじゃなくても zip ファイルは削除する
 			if (fs.existsSync(zipPath)) {
-				fs.unlinkSync(zipPath);
+				await fs.unlinkSync(zipPath);
 			}
-			throw error;
 		}
 	}
 
 	/**
 	 * ファイルをダウンロード
 	 */
-	private downloadFile(url: string, destPath: string): Promise<void> {
+	private async downloadFile(url: string, destPath: string): Promise<void> {
 		return new Promise((resolve, reject) => {
 			const protocol = url.startsWith('https') ? https : http;
 
@@ -95,5 +99,13 @@ export class TesterDownloader {
 			const command = `unzip -o "${zipPath}" -d "${destPath}"`;
 			await execAsync(command);
 		}
+	}
+
+	/**
+	 * インタラクティブなダウンローダーかどうかを推測する
+	 */
+	private estimateIsInteractive(): boolean {
+		// tester がある場合おそらくインタラクティブ
+		return fs.existsSync(path.join(this.workspaceRoot, 'tools', 'src', 'bin', 'tester.rs'));
 	}
 }

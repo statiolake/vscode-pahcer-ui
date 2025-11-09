@@ -1,6 +1,5 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import type { ConfigFileRepository } from '../infrastructure/configFileRepository';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
 import {
@@ -8,6 +7,7 @@ import {
 	commitSourceBeforeExecution,
 } from '../infrastructure/gitIntegration';
 import type { InOutRepository } from '../infrastructure/inOutRepository';
+import type { PahcerConfigFileRepository } from '../infrastructure/pahcerConfigFileRepository';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
 import { TestCaseRepository } from '../infrastructure/testCaseRepository';
 
@@ -25,7 +25,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly inOutRepository: InOutRepository,
 		private readonly executionRepository: ExecutionRepository,
 		private readonly contextAdapter: ContextAdapter,
-		private readonly configFileRepository: ConfigFileRepository,
+		private readonly pahcerConfigFileRepository: PahcerConfigFileRepository,
 	) {}
 
 	resolveWebviewView(
@@ -113,7 +113,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 
 	private async createTempConfig(options: RunOptions): Promise<string> {
 		// Read original config from infrastructure layer
-		let configContent = this.configFileRepository.read();
+		let configContent = this.pahcerConfigFileRepository.read();
 
 		// Replace start_seed and end_seed
 		configContent = configContent.replace(

@@ -2,21 +2,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /**
- * pahcer設定ファイルを管理するリポジトリ
+ * pahcer の設定ファイルそのものを管理するリポジトリ
  *
- * インフラ層の責務:
- * - pahcer_config.tomlの読み書き
- * - 一時設定ファイルの作成
+ * 内容を管理するのは PahcerConfigRepository
  */
-export class ConfigFileRepository {
+export class PahcerConfigFileRepository {
 	constructor(private workspaceRoot: string) {}
-
-	/**
-	 * pahcer_config.tomlのパスを取得
-	 */
-	getConfigPath(): string {
-		return path.join(this.workspaceRoot, 'pahcer_config.toml');
-	}
 
 	/**
 	 * pahcer_config.tomlが存在するかチェック
@@ -55,16 +46,9 @@ export class ConfigFileRepository {
 	}
 
 	/**
-	 * tester.rsのパスを取得
+	 * pahcer_config.tomlのパスを取得
 	 */
-	getTesterPath(): string {
-		return path.join(this.workspaceRoot, 'tools', 'src', 'bin', 'tester.rs');
-	}
-
-	/**
-	 * tester.rsが存在するかチェック
-	 */
-	hasTester(): boolean {
-		return fs.existsSync(this.getTesterPath());
+	private getConfigPath(): string {
+		return path.join(this.workspaceRoot, 'pahcer_config.toml');
 	}
 }

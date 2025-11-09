@@ -1,23 +1,18 @@
-import { ConfigFileRepository } from './configFileRepository';
+import type { PahcerConfigFileRepository } from './pahcerConfigFileRepository';
 
 /**
  * pahcer_config.tomlから読み込んだ設定
  */
-export interface PahcerSettings {
+export interface PahcerConfig {
 	/** 最適化の方向 ('max'=最大化, 'min'=最小化) */
 	objective: 'max' | 'min';
 }
 
 /**
- * pahcer設定リポジトリ
- * pahcer_config.tomlから問題の最適化方向を読み込む
+ * pahcer設定リポジトリ * pahcer_config.tomlから問題の最適化方向を読み込む
  */
-export class SettingsRepository {
-	private configFileRepository: ConfigFileRepository;
-
-	constructor(workspaceRoot: string) {
-		this.configFileRepository = new ConfigFileRepository(workspaceRoot);
-	}
+export class PahcerConfigRepository {
+	constructor(private pahcerConfigFileRepository: PahcerConfigFileRepository) {}
 
 	/**
 	 * pahcer_config.tomlから設定を読み込む
@@ -26,18 +21,12 @@ export class SettingsRepository {
 	 * @returns 設定オブジェクト
 	 * @throws ファイルが見つからない、または objective が見つからない場合
 	 */
-	async loadSettings(): Promise<PahcerSettings> {
-		try {
-			// ConfigFileRepository を使ってファイルを読み込む
-			const content = this.configFileRepository.read();
-			const objective = this.parseObjective(content);
+	async loadConfig(): Promise<PahcerConfig> {
+		// ConfigFileRepository を使ってファイルを読み込む
+		const content = this.pahcerConfigFileRepository.read();
+		const objective = this.parseObjective(content);
 
-			return { objective };
-		} catch (e) {
-			throw new Error(
-				`Failed to load pahcer_config.toml: ${e instanceof Error ? e.message : String(e)}`,
-			);
-		}
+		return { objective };
 	}
 
 	/**
@@ -57,6 +46,6 @@ export class SettingsRepository {
 		}
 
 		// objective が見つからない場合はエラー
-		throw new Error('objective field not found in pahcer.toml');
+		throw new Error('objective field not found in pahcer_config.toml');
 	}
 }

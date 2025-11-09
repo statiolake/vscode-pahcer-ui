@@ -18,7 +18,8 @@ import type {
 import { sortExecutionsForSeed, sortTestCases } from '../domain/services/sortingService';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { PahcerAdapter, PahcerStatus } from '../infrastructure/pahcerAdapter';
-import { SettingsRepository } from '../infrastructure/settingsRepository';
+import { PahcerConfigFileRepository } from '../infrastructure/pahcerConfigFileRepository';
+import { PahcerConfigRepository } from '../infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from '../infrastructure/testCaseRepository';
 import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
@@ -55,7 +56,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	private pahcerAdapter: PahcerAdapter;
 	private executionRepository: ExecutionRepository;
 	private testCaseRepository: TestCaseRepository;
-	private settingsRepository: SettingsRepository;
+	private pahcerConfigRepository: PahcerConfigRepository;
 	private treeItemBuilder: TreeItemBuilder;
 	private readonly CONFIG_SECTION = 'pahcer-ui';
 
@@ -64,10 +65,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	private cachedTestCases?: TestCase[];
 
 	constructor(workspaceRoot: string) {
-		this.pahcerAdapter = new PahcerAdapter(workspaceRoot);
+		const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
+		this.pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
-		this.settingsRepository = new SettingsRepository(workspaceRoot);
+		this.pahcerConfigRepository = new PahcerConfigRepository(pahcerConfigFileRepository);
 		this.treeItemBuilder = new TreeItemBuilder();
 	}
 
@@ -215,7 +217,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		// Load executions and test cases
 		const executions = await this.executionRepository.loadLatestExecutions();
 		const testCases = await this.testCaseRepository.loadAllTestCases();
-		const settings = await this.settingsRepository.loadSettings();
+		const settings = await this.pahcerConfigRepository.loadConfig();
 
 		if (executions.length === 0) {
 			const item = new PahcerTreeItem(
@@ -277,7 +279,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		// Ensure bestScores are loaded
 		if (!this.cachedBestScores) {
 			const testCases = await this.testCaseRepository.loadAllTestCases();
-			const settings = await this.settingsRepository.loadSettings();
+			const settings = await this.pahcerConfigRepository.loadConfig();
 			this.cachedBestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
 		}
 
@@ -293,7 +295,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 		// Calculate relative scores for each test case
 		const relativeScores = new Map<number, number>();
-		const settings = await this.settingsRepository.loadSettings();
+		const settings = await this.pahcerConfigRepository.loadConfig();
 		for (const testCase of executionStats.testCases) {
 			const bestScore = this.cachedBestScores.get(testCase.seed);
 			if (bestScore !== undefined && testCase.score > 0) {
@@ -354,7 +356,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		}
 
 		// Calculate best scores and seed stats
-		const settings = await this.settingsRepository.loadSettings();
+		const settings = await this.pahcerConfigRepository.loadConfig();
 		const bestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
 		const statsMap = calculateSeedStats(testCases, bestScores);
 
@@ -390,7 +392,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 			this.cachedTestCases = await this.testCaseRepository.loadAllTestCases();
 		}
 		const executions = await this.executionRepository.loadLatestExecutions();
-		const settings = await this.settingsRepository.loadSettings();
+		const settings = await this.pahcerConfigRepository.loadConfig();
 
 		// Ensure bestScores are calculated
 		if (!this.cachedBestScores) {

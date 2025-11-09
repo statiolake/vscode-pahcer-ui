@@ -4,7 +4,8 @@ import type { ResultMetadata } from '../domain/models/resultMetadata';
 import { calculateBestScoresFromTestCases } from '../domain/services/aggregationService';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { MetadataRepository } from '../infrastructure/metadataRepository';
-import { SettingsRepository } from '../infrastructure/settingsRepository';
+import { PahcerConfigFileRepository } from '../infrastructure/pahcerConfigFileRepository';
+import { PahcerConfigRepository } from '../infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from '../infrastructure/testCaseRepository';
 import { UIConfigRepository } from '../infrastructure/uiConfigRepository';
 
@@ -27,18 +28,19 @@ export class ComparisonViewController {
 	private executionRepository: ExecutionRepository;
 	private testCaseRepository: TestCaseRepository;
 	private metadataRepository: MetadataRepository;
-	private configRepository: UIConfigRepository;
-	private settingsRepository: SettingsRepository;
+	private uiConfigRepository: UIConfigRepository;
+	private pahcerConfigRepository: PahcerConfigRepository;
 
 	constructor(
 		private context: vscode.ExtensionContext,
 		workspaceRoot: string,
 	) {
+		const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
 		this.metadataRepository = new MetadataRepository(workspaceRoot);
-		this.configRepository = new UIConfigRepository(workspaceRoot);
-		this.settingsRepository = new SettingsRepository(workspaceRoot);
+		this.uiConfigRepository = new UIConfigRepository(workspaceRoot);
+		this.pahcerConfigRepository = new PahcerConfigRepository(pahcerConfigFileRepository);
 	}
 
 	/**
@@ -111,7 +113,7 @@ export class ComparisonViewController {
 						const { resultId, seed } = message;
 						await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
 					} else if (message.command === 'saveComparisonConfig') {
-						await this.configRepository.save(message.config);
+						await this.uiConfigRepository.save(message.config);
 					}
 				},
 				undefined,
@@ -132,7 +134,7 @@ export class ComparisonViewController {
 	) {
 		// Load test cases and settings
 		const testCases = await this.testCaseRepository.loadAllTestCases();
-		const settings = await this.settingsRepository.loadSettings();
+		const settings = await this.pahcerConfigRepository.loadConfig();
 
 		// Calculate best scores
 		const bestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
@@ -183,7 +185,7 @@ export class ComparisonViewController {
 		}
 
 		// Load config
-		const config = await this.configRepository.load();
+		const config = await this.uiConfigRepository.load();
 
 		// Prepare data for React
 		return {

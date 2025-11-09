@@ -1,6 +1,5 @@
 import { execSync } from 'node:child_process';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import type { PahcerConfigFileRepository } from './pahcerConfigFileRepository';
 
 /**
  * pahcerのインストール状態
@@ -18,7 +17,7 @@ export enum PahcerStatus {
  * pahcer CLIツールの状態をチェックするアダプター
  */
 export class PahcerAdapter {
-	constructor(private workspaceRoot: string) {}
+	constructor(private pahcerConfigFileRepository: PahcerConfigFileRepository) {}
 
 	/**
 	 * pahcerのインストール・初期化状態を確認
@@ -53,7 +52,6 @@ export class PahcerAdapter {
 	 * pahcerが初期化されているかチェック（pahcer_config.tomlの存在確認）
 	 */
 	private isInitialized(): boolean {
-		const configPath = path.join(this.workspaceRoot, 'pahcer_config.toml');
-		return fs.existsSync(configPath);
+		return this.pahcerConfigFileRepository.exists();
 	}
 }
