@@ -63,73 +63,23 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
 		await this.contextAdapter.setShowRunOptions(false);
 	}
 
-	private getHtmlContent(_webview: vscode.Webview): string {
-		return `
-			<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Pahcer Run Options</title>
-				<style>
-					body {
-						font-family: var(--vscode-font-family);
-						padding: 20px;
-					}
-					.form-group {
-						margin-bottom: 15px;
-					}
-					label {
-						display: block;
-						margin-bottom: 5px;
-					}
-					input[type="number"] {
-						width: 100%;
-						padding: 5px;
-					}
-					button {
-						padding: 10px 20px;
-						margin-right: 10px;
-					}
-				</style>
-			</head>
-			<body>
-				<h2>Pahcer Run Options</h2>
-				<div class="form-group">
-					<label for="startSeed">Start Seed:</label>
-					<input type="number" id="startSeed" value="1" min="1">
-				</div>
-				<div class="form-group">
-					<label for="endSeed">End Seed:</label>
-					<input type="number" id="endSeed" value="100" min="1">
-				</div>
-				<div class="form-group">
-					<label>
-						<input type="checkbox" id="freezeBestScores">
-						Freeze Best Scores
-					</label>
-				</div>
-				<button onclick="run()">Run</button>
-				<button onclick="cancel()">Cancel</button>
+	private getHtmlContent(webview: vscode.Webview): string {
+		const scriptUri = webview.asWebviewUri(
+			vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'runOptions.js'),
+		);
 
-				<script>
-					const vscode = acquireVsCodeApi();
-
-					function run() {
-						const options = {
-							startSeed: parseInt(document.getElementById('startSeed').value),
-							endSeed: parseInt(document.getElementById('endSeed').value),
-							freezeBestScores: document.getElementById('freezeBestScores').checked
-						};
-						vscode.postMessage({ command: 'runWithOptions', options });
-					}
-
-					function cancel() {
-						vscode.postMessage({ command: 'cancelRunOptions' });
-					}
-				</script>
-			</body>
-			</html>
-		`;
+		return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
+	<title>Pahcer Run Options</title>
+</head>
+<body>
+	<div id="root"></div>
+	<script src="${scriptUri}"></script>
+</body>
+</html>`;
 	}
 }
