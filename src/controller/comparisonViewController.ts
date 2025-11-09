@@ -2,11 +2,11 @@ import * as vscode from 'vscode';
 import { type Execution, getLongTitle } from '../domain/models/execution';
 import type { ResultMetadata } from '../domain/models/resultMetadata';
 import { calculateBestScoresFromTestCases } from '../domain/services/aggregationService';
-import { ConfigRepository } from '../infrastructure/configRepository';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { MetadataRepository } from '../infrastructure/metadataRepository';
 import { SettingsRepository } from '../infrastructure/settingsRepository';
 import { TestCaseRepository } from '../infrastructure/testCaseRepository';
+import { UIConfigRepository } from '../infrastructure/uiConfigRepository';
 
 function getNonce() {
 	let text = '';
@@ -27,7 +27,7 @@ export class ComparisonViewController {
 	private executionRepository: ExecutionRepository;
 	private testCaseRepository: TestCaseRepository;
 	private metadataRepository: MetadataRepository;
-	private configRepository: ConfigRepository;
+	private configRepository: UIConfigRepository;
 	private settingsRepository: SettingsRepository;
 
 	constructor(
@@ -37,7 +37,7 @@ export class ComparisonViewController {
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
 		this.metadataRepository = new MetadataRepository(workspaceRoot);
-		this.configRepository = new ConfigRepository(workspaceRoot);
+		this.configRepository = new UIConfigRepository(workspaceRoot);
 		this.settingsRepository = new SettingsRepository(workspaceRoot);
 	}
 
