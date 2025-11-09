@@ -1,8 +1,7 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { ConfigFileRepository } from './configFileRepository';
 
 /**
- * pahcer.tomlから読み込んだ設定
+ * pahcer_config.tomlから読み込んだ設定
  */
 export interface PahcerSettings {
 	/** 最適化の方向 ('max'=最大化, 'min'=最小化) */
@@ -11,43 +10,43 @@ export interface PahcerSettings {
 
 /**
  * pahcer設定リポジトリ
- * pahcer.tomlから問題の最適化方向を読み込む
+ * pahcer_config.tomlから問題の最適化方向を読み込む
  */
 export class SettingsRepository {
-	constructor(private workspaceRoot: string) {}
+	private configFileRepository: ConfigFileRepository;
+
+	constructor(workspaceRoot: string) {
+		this.configFileRepository = new ConfigFileRepository(workspaceRoot);
+	}
 
 	/**
-	 * pahcer.tomlから設定を読み込む
-	 * ファイルが見つからない場合や解析に失敗した場合は、デフォルト値を返す
+	 * pahcer_config.tomlから設定を読み込む
+	 * ファイルが見つからない場合や解析に失敗した場合はエラーを throw
 	 *
-	 * @returns 設定オブジェクト（デフォルト: 最大化問題）
+	 * @returns 設定オブジェクト
+	 * @throws ファイルが見つからない、または objective が見つからない場合
 	 */
 	async loadSettings(): Promise<PahcerSettings> {
-		const settingsPath = path.join(this.workspaceRoot, 'pahcer.toml');
-
-		// ファイルが存在しない場合はデフォルト値を返す
-		if (!fs.existsSync(settingsPath)) {
-			return { objective: 'max' };
-		}
-
 		try {
-			const content = fs.readFileSync(settingsPath, 'utf-8');
+			// ConfigFileRepository を使ってファイルを読み込む
+			const content = this.configFileRepository.read();
 			const objective = this.parseObjective(content);
 
 			return { objective };
 		} catch (e) {
-			console.error(`Failed to load pahcer.toml: ${e}`);
-			// デフォルトは最大化問題
-			return { objective: 'max' };
+			throw new Error(
+				`Failed to load pahcer_config.toml: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 	}
 
 	/**
 	 * TOMLコンテンツから objective フィールドを抽出
-	 * TOML形式: [problem]セクション内の objective = "max" | "min"
+	 * TOML形式: objective = "max" | "min"
 	 *
 	 * @param content TOMLファイルの内容
-	 * @returns 'max' または 'min'（デフォルト: 'max'）
+	 * @returns 'max' または 'min'
+	 * @throws objective が見つからない場合
 	 */
 	private parseObjective(content: string): 'max' | 'min' {
 		// 簡易的なTOML解析: objective = "max" または objective = "min" を探す
@@ -57,7 +56,7 @@ export class SettingsRepository {
 			return match[1].toLowerCase() as 'max' | 'min';
 		}
 
-		// デフォルトは最大化問題
-		return 'max';
+		// objective が見つからない場合はエラー
+		throw new Error('objective field not found in pahcer.toml');
 	}
 }

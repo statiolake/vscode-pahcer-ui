@@ -16,18 +16,27 @@ export type Objective = 'max' | 'min';
  * 相対スコアを計算する（pahcer本体と同じロジック）
  *
  * @param currentScore 現在のスコア
- * @param referenceScore 参照スコア(ベストスコア)
+ * @param referenceScore 参照スコア(ベストスコア)。nullの場合は初回実行と見なす
  * @param objective 最適化の方向('max'=最大化, 'min'=最小化)
- * @returns 相対スコア(%)
+ * @returns 相対スコア(%)。WA（currentScore <= 0）の場合は0%、参照スコアなしで AC の場合は100%
  */
 export function calculateRelativeScore(
 	currentScore: number,
 	referenceScore: number | null | undefined,
 	objective: Objective,
 ): number {
-	// 参照スコアがない場合は0%を返す
-	if (!referenceScore || referenceScore <= 0 || currentScore <= 0) {
+	console.log(
+		`Calculating relative score: currentScore=${currentScore}, referenceScore=${referenceScore}, objective=${objective}`,
+	);
+
+	// WA（スコア0以下）の場合は0%を返す
+	if (currentScore <= 0) {
 		return 0.0;
+	}
+
+	// 参照スコアがない場合は100%を返す（初回実行時の AC）
+	if (!referenceScore || referenceScore <= 0) {
+		return 100.0;
 	}
 
 	switch (objective) {
@@ -43,28 +52,4 @@ export function calculateRelativeScore(
 				throw Error('unknown objective');
 			})(objective);
 	}
-}
-
-/**
- * seed別のベストスコアを使用して、複数のスコアの相対スコアを一括計算する
- *
- * @param scores seed => score のマップ
- * @param bestScores seed => bestScore のマップ
- * @param objective 最適化の方向
- * @returns seed => relativeScore のマップ
- */
-export function calculateRelativeScoresForSeeds(
-	scores: Map<number, number>,
-	bestScores: Map<number, number>,
-	objective: Objective,
-): Map<number, number> {
-	const result = new Map<number, number>();
-
-	for (const [seed, score] of scores.entries()) {
-		const bestScore = bestScores.get(seed);
-		const relativeScore = calculateRelativeScore(score, bestScore, objective);
-		result.set(seed, relativeScore);
-	}
-
-	return result;
 }

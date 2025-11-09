@@ -32,33 +32,27 @@ interface RawExecutionData {
  * @param raw JSONファイルから読み込んだ生データ
  * @param executionId 実行ID（例: "20250111_123456"）
  * @param workspaceRoot ワークスペースのルートパス
- * @param bestScores seed => ベストスコア のマップ（相対スコア再計算用）
- * @param objective 最適化の方向（相対スコア再計算用）
+ * @param bestScores seed => ベストスコア のマップ
+ * @param objective 最適化の方向（必須）
  */
 function convertToDomainModel(
 	raw: RawExecutionData,
 	executionId: string,
 	workspaceRoot: string,
-	bestScores?: Map<number, number>,
-	objective?: 'max' | 'min',
+	bestScores: Map<number, number>,
+	objective: 'max' | 'min',
 ): Execution {
 	// Get list of existing output files once (instead of checking each file individually)
 	const outDir = path.join(workspaceRoot, '.pahcer-ui', 'results', `result_${executionId}`, 'out');
 	const existingFiles = new Set<string>(fs.existsSync(outDir) ? fs.readdirSync(outDir) : []);
 
-	// 相対スコアを再計算するかどうかを判定
-	const shouldRecalculateRelativeScore = bestScores && objective;
-
 	const cases = raw.cases.map((c) => {
 		const seedStr = String(c.seed).padStart(4, '0');
 		const foundOutput = existingFiles.has(`${seedStr}.txt`);
 
-		// 相対スコアを再計算する場合は、ベストスコアを使用して新しい相対スコアを計算
-		let relativeScore = c.relative_score;
-		if (shouldRecalculateRelativeScore) {
-			const bestScore = bestScores.get(c.seed);
-			relativeScore = calculateRelativeScore(c.score, bestScore, objective);
-		}
+		// 相対スコアは常に再計算する（JSONの値は使わない）
+		const bestScore = bestScores.get(c.seed);
+		const relativeScore = calculateRelativeScore(c.score, bestScore, objective);
 
 		return {
 			seed: c.seed,
@@ -106,6 +100,7 @@ export class ExecutionRepository {
 
 	/**
 	 * 最新N件の実行を読み込む（デフォルトは全件）
+	 * @throws pahcer.toml が見つからない、またはパースに失敗した場合
 	 */
 	async loadLatestExecutions(limit = Number.POSITIVE_INFINITY): Promise<Execution[]> {
 		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
@@ -115,6 +110,7 @@ export class ExecutionRepository {
 		}
 
 		// 相対スコア再計算に必要なデータを先に読み込む
+		// エラーが発生した場合は上位に伝播
 		const bestScores = await this.bestScoresRepository.loadBestScores();
 		const settings = await this.settingsRepository.loadSettings();
 
@@ -177,6 +173,7 @@ export class ExecutionRepository {
 
 	/**
 	 * 特定の実行を読み込む
+	 * @throws pahcer.toml が見つからない、またはパースに失敗した場合
 	 */
 	async loadExecution(executionId: string): Promise<Execution | null> {
 		const jsonPath = path.join(
@@ -192,6 +189,7 @@ export class ExecutionRepository {
 
 		try {
 			// 相対スコア再計算に必要なデータを先に読み込む
+			// エラーが発生した場合は上位に伝播
 			const bestScores = await this.bestScoresRepository.loadBestScores();
 			const settings = await this.settingsRepository.loadSettings();
 
