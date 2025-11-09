@@ -1,13 +1,16 @@
 import * as vscode from 'vscode';
-import type { Execution } from '../domain/models/execution';
 import { GitAdapter } from './gitAdapter';
 
 /**
  * pahcer実行後に結果ファイルをコミット（output + results + meta.json）
+ * @param workspaceRoot ワークスペースルート
+ * @param caseCount テストケース数
+ * @param totalScore 総スコア
  */
 export async function commitResultsAfterExecution(
 	workspaceRoot: string,
-	execution: Execution,
+	caseCount: number,
+	totalScore: number,
 ): Promise<string | null> {
 	const config = vscode.workspace.getConfiguration('pahcer-ui');
 	const gitIntegration = config.get<boolean>('gitIntegration');
@@ -31,10 +34,10 @@ export async function commitResultsAfterExecution(
 		const timestamp = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 
 		// 平均スコアを計算
-		const averageScore = execution.caseCount > 0 ? execution.totalScore / execution.caseCount : 0;
+		const averageScore = caseCount > 0 ? totalScore / caseCount : 0;
 
 		// コミットメッセージを作成
-		const message = `Results at ${timestamp} - ${execution.caseCount} cases, total score: ${execution.totalScore}, avg: ${averageScore.toFixed(2)}`;
+		const message = `Results at ${timestamp} - ${caseCount} cases, total score: ${totalScore}, avg: ${averageScore.toFixed(2)}`;
 
 		const commitHash = await gitAdapter.commitAll(message);
 

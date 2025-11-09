@@ -1,81 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Execution } from '../domain/models/execution';
-import { calculateRelativeScore } from '../domain/services/relativeScoreService';
-import { BestScoresRepository } from './bestScoresRepository';
-import { SettingsRepository } from './settingsRepository';
 
 /**
  * JSONファイルから読み込んだ生データの型（pahcer が出力する JSON 形式）
+ * メタデータのみを抽出する（cases は TestCaseRepository が処理）
  */
 interface RawExecutionData {
 	start_time: string;
-	case_count: number;
-	total_score: number;
-	total_score_log10: number;
-	total_relative_score: number;
-	max_execution_time: number;
 	comment: string;
 	tag_name: string | null;
-	wa_seeds: number[];
-	cases: Array<{
-		seed: number;
-		score: number;
-		relative_score: number;
-		execution_time: number;
-		error_message: string;
-	}>;
-}
-
-/**
- * 生データをドメインモデルに変換
- * @param raw JSONファイルから読み込んだ生データ
- * @param executionId 実行ID（例: "20250111_123456"）
- * @param workspaceRoot ワークスペースのルートパス
- * @param bestScores seed => ベストスコア のマップ
- * @param objective 最適化の方向（必須）
- */
-function convertToDomainModel(
-	raw: RawExecutionData,
-	executionId: string,
-	workspaceRoot: string,
-	bestScores: Map<number, number>,
-	objective: 'max' | 'min',
-): Execution {
-	// Get list of existing output files once (instead of checking each file individually)
-	const outDir = path.join(workspaceRoot, '.pahcer-ui', 'results', `result_${executionId}`, 'out');
-	const existingFiles = new Set<string>(fs.existsSync(outDir) ? fs.readdirSync(outDir) : []);
-
-	const cases = raw.cases.map((c) => {
-		const seedStr = String(c.seed).padStart(4, '0');
-		const foundOutput = existingFiles.has(`${seedStr}.txt`);
-
-		// 相対スコアは常に再計算する（JSONの値は使わない）
-		const bestScore = bestScores.get(c.seed);
-		const relativeScore = calculateRelativeScore(c.score, bestScore, objective);
-
-		return {
-			seed: c.seed,
-			score: c.score,
-			relativeScore,
-			executionTime: c.execution_time,
-			errorMessage: c.error_message,
-			foundOutput,
-		};
-	});
-
-	return {
-		id: executionId,
-		startTime: raw.start_time,
-		caseCount: raw.case_count,
-		totalScore: raw.total_score,
-		totalScoreLog10: raw.total_score_log10,
-		maxExecutionTime: raw.max_execution_time,
-		comment: raw.comment,
-		tagName: raw.tag_name,
-		waSeeds: raw.wa_seeds,
-		cases,
-	};
 }
 
 /**
@@ -87,20 +21,14 @@ function getResultFileName(executionId: string): string {
 
 /**
  * テスト実行のリポジトリ
- * pahcer が出力する JSON ファイルを読み込み、Execution エンティティとして返す
+ * pahcer が出力する JSON ファイルからメタデータのみを読み込み、Execution エンティティとして返す
+ * テストケースは TestCaseRepository が負責
  */
 export class ExecutionRepository {
-	private bestScoresRepository: BestScoresRepository;
-	private settingsRepository: SettingsRepository;
-
-	constructor(private workspaceRoot: string) {
-		this.bestScoresRepository = new BestScoresRepository(workspaceRoot);
-		this.settingsRepository = new SettingsRepository(workspaceRoot);
-	}
+	constructor(private workspaceRoot: string) {}
 
 	/**
 	 * 最新N件の実行を読み込む（デフォルトは全件）
-	 * @throws pahcer.toml が見つからない、またはパースに失敗した場合
 	 */
 	async loadLatestExecutions(limit = Number.POSITIVE_INFINITY): Promise<Execution[]> {
 		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
@@ -108,11 +36,6 @@ export class ExecutionRepository {
 		if (!fs.existsSync(jsonDir)) {
 			return [];
 		}
-
-		// 相対スコア再計算に必要なデータを先に読み込む
-		// エラーが発生した場合は上位に伝播
-		const bestScores = await this.bestScoresRepository.loadBestScores();
-		const settings = await this.settingsRepository.loadSettings();
 
 		const files = fs
 			.readdirSync(jsonDir)
@@ -129,13 +52,13 @@ export class ExecutionRepository {
 				const raw: RawExecutionData = JSON.parse(content);
 				const executionId = file.replace(/^result_(.+)\.json$/, '$1');
 
-				const execution = convertToDomainModel(
-					raw,
-					executionId,
-					this.workspaceRoot,
-					bestScores,
-					settings.objective,
-				);
+				// メタデータのみを抽出
+				const execution: Execution = {
+					id: executionId,
+					startTime: raw.start_time,
+					comment: raw.comment,
+					tagName: raw.tag_name ?? null,
+				};
 
 				// Load commit hash from meta.json
 				const metaPath = path.join(
@@ -150,7 +73,7 @@ export class ExecutionRepository {
 						const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
 						execution.commitHash = metadata.commitHash;
 					} catch (e) {
-						console.log(`error listing latest results: ${e}`);
+						console.log(`error loading metadata for ${executionId}: ${e}`);
 					}
 				}
 
@@ -173,7 +96,6 @@ export class ExecutionRepository {
 
 	/**
 	 * 特定の実行を読み込む
-	 * @throws pahcer.toml が見つからない、またはパースに失敗した場合
 	 */
 	async loadExecution(executionId: string): Promise<Execution | null> {
 		const jsonPath = path.join(
@@ -188,20 +110,15 @@ export class ExecutionRepository {
 		}
 
 		try {
-			// 相対スコア再計算に必要なデータを先に読み込む
-			// エラーが発生した場合は上位に伝播
-			const bestScores = await this.bestScoresRepository.loadBestScores();
-			const settings = await this.settingsRepository.loadSettings();
-
 			const content = fs.readFileSync(jsonPath, 'utf-8');
 			const raw: RawExecutionData = JSON.parse(content);
-			const execution = convertToDomainModel(
-				raw,
-				executionId,
-				this.workspaceRoot,
-				bestScores,
-				settings.objective,
-			);
+
+			const execution: Execution = {
+				id: executionId,
+				startTime: raw.start_time,
+				comment: raw.comment,
+				tagName: raw.tag_name ?? null,
+			};
 
 			// Load commit hash from meta.json
 			const metaPath = path.join(
@@ -216,19 +133,19 @@ export class ExecutionRepository {
 					const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
 					execution.commitHash = metadata.commitHash;
 				} catch (e) {
-					console.log(`error loading commit hash for ${executionId}: ${e}`);
+					console.log(`error loading metadata for ${executionId}: ${e}`);
 				}
 			}
 
 			return execution;
 		} catch (e) {
-			console.error(`Failed to load result ${executionId}:`, e);
+			console.error(`Failed to load execution ${executionId}:`, e);
 			return null;
 		}
 	}
 
 	/**
-	 * 実行のコメントを更新する（pahcer本体のJSONファイルを直接書き換え）
+	 * 実行のコメントを更新する
 	 */
 	async updateExecutionComment(executionId: string, comment: string): Promise<void> {
 		const jsonPath = path.join(
@@ -245,7 +162,7 @@ export class ExecutionRepository {
 		try {
 			// JSONファイルを読み込む
 			const content = fs.readFileSync(jsonPath, 'utf-8');
-			const raw: RawExecutionData = JSON.parse(content);
+			const raw = JSON.parse(content);
 
 			// commentフィールドを更新
 			raw.comment = comment;

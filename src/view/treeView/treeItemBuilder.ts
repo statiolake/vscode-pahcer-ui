@@ -1,13 +1,8 @@
 import * as vscode from 'vscode';
-import {
-	type Execution,
-	getAcCount,
-	getAverageRelativeScore,
-	getAverageScore,
-	getShortTitle,
-} from '../../domain/models/execution';
+import { getShortTitle } from '../../domain/models/execution';
 import type { TestCase } from '../../domain/models/testCase';
 import type { SeedStats } from '../../domain/services/aggregationService';
+import type { ExecutionStats } from '../../domain/services/executionAggregationService';
 
 /**
  * TreeItem を生成するビルダー
@@ -17,17 +12,18 @@ export class TreeItemBuilder {
 	 * 実行結果のTreeItemを生成
 	 */
 	buildExecutionItem(
-		execution: Execution,
+		executionStats: ExecutionStats,
 		comparisonMode: boolean,
 		isChecked: boolean,
 	): vscode.TreeItem {
-		const time = getShortTitle(execution);
-		const acCount = getAcCount(execution);
-		const avgScore = getAverageScore(execution).toFixed(1);
-		const avgRel = getAverageRelativeScore(execution).toFixed(2);
+		const time = getShortTitle(executionStats.execution);
+		const avgScore = executionStats.averageScore.toFixed(1);
+		const avgRel = executionStats.averageRelativeScore.toFixed(2);
 
 		const label = `${time} - Avg: ${avgScore} (${avgRel}%)`;
-		const description = execution.comment || (execution.tagName || '').replace('pahcer/', '');
+		const description =
+			executionStats.execution.comment ||
+			(executionStats.execution.tagName || '').replace('pahcer/', '');
 
 		const treeItem = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
 		treeItem.contextValue = 'execution';
@@ -41,14 +37,14 @@ export class TreeItemBuilder {
 		}
 
 		// Icon based on commit hash and AC status
-		if (execution.commitHash) {
+		if (executionStats.execution.commitHash) {
 			// Has commit hash - use git icon with appropriate color
-			if (execution.waSeeds.length === 0) {
+			if (executionStats.waSeeds.length === 0) {
 				treeItem.iconPath = new vscode.ThemeIcon(
 					'git-commit',
 					new vscode.ThemeColor('testing.iconPassed'),
 				);
-			} else if (acCount > 0) {
+			} else if (executionStats.acCount > 0) {
 				treeItem.iconPath = new vscode.ThemeIcon(
 					'git-commit',
 					new vscode.ThemeColor('testing.iconQueued'),
@@ -61,12 +57,12 @@ export class TreeItemBuilder {
 			}
 		} else {
 			// No commit hash - use regular icons
-			if (execution.waSeeds.length === 0) {
+			if (executionStats.waSeeds.length === 0) {
 				treeItem.iconPath = new vscode.ThemeIcon(
 					'pass',
 					new vscode.ThemeColor('testing.iconPassed'),
 				);
-			} else if (acCount > 0) {
+			} else if (executionStats.acCount > 0) {
 				treeItem.iconPath = new vscode.ThemeIcon(
 					'warning',
 					new vscode.ThemeColor('testing.iconQueued'),
@@ -85,9 +81,8 @@ export class TreeItemBuilder {
 	/**
 	 * サマリーのTreeItemを生成
 	 */
-	buildSummaryItem(execution: Execution): vscode.TreeItem {
-		const acCount = getAcCount(execution);
-		const summaryLabel = `AC: ${acCount}/${execution.caseCount}, Total Score: ${execution.totalScore.toLocaleString()}, Max Time: ${(execution.maxExecutionTime * 1000).toFixed(0)}ms`;
+	buildSummaryItem(executionStats: ExecutionStats): vscode.TreeItem {
+		const summaryLabel = `AC: ${executionStats.acCount}/${executionStats.caseCount}, Total Score: ${executionStats.totalScore.toLocaleString()}, Max Time: ${(executionStats.maxExecutionTime * 1000).toFixed(0)}ms`;
 		const summaryItem = new vscode.TreeItem(summaryLabel, vscode.TreeItemCollapsibleState.None);
 		summaryItem.contextValue = 'summary';
 		summaryItem.iconPath = new vscode.ThemeIcon('info');
@@ -96,10 +91,13 @@ export class TreeItemBuilder {
 
 	/**
 	 * テストケースのTreeItemを生成
+	 * @param testCase テストケース
+	 * @param relativeScore 相対スコア（%）
+	 * @param resultId 実行結果ID
 	 */
-	buildTestCaseItem(testCase: TestCase, resultId?: string): vscode.TreeItem {
+	buildTestCaseItem(testCase: TestCase, relativeScore: number, resultId?: string): vscode.TreeItem {
 		const seedStr = String(testCase.seed).padStart(4, '0');
-		const label = `${seedStr}: ${testCase.score} (${testCase.relativeScore.toFixed(3)}%)`;
+		const label = `${seedStr}: ${testCase.score} (${relativeScore.toFixed(3)}%)`;
 		const description = `${(testCase.executionTime * 1000).toFixed(2)}ms`;
 
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
@@ -153,17 +151,26 @@ export class TreeItemBuilder {
 
 	/**
 	 * Seed別の実行結果のTreeItemを生成
+	 * @param time 実行時刻（短形式）
+	 * @param testCase テストケース
+	 * @param relativeScore 相対スコア（%）
+	 * @param seed Seed番号
+	 * @param resultId 実行結果ID
+	 * @param isLatest 最新実行かどうか
+	 * @param comparisonMode 比較モードかどうか
+	 * @param isChecked チェック済みかどうか
 	 */
 	buildSeedExecutionItem(
 		time: string,
 		testCase: TestCase,
+		relativeScore: number,
 		seed: number,
 		resultId: string,
 		isLatest: boolean,
 		comparisonMode: boolean,
 		isChecked: boolean,
 	): vscode.TreeItem {
-		const label = `${time}: ${testCase.score.toLocaleString()} (${testCase.relativeScore.toFixed(3)}%)`;
+		const label = `${time}: ${testCase.score.toLocaleString()} (${relativeScore.toFixed(3)}%)`;
 		const description = `${(testCase.executionTime * 1000).toFixed(2)}ms`;
 
 		const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);

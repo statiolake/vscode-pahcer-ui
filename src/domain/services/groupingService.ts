@@ -16,9 +16,11 @@ export interface SeedGroup {
 }
 
 /**
- * 実行結果をSeedごとにグルーピング（純粋関数）
+ * テストケースとExecutionをSeedごとにグルーピング（純粋関数）
+ * @param testCases テストケース配列
+ * @param executions 実行メタデータ配列
  */
-export function groupBySeed(executions: Execution[]): SeedGroup[] {
+export function groupBySeed(testCases: TestCase[], executions: Execution[]): SeedGroup[] {
 	const seedMap = new Map<
 		number,
 		Array<{
@@ -27,15 +29,21 @@ export function groupBySeed(executions: Execution[]): SeedGroup[] {
 		}>
 	>();
 
-	for (const execution of executions) {
-		for (const testCase of execution.cases) {
-			const executionList = seedMap.get(testCase.seed) || [];
-			executionList.push({
-				execution,
-				testCase,
-			});
-			seedMap.set(testCase.seed, executionList);
+	// executionId -> Execution のマップを作成
+	const executionMap = new Map(executions.map((e) => [e.id, e]));
+
+	for (const testCase of testCases) {
+		const execution = executionMap.get(testCase.executionId);
+		if (!execution) {
+			continue;
 		}
+
+		const executionList = seedMap.get(testCase.seed) || [];
+		executionList.push({
+			execution,
+			testCase,
+		});
+		seedMap.set(testCase.seed, executionList);
 	}
 
 	const groups: SeedGroup[] = [];

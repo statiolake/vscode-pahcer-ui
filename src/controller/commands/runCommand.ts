@@ -7,6 +7,7 @@ import {
 } from '../../infrastructure/gitIntegration';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../../infrastructure/taskAdapter';
+import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
 
 /**
  * pahcer run コマンドハンドラ
@@ -48,7 +49,13 @@ export function runCommand(
 
 			// Git統合: 実行後に結果をコミット
 			try {
-				await commitResultsAfterExecution(workspaceRoot, latestExecution);
+				const testCaseRepository = new TestCaseRepository(workspaceRoot);
+				const allTestCases = await testCaseRepository.loadAllTestCases();
+				const executionTestCases = allTestCases.filter(
+					(tc) => tc.executionId === latestExecution.id,
+				);
+				const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
+				await commitResultsAfterExecution(workspaceRoot, executionTestCases.length, totalScore);
 			} catch (error) {
 				vscode.window.showErrorMessage(`結果コミットに失敗しました: ${error}`);
 			}

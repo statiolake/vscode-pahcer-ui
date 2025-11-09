@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type { Execution } from '../domain/models/execution';
 import type { SeedAnalysis } from '../domain/models/resultMetadata';
 import { FileAnalyzer } from './fileAnalyzer';
+import { TestCaseRepository } from './testCaseRepository';
 
 /**
  * ファイルタイプ
@@ -110,7 +111,7 @@ export class InOutRepository {
 		}
 
 		// Analyze files and save to meta.json
-		await this.analyzeAndSaveMetadata(resultId, execution, commitHash);
+		await this.analyzeAndSaveMetadata(resultId, execution.id, commitHash);
 	}
 
 	/**
@@ -144,14 +145,17 @@ export class InOutRepository {
 	 */
 	private async analyzeAndSaveMetadata(
 		resultId: string,
-		execution: Execution,
+		executionId: string,
 		commitHash?: string,
 	): Promise<void> {
 		const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`);
 		const metaPath = path.join(destDir, 'meta.json');
 
-		// Collect all seeds from execution
-		const seeds = execution.cases.map((c) => c.seed);
+		// Load test cases and collect seeds for this execution
+		const testCaseRepository = new TestCaseRepository(this.workspaceRoot);
+		const allTestCases = await testCaseRepository.loadAllTestCases();
+		const executionTestCases = allTestCases.filter((tc) => tc.executionId === executionId);
+		const seeds = executionTestCases.map((tc) => tc.seed);
 
 		// Prepare file paths for parallel reading
 		const inputPaths = seeds.map((seed) => this.getLatestPath('in', seed));

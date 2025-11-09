@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
 import { type Execution, getLongTitle } from '../domain/models/execution';
 import type { ResultMetadata } from '../domain/models/resultMetadata';
+import { calculateBestScoresFromTestCases } from '../domain/services/aggregationService';
 import { ConfigRepository } from '../infrastructure/configRepository';
 import { ExecutionRepository } from '../infrastructure/executionRepository';
 import { MetadataRepository } from '../infrastructure/metadataRepository';
+import { SettingsRepository } from '../infrastructure/settingsRepository';
+import { TestCaseRepository } from '../infrastructure/testCaseRepository';
 
 function getNonce() {
 	let text = '';
@@ -22,16 +25,20 @@ export class ComparisonViewController {
 	private messageDisposable: vscode.Disposable | undefined;
 
 	private executionRepository: ExecutionRepository;
+	private testCaseRepository: TestCaseRepository;
 	private metadataRepository: MetadataRepository;
 	private configRepository: ConfigRepository;
+	private settingsRepository: SettingsRepository;
 
 	constructor(
 		private context: vscode.ExtensionContext,
 		workspaceRoot: string,
 	) {
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
+		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
 		this.metadataRepository = new MetadataRepository(workspaceRoot);
 		this.configRepository = new ConfigRepository(workspaceRoot);
+		this.settingsRepository = new SettingsRepository(workspaceRoot);
 	}
 
 	/**
@@ -123,10 +130,18 @@ export class ComparisonViewController {
 		executions: Execution[],
 		metadataMap: Map<string, ResultMetadata>,
 	) {
-		// Collect all seeds
+		// Load test cases and settings
+		const testCases = await this.testCaseRepository.loadAllTestCases();
+		const settings = await this.settingsRepository.loadSettings();
+
+		// Calculate best scores
+		const bestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
+
+		// Collect all seeds for selected executions
+		const executionIds = new Set(executions.map((e) => e.id));
 		const allSeeds = new Set<number>();
-		for (const execution of executions) {
-			for (const testCase of execution.cases) {
+		for (const testCase of testCases) {
+			if (executionIds.has(testCase.executionId)) {
 				allSeeds.add(testCase.seed);
 			}
 		}
@@ -142,7 +157,10 @@ export class ComparisonViewController {
 
 			stderrData[execution.id] = {};
 
-			for (const testCase of execution.cases) {
+			// Get test cases for this execution
+			const executionTestCases = testCases.filter((tc) => tc.executionId === execution.id);
+
+			for (const testCase of executionTestCases) {
 				const seed = testCase.seed;
 				const seedAnalysis = analysis[seed];
 
@@ -172,12 +190,27 @@ export class ComparisonViewController {
 			results: executions.map((execution) => ({
 				id: execution.id,
 				time: getLongTitle(execution),
-				cases: execution.cases.map((c) => ({
-					seed: c.seed,
-					score: c.score,
-					relativeScore: c.relativeScore,
-					executionTime: c.executionTime,
-				})),
+				cases: testCases
+					.filter((tc) => tc.executionId === execution.id)
+					.map((tc) => {
+						// Calculate relative score
+						const bestScore = bestScores.get(tc.seed);
+						let relativeScore = 0;
+						if (tc.score > 0 && bestScore !== undefined) {
+							if (settings.objective === 'max') {
+								relativeScore = (tc.score / bestScore) * 100;
+							} else {
+								relativeScore = (bestScore / tc.score) * 100;
+							}
+						}
+
+						return {
+							seed: tc.seed,
+							score: tc.score,
+							relativeScore,
+							executionTime: tc.executionTime,
+						};
+					}),
 			})),
 			seeds,
 			inputData: inputDataObj,

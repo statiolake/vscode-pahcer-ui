@@ -25,8 +25,15 @@ export type SeedSortOrder =
 
 /**
  * テストケースをソートする（純粋関数）
+ * @param cases テストケース配列
+ * @param order ソート順
+ * @param relativeScores seed => 相対スコア のマップ（relativeScore ソート時に使用）
  */
-export function sortTestCases(cases: TestCase[], order: ExecutionSortOrder): TestCase[] {
+export function sortTestCases(
+	cases: TestCase[],
+	order: ExecutionSortOrder,
+	relativeScores?: Map<number, number>,
+): TestCase[] {
 	const sorted = [...cases];
 
 	switch (order) {
@@ -37,10 +44,18 @@ export function sortTestCases(cases: TestCase[], order: ExecutionSortOrder): Tes
 			sorted.sort((a, b) => b.seed - a.seed);
 			break;
 		case 'relativeScoreAsc':
-			sorted.sort((a, b) => a.relativeScore - b.relativeScore);
+			if (relativeScores) {
+				sorted.sort(
+					(a, b) => (relativeScores.get(a.seed) ?? 0) - (relativeScores.get(b.seed) ?? 0),
+				);
+			}
 			break;
 		case 'relativeScoreDesc':
-			sorted.sort((a, b) => b.relativeScore - a.relativeScore);
+			if (relativeScores) {
+				sorted.sort(
+					(a, b) => (relativeScores.get(b.seed) ?? 0) - (relativeScores.get(a.seed) ?? 0),
+				);
+			}
 			break;
 		case 'absoluteScoreAsc':
 			sorted.sort((a, b) => a.score - b.score);

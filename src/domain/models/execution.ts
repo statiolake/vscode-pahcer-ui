@@ -1,21 +1,17 @@
-import type { TestCase } from './testCase';
-
 /**
- * テスト実行のエンティティ
- * 各テスト実行を一意に識別するIDを持つ
+ * テスト実行のエンティティ（メタデータのみ）
+ * 実行ごとの集計情報は ExecutionAggregationService で計算
  */
 export interface Execution {
 	/** 実行ID（例: "20250111_123456"） */
 	id: string;
+	/** 開始時刻 */
 	startTime: string;
-	caseCount: number;
-	totalScore: number;
-	totalScoreLog10: number;
-	maxExecutionTime: number;
+	/** コメント */
 	comment: string;
+	/** タグ名 */
 	tagName: string | null;
-	waSeeds: number[];
-	cases: TestCase[];
+	/** コミットハッシュ */
 	commitHash?: string;
 }
 
@@ -55,29 +51,4 @@ export function getTitleWithHash(execution: Execution): string {
 	const shortTitle = getShortTitle(execution);
 	const shortHash = execution.commitHash.slice(0, 7);
 	return `${shortTitle}@${shortHash}`;
-}
-
-/**
- * AC数を計算する
- */
-export function getAcCount(execution: Execution): number {
-	return execution.caseCount - execution.waSeeds.length;
-}
-
-/**
- * 平均スコアを計算する
- */
-export function getAverageScore(execution: Execution): number {
-	return execution.caseCount > 0 ? execution.totalScore / execution.caseCount : 0;
-}
-
-/**
- * 平均相対スコアを計算する
- */
-export function getAverageRelativeScore(execution: Execution): number {
-	if (execution.caseCount === 0) {
-		return 0;
-	}
-	const totalRelativeScore = execution.cases.reduce((sum, c) => sum + c.relativeScore, 0);
-	return totalRelativeScore / execution.caseCount;
 }
