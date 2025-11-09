@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
 
@@ -15,10 +15,8 @@ export class VisualizerDownloader {
 	 */
 	async download(url: string): Promise<string> {
 		// Ensure visualizer directory exists
-		if (!fs.existsSync(this.visualizerDir)) {
-			fs.mkdirSync(this.visualizerDir, { recursive: true });
-			console.log(`[VisualizerDownloader] Created directory: ${this.visualizerDir}`);
-		}
+		await fs.mkdir(this.visualizerDir, { recursive: true });
+		console.log(`[VisualizerDownloader] Created directory: ${this.visualizerDir}`);
 
 		// Remove query parameters for file operations
 		const urlObj = new URL(url);
@@ -54,7 +52,7 @@ export class VisualizerDownloader {
 		const filePath = path.join(this.visualizerDir, fileName);
 
 		// すでにダウンロード済みならスキップ
-		if (fs.existsSync(filePath)) {
+		if (existsSync(filePath)) {
 			console.log(`[VisualizerDownloader] File already exists, skipping: ${fileName}`);
 			return;
 		}
@@ -62,36 +60,18 @@ export class VisualizerDownloader {
 		// ファイルをダウンロード
 		console.log(`[VisualizerDownloader] Downloading: ${url} (depth: ${depth})`);
 		const content = await this.fetchUrl(url);
-		fs.writeFileSync(filePath, content);
+		await fs.writeFile(filePath, content);
 		console.log(`[VisualizerDownloader] Saved: ${fileName} (size: ${content.length} bytes)`);
 
-		// HTMLファイルの場合：依存ファイルを抽出して再帰ダウンロード
 		if (fileName.endsWith('.html')) {
+			// HTMLファイルの場合：依存ファイルを抽出して再帰ダウンロード
 			await this.downloadDependenciesFromHtml(content, baseUrlObj, baseDir, depth);
-		}
-		// JavaScriptファイルの場合：import文を抽出して再帰ダウンロード
-		else if (fileName.endsWith('.js')) {
+		} else if (fileName.endsWith('.js')) {
+			// JavaScriptファイルの場合：import文を抽出して再帰ダウンロード
 			await this.downloadDependenciesFromJs(content, baseUrlObj, baseDir, depth);
 
 			// JSファイルに対応するWASMファイルを試行的にダウンロード
-			const wasmFileName = fileName.replace('.js', '_bg.wasm');
-			const wasmUrl = `${baseUrlObj.origin}${baseDir}/${wasmFileName}`;
-			console.log(`[VisualizerDownloader] Checking for WASM file: ${wasmFileName}`);
-
-			try {
-				const wasmPath = path.join(this.visualizerDir, wasmFileName);
-				// WASMファイルは既存チェックなし（毎回試す）
-				const wasmContent = await this.fetchUrlBinary(wasmUrl);
-				fs.writeFileSync(wasmPath, wasmContent);
-				console.log(
-					`[VisualizerDownloader] WASM file downloaded: ${wasmFileName} (size: ${wasmContent.length} bytes)`,
-				);
-			} catch (e) {
-				console.warn(
-					`[VisualizerDownloader] WASM file not found: ${wasmFileName}`,
-					e instanceof Error ? e.message : String(e),
-				);
-			}
+			await this.maybeDownloadWasmFromJs(fileName, baseUrlObj, baseDir);
 		}
 	}
 
@@ -202,6 +182,30 @@ export class VisualizerDownloader {
 					e instanceof Error ? e.message : String(e),
 				);
 			}
+		}
+	}
+
+	private async maybeDownloadWasmFromJs(
+		fileName: string,
+		baseUrlObj: URL,
+		baseDir: string,
+	): Promise<void> {
+		const wasmFileName = fileName.replace('.js', '_bg.wasm');
+		const wasmUrl = `${baseUrlObj.origin}${baseDir}/${wasmFileName}`;
+		console.log(`[VisualizerDownloader] Checking for WASM file: ${wasmFileName}`);
+
+		try {
+			const wasmPath = path.join(this.visualizerDir, wasmFileName);
+			const wasmContent = await this.fetchUrlBinary(wasmUrl);
+			await fs.writeFile(wasmPath, wasmContent);
+			console.log(
+				`[VisualizerDownloader] WASM file downloaded: ${wasmFileName} (size: ${wasmContent.length} bytes)`,
+			);
+		} catch (e) {
+			console.warn(
+				`[VisualizerDownloader] WASM file not found: ${wasmFileName}`,
+				e instanceof Error ? e.message : String(e),
+			);
 		}
 	}
 
