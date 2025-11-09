@@ -1,4 +1,4 @@
-import type { ContextAdapter } from '../../infrastructure/contextAdapter';
+import type { ContextAdapter } from '../../../infrastructure/contextAdapter';
 
 /**
  * オプション付きテスト実行コマンドハンドラ

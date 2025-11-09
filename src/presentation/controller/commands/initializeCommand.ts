@@ -1,4 +1,4 @@
-import type { ContextAdapter } from '../../infrastructure/contextAdapter';
+import type { ContextAdapter } from '../../../infrastructure/contextAdapter';
 
 /**
  * 初期化コマンドハンドラ

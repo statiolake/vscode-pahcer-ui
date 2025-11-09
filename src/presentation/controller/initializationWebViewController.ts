@@ -1,9 +1,9 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { ContextAdapter } from '../infrastructure/contextAdapter';
-import type { GitignoreAdapter } from '../infrastructure/gitignoreAdapter';
-import type { PahcerAdapter } from '../infrastructure/pahcerAdapter';
-import { type DownloadedTester, TesterDownloader } from '../infrastructure/testerDownloader';
+import type { ContextAdapter } from '../../infrastructure/contextAdapter';
+import type { GitignoreAdapter } from '../../infrastructure/gitignoreAdapter';
+import type { PahcerAdapter } from '../../infrastructure/pahcerAdapter';
+import { type DownloadedTester, TesterDownloader } from '../../infrastructure/testerDownloader';
 
 interface InitOptions {
 	problemName: string;
@@ -16,7 +16,7 @@ interface InitOptions {
 /**
  * pahcer init を実行するための初期化WebView
  */
-export class InitializationWebViewProvider implements vscode.WebviewViewProvider {
+export class InitializationWebViewController implements vscode.WebviewViewProvider {
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,

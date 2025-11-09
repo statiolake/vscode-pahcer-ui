@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { type Execution, getLongTitle } from '../domain/models/execution';
-import { calculateBestScoresFromTestCases } from '../domain/services/aggregationService';
-import { ExecutionRepository } from '../infrastructure/executionRepository';
-import { PahcerConfigFileRepository } from '../infrastructure/pahcerConfigFileRepository';
-import { PahcerConfigRepository } from '../infrastructure/pahcerConfigRepository';
-import { TestCaseRepository } from '../infrastructure/testCaseRepository';
-import { UIConfigRepository } from '../infrastructure/uiConfigRepository';
+import { type Execution, getLongTitle } from '../../domain/models/execution';
+import { calculateBestScoresFromTestCases } from '../../domain/services/aggregationService';
+import { ExecutionRepository } from '../../infrastructure/executionRepository';
+import { PahcerConfigFileRepository } from '../../infrastructure/pahcerConfigFileRepository';
+import { PahcerConfigRepository } from '../../infrastructure/pahcerConfigRepository';
+import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
+import { UIConfigRepository } from '../../infrastructure/uiConfigRepository';
 
 function getNonce() {
 	let text = '';

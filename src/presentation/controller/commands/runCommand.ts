@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import type { RunPahcerUseCase } from '../../application/runPahcerUseCase';
-import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
+import type { RunPahcerUseCase } from '../../../application/runPahcerUseCase';
+import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
  * pahcer run コマンドハンドラ

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { InOutRepository } from '../../infrastructure/inOutRepository';
+import type { InOutRepository } from '../../../infrastructure/inOutRepository';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
 /**

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { getTitleWithHash } from '../../domain/models/execution';
-import { GitAdapter } from '../../infrastructure/gitAdapter';
+import { getTitleWithHash } from '../../../domain/models/execution';
+import { GitAdapter } from '../../../infrastructure/gitAdapter';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**

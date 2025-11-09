@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { ExecutionRepository } from '../../infrastructure/executionRepository';
+import type { ExecutionRepository } from '../../../infrastructure/executionRepository';
 import type { PahcerTreeItem, PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**

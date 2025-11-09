@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { ExecutionRepository } from '../infrastructure/executionRepository';
-import { InOutRepository } from '../infrastructure/inOutRepository';
-import { VisualizerCache } from '../infrastructure/visualizerCache';
-import { VisualizerDownloader } from '../infrastructure/visualizerDownloader';
+import { ExecutionRepository } from '../../infrastructure/executionRepository';
+import { InOutRepository } from '../../infrastructure/inOutRepository';
+import { VisualizerCache } from '../../infrastructure/visualizerCache';
+import { VisualizerDownloader } from '../../infrastructure/visualizerDownloader';
 
 /**
  * ビジュアライザのWebViewコントローラ

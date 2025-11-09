@@ -1,29 +1,5 @@
 import * as vscode from 'vscode';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
-import { addCommentCommand } from './controller/commands/addCommentCommand';
-import { changeSortOrderCommand } from './controller/commands/changeSortOrderCommand';
-import { initializeCommand } from './controller/commands/initializeCommand';
-import {
-	openErrorFileCommand,
-	openInputFileCommand,
-	openOutputFileCommand,
-} from './controller/commands/openFileCommand';
-import { openGitHubCommand } from './controller/commands/openGitHubCommand';
-import { refreshCommand } from './controller/commands/refreshCommand';
-import { runCommand } from './controller/commands/runCommand';
-import { runWithOptionsCommand } from './controller/commands/runWithOptionsCommand';
-import { showDiffCommand } from './controller/commands/showDiffCommand';
-import { showResultsNotFoundErrorCommand } from './controller/commands/showResultsNotFoundErrorCommand';
-import { showVisualizerCommand } from './controller/commands/showVisualizerCommand';
-import {
-	switchToExecutionCommand,
-	switchToSeedCommand,
-} from './controller/commands/switchModeCommand';
-import { ComparisonViewController } from './controller/comparisonViewController';
-import { InitializationWebViewProvider } from './controller/initializationWebViewProvider';
-import { PahcerTreeViewController } from './controller/pahcerTreeViewController';
-import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvider';
-import { VisualizerViewController } from './controller/visualizerViewController';
 import { ContextAdapter } from './infrastructure/contextAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { GitAdapter } from './infrastructure/gitAdapter';
@@ -31,6 +7,30 @@ import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerConfigFileRepository } from './infrastructure/pahcerConfigFileRepository';
+import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
+import { changeSortOrderCommand } from './presentation/controller/commands/changeSortOrderCommand';
+import { initializeCommand } from './presentation/controller/commands/initializeCommand';
+import {
+	openErrorFileCommand,
+	openInputFileCommand,
+	openOutputFileCommand,
+} from './presentation/controller/commands/openFileCommand';
+import { openGitHubCommand } from './presentation/controller/commands/openGitHubCommand';
+import { refreshCommand } from './presentation/controller/commands/refreshCommand';
+import { runCommand } from './presentation/controller/commands/runCommand';
+import { runWithOptionsCommand } from './presentation/controller/commands/runWithOptionsCommand';
+import { showDiffCommand } from './presentation/controller/commands/showDiffCommand';
+import { showResultsNotFoundErrorCommand } from './presentation/controller/commands/showResultsNotFoundErrorCommand';
+import { showVisualizerCommand } from './presentation/controller/commands/showVisualizerCommand';
+import {
+	switchToExecutionCommand,
+	switchToSeedCommand,
+} from './presentation/controller/commands/switchModeCommand';
+import { ComparisonViewController } from './presentation/controller/comparisonViewController';
+import { InitializationWebViewController } from './presentation/controller/initializationWebViewController';
+import { PahcerTreeViewController } from './presentation/controller/pahcerTreeViewController';
+import { RunOptionsWebViewController } from './presentation/controller/runOptionsWebViewController';
+import { VisualizerViewController } from './presentation/controller/visualizerViewController';
 
 /**
  * アダプター（インフラ層コンポーネント）の集合
@@ -136,7 +136,7 @@ function registerInitializationView(
 	workspaceRoot: string,
 	adapters: Adapters,
 ): vscode.Disposable {
-	const initializationProvider = new InitializationWebViewProvider(
+	const initializationProvider = new InitializationWebViewController(
 		context,
 		workspaceRoot,
 		adapters.pahcerAdapter,
@@ -198,7 +198,7 @@ function registerRunOptionsView(
 	useCases: UseCases,
 	adapters: Adapters,
 ): vscode.Disposable {
-	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
+	const runOptionsWebViewProvider = new RunOptionsWebViewController(
 		context,
 		useCases.runPahcerUseCase,
 		adapters.contextAdapter,
