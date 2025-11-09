@@ -305,7 +305,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 					relativeScores.set(testCase.seed, (bestScore / testCase.score) * 100);
 				}
 			} else {
-				relativeScores.set(testCase.seed, 100);
+				relativeScores.set(testCase.seed, 0);
 			}
 		}
 
@@ -429,7 +429,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 			// Calculate relative score
 			const bestScore = this.cachedBestScores.get(seed);
-			let relativeScore = 100;
+			let relativeScore = 0;
 			if (bestScore !== undefined && executionData.testCase.score > 0) {
 				if (settings.objective === 'max') {
 					relativeScore = (executionData.testCase.score / bestScore) * 100;
