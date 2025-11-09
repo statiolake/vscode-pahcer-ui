@@ -1,10 +1,7 @@
 import * as vscode from 'vscode';
 import type { PahcerTreeViewController } from '../../controller/pahcerTreeViewController';
 import type { ExecutionRepository } from '../../infrastructure/executionRepository';
-import {
-	commitResultsAfterExecution,
-	commitSourceBeforeExecution,
-} from '../../infrastructure/gitIntegration';
+import type { GitAdapter } from '../../infrastructure/gitAdapter';
 import type { InOutRepository } from '../../infrastructure/inOutRepository';
 import type { TaskAdapter } from '../../infrastructure/taskAdapter';
 import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
@@ -16,6 +13,7 @@ export function runCommand(
 	taskAdapter: TaskAdapter,
 	inOutRepository: InOutRepository,
 	executionRepository: ExecutionRepository,
+	gitAdapter: GitAdapter,
 	treeViewController: PahcerTreeViewController,
 ): () => Promise<void> {
 	return async () => {
@@ -29,7 +27,7 @@ export function runCommand(
 		// Git統合: 実行前にソースコードをコミット
 		let commitHash: string | null = null;
 		try {
-			commitHash = await commitSourceBeforeExecution(workspaceRoot);
+			commitHash = await gitAdapter.commitSourceBeforeExecution();
 		} catch (error) {
 			vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
 			return;
@@ -55,7 +53,7 @@ export function runCommand(
 					(tc) => tc.executionId === latestExecution.id,
 				);
 				const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
-				await commitResultsAfterExecution(workspaceRoot, executionTestCases.length, totalScore);
+				await gitAdapter.commitResultsAfterExecution(executionTestCases.length, totalScore);
 			} catch (error) {
 				vscode.window.showErrorMessage(`結果コミットに失敗しました: ${error}`);
 			}

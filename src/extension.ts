@@ -25,6 +25,7 @@ import { RunOptionsWebViewProvider } from './controller/runOptionsWebViewProvide
 import { VisualizerViewController } from './controller/visualizerViewController';
 import { ContextAdapter } from './infrastructure/contextAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
+import { GitAdapter } from './infrastructure/gitAdapter';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
@@ -41,6 +42,7 @@ interface Adapters {
 	inOutRepository: InOutRepository;
 	pahcerConfigFileRepository: PahcerConfigFileRepository;
 	gitignoreAdapter: GitignoreAdapter;
+	gitAdapter: GitAdapter;
 }
 
 /**
@@ -62,6 +64,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const inOutRepository = new InOutRepository(workspaceRoot);
 	const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
+	const gitAdapter = new GitAdapter(workspaceRoot);
 
 	// Check pahcer installation and initialization status
 	const pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository);
@@ -78,6 +81,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		inOutRepository,
 		pahcerConfigFileRepository: pahcerConfigFileRepository,
 		gitignoreAdapter,
+		gitAdapter,
 	};
 }
 
@@ -178,6 +182,7 @@ function registerRunOptionsView(
 		adapters.executionRepository,
 		adapters.contextAdapter,
 		adapters.pahcerConfigFileRepository,
+		adapters.gitAdapter,
 	);
 
 	// Initialize context (show TreeView by default)
@@ -216,6 +221,7 @@ function registerCommands(
 				adapters.taskAdapter,
 				adapters.inOutRepository,
 				adapters.executionRepository,
+				adapters.gitAdapter,
 				controllers.treeViewController,
 			),
 		),

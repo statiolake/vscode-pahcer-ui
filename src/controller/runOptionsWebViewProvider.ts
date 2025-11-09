@@ -2,10 +2,7 @@ import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
-import {
-	commitResultsAfterExecution,
-	commitSourceBeforeExecution,
-} from '../infrastructure/gitIntegration';
+import type { GitAdapter } from '../infrastructure/gitAdapter';
 import type { InOutRepository } from '../infrastructure/inOutRepository';
 import type { PahcerConfigFileRepository } from '../infrastructure/pahcerConfigFileRepository';
 import type { TaskAdapter } from '../infrastructure/taskAdapter';
@@ -26,6 +23,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		private readonly executionRepository: ExecutionRepository,
 		private readonly contextAdapter: ContextAdapter,
 		private readonly pahcerConfigFileRepository: PahcerConfigFileRepository,
+		private readonly gitAdapter: GitAdapter,
 	) {}
 
 	resolveWebviewView(
@@ -58,7 +56,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 		// Git統合: 実行前にソースコードをコミット
 		let commitHash: string | null = null;
 		try {
-			commitHash = await commitSourceBeforeExecution(this.workspaceRoot);
+			commitHash = await this.gitAdapter.commitSourceBeforeExecution();
 		} catch (error) {
 			vscode.window.showErrorMessage(`gitの操作に失敗しました: ${error}`);
 			return;
@@ -95,11 +93,7 @@ export class RunOptionsWebViewProvider implements vscode.WebviewViewProvider {
 					(tc) => tc.executionId === latestExecution.id,
 				);
 				const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
-				await commitResultsAfterExecution(
-					this.workspaceRoot,
-					executionTestCases.length,
-					totalScore,
-				);
+				await this.gitAdapter.commitResultsAfterExecution(executionTestCases.length, totalScore);
 			} catch (error) {
 				vscode.window.showErrorMessage(`結果コミットに失敗しました: ${error}`);
 			}
