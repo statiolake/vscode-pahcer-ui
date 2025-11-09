@@ -85,20 +85,4 @@ export class TestCaseRepository {
 
 		return testCases;
 	}
-
-	/**
-	 * 特定の実行のテストケースを読み込む
-	 */
-	async loadTestCasesByExecution(executionId: string): Promise<TestCase[]> {
-		const allTestCases = await this.loadAllTestCases();
-		return allTestCases.filter((tc) => tc.executionId === executionId);
-	}
-
-	/**
-	 * 特定の seed のテストケースを読み込む
-	 */
-	async loadTestCasesBySeed(seed: number): Promise<TestCase[]> {
-		const allTestCases = await this.loadAllTestCases();
-		return allTestCases.filter((tc) => tc.seed === seed);
-	}
 }
