@@ -30,14 +30,13 @@ import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerConfigFileRepository } from './infrastructure/pahcerConfigFileRepository';
-import { TaskAdapter } from './infrastructure/taskAdapter';
 
 /**
  * アダプター（インフラ層コンポーネント）の集合
  */
 interface Adapters {
 	contextAdapter: ContextAdapter;
-	taskAdapter: TaskAdapter;
+	pahcerAdapter: PahcerAdapter;
 	executionRepository: ExecutionRepository;
 	inOutRepository: InOutRepository;
 	pahcerConfigFileRepository: PahcerConfigFileRepository;
@@ -59,15 +58,21 @@ interface Controllers {
  */
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const contextAdapter = new ContextAdapter();
-	const taskAdapter = new TaskAdapter();
 	const executionRepository = new ExecutionRepository(workspaceRoot);
 	const inOutRepository = new InOutRepository(workspaceRoot);
 	const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
 	const gitAdapter = new GitAdapter(workspaceRoot);
 
-	// Check pahcer installation and initialization status
-	const pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository);
+	// Create PahcerAdapter with all dependencies for run/init operations
+	const pahcerAdapter = new PahcerAdapter(
+		pahcerConfigFileRepository,
+		gitAdapter,
+		inOutRepository,
+		executionRepository,
+		workspaceRoot,
+	);
+
 	const pahcerStatus = pahcerAdapter.checkStatus();
 
 	// Set context for viewsWelcome
@@ -76,7 +81,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 
 	return {
 		contextAdapter,
-		taskAdapter,
+		pahcerAdapter,
 		executionRepository,
 		inOutRepository,
 		pahcerConfigFileRepository: pahcerConfigFileRepository,
@@ -114,7 +119,7 @@ function registerInitializationView(
 	const initializationProvider = new InitializationWebViewProvider(
 		context,
 		workspaceRoot,
-		adapters.taskAdapter,
+		adapters.pahcerAdapter,
 		adapters.contextAdapter,
 		adapters.gitignoreAdapter,
 	);
@@ -171,18 +176,12 @@ async function registerTreeView(
  */
 function registerRunOptionsView(
 	context: vscode.ExtensionContext,
-	workspaceRoot: string,
 	adapters: Adapters,
 ): vscode.Disposable {
 	const runOptionsWebViewProvider = new RunOptionsWebViewProvider(
 		context,
-		workspaceRoot,
-		adapters.taskAdapter,
-		adapters.inOutRepository,
-		adapters.executionRepository,
+		adapters.pahcerAdapter,
 		adapters.contextAdapter,
-		adapters.pahcerConfigFileRepository,
-		adapters.gitAdapter,
 	);
 
 	// Initialize context (show TreeView by default)
@@ -217,13 +216,7 @@ function registerCommands(
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.run',
-			runCommand(
-				adapters.taskAdapter,
-				adapters.inOutRepository,
-				adapters.executionRepository,
-				adapters.gitAdapter,
-				controllers.treeViewController,
-			),
+			runCommand(adapters.pahcerAdapter, controllers.treeViewController),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.runWithOptions',
@@ -289,7 +282,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Step 4: Register all views
 	const initializationView = registerInitializationView(context, workspaceRoot, adapters);
 	const treeView = await registerTreeView(controllers, adapters);
-	const runOptionsView = registerRunOptionsView(context, workspaceRoot, adapters);
+	const runOptionsView = registerRunOptionsView(context, adapters);
 
 	// Step 5: Register all commands
 	const commands = registerCommands(workspaceRoot, adapters, controllers);

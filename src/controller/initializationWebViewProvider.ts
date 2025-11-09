@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { ContextAdapter } from '../infrastructure/contextAdapter';
 import type { GitignoreAdapter } from '../infrastructure/gitignoreAdapter';
-import type { TaskAdapter } from '../infrastructure/taskAdapter';
+import type { PahcerAdapter } from '../infrastructure/pahcerAdapter';
 import { type DownloadedTester, TesterDownloader } from '../infrastructure/testerDownloader';
 
 interface InitOptions {
@@ -20,7 +20,7 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 	constructor(
 		private readonly context: vscode.ExtensionContext,
 		private readonly workspaceRoot: string,
-		private readonly taskAdapter: TaskAdapter,
+		private readonly pahcerAdapter: PahcerAdapter,
 		private readonly contextAdapter: ContextAdapter,
 		private readonly gitignoreAdapter: GitignoreAdapter,
 	) {}
@@ -60,19 +60,23 @@ export class InitializationWebViewProvider implements vscode.WebviewViewProvider
 		// Close initialization WebView and return to TreeView
 		await this.contextAdapter.setShowInitialization(false);
 
-		// Execute pahcer init using task
-		await this.taskAdapter.runPahcerInit(
-			this.workspaceRoot,
-			options.problemName,
-			options.objective,
-			options.language,
-			finalIsInteractive,
-		);
+		try {
+			// Execute pahcer init
+			await this.pahcerAdapter.init(
+				options.problemName,
+				options.objective,
+				options.language,
+				finalIsInteractive,
+			);
 
-		// Wait a moment for the command to execute, then refresh TreeView
-		setTimeout(async () => {
-			await vscode.commands.executeCommand('pahcer-ui.refresh');
-		}, 2000);
+			// Wait a moment for the command to execute, then refresh TreeView
+			setTimeout(async () => {
+				await vscode.commands.executeCommand('pahcer-ui.refresh');
+			}, 2000);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(`初期化に失敗しました: ${errorMessage}`);
+		}
 	}
 
 	private async downloadTester(
