@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { type Execution, getLongTitle } from '../../domain/models/execution';
 import { calculateBestScoresFromTestCases } from '../../domain/services/aggregationService';
 import { ExecutionRepository } from '../../infrastructure/executionRepository';
-import { PahcerConfigFileRepository } from '../../infrastructure/pahcerConfigFileRepository';
 import { PahcerConfigRepository } from '../../infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
 import { UIConfigRepository } from '../../infrastructure/uiConfigRepository';
@@ -32,11 +31,10 @@ export class ComparisonViewController {
 		private context: vscode.ExtensionContext,
 		workspaceRoot: string,
 	) {
-		const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
 		this.uiConfigRepository = new UIConfigRepository(workspaceRoot);
-		this.pahcerConfigRepository = new PahcerConfigRepository(pahcerConfigFileRepository);
+		this.pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
 	}
 
 	/**
@@ -46,9 +44,11 @@ export class ComparisonViewController {
 		// Load execution data
 		const executions: Execution[] = [];
 		for (const executionId of executionIds) {
-			const execution = await this.executionRepository.loadExecution(executionId);
-			if (execution) {
+			try {
+				const execution = await this.executionRepository.get(executionId);
 				executions.push(execution);
+			} catch (error) {
+				console.error(`Failed to load execution ${executionId}:`, error);
 			}
 		}
 
@@ -118,10 +118,10 @@ export class ComparisonViewController {
 	private async prepareComparisonData(executions: Execution[]) {
 		// Load test cases and settings
 		const testCases = await this.testCaseRepository.loadAllTestCases();
-		const settings = await this.pahcerConfigRepository.loadConfig();
+		const pahcerConfig = await this.pahcerConfigRepository.get('normal');
 
 		// Calculate best scores
-		const bestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
+		const bestScores = calculateBestScoresFromTestCases(testCases, pahcerConfig.objective);
 
 		// Collect all seeds for selected executions
 		const executionIds = new Set(executions.map((e) => e.id));
@@ -180,7 +180,7 @@ export class ComparisonViewController {
 						const bestScore = bestScores.get(tc.seed);
 						let relativeScore = 0;
 						if (tc.score > 0 && bestScore !== undefined) {
-							if (settings.objective === 'max') {
+							if (pahcerConfig.objective === 'max') {
 								relativeScore = (tc.score / bestScore) * 100;
 							} else {
 								relativeScore = (bestScore / tc.score) * 100;

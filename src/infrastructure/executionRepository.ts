@@ -1,177 +1,118 @@
-import * as fs from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import dayjs from 'dayjs';
 import type { Execution } from '../domain/models/execution';
 
 /**
  * JSONファイルから読み込んだ生データの型（pahcer が出力する JSON 形式）
- * メタデータのみを抽出する（cases は TestCaseRepository が処理）
  */
-interface RawExecutionData {
+interface ResultJson {
 	start_time: string;
 	comment: string;
 	tag_name: string | null;
 }
 
 /**
- * 実行IDからファイル名を計算
+ * JSONファイルから読み込んだメタデータの型
  */
-function getResultFileName(executionId: string): string {
-	return `result_${executionId}.json`;
+interface MetadataJson {
+	commitHash?: string;
+}
+
+class NotFoundError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'NotFoundError';
+	}
 }
 
 /**
  * テスト実行のリポジトリ
- * pahcer が出力する JSON ファイルからメタデータのみを読み込み、Execution エンティティとして返す
+ * pahcer が出力する result.json と meta/execution.json を読み書きする
  * テストケースは TestCaseRepository が負責
  */
 export class ExecutionRepository {
 	constructor(private workspaceRoot: string) {}
 
-	/**
-	 * 最新N件の実行を読み込む（デフォルトは全件）
-	 */
-	async loadLatestExecutions(limit = Number.POSITIVE_INFINITY): Promise<Execution[]> {
-		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
+	async get(executionId: string): Promise<Execution> {
+		// pahcer が出力した result.json から実行情報を読み込む
+		let content: string;
+		try {
+			content = await fs.readFile(this.resultPath(executionId), 'utf-8');
+		} catch {
+			throw new NotFoundError(`Execution result file not found: ${executionId}`);
+		}
 
-		if (!fs.existsSync(jsonDir)) {
+		const result: ResultJson = JSON.parse(content);
+		const execution: Execution = {
+			id: executionId,
+			startTime: dayjs(result.start_time),
+			comment: result.comment,
+			tagName: result.tag_name ?? null,
+		};
+
+		// メタデータから commitHash を読み込む
+		try {
+			const metadata: MetadataJson = JSON.parse(
+				await fs.readFile(this.metadataPath(executionId), 'utf-8'),
+			);
+			execution.commitHash = metadata.commitHash;
+		} catch (e) {
+			// メタデータがない場合は無視
+			console.log(`error loading metadata for ${executionId}: ${e}`);
+		}
+
+		return execution;
+	}
+
+	async getAll(): Promise<Execution[]> {
+		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
+		if (!existsSync(jsonDir)) {
 			return [];
 		}
 
-		const files = fs
-			.readdirSync(jsonDir)
+		const files = (await fs.readdir(jsonDir))
 			.filter((f) => f.startsWith('result_') && f.endsWith('.json'))
 			.sort()
-			.reverse()
-			.slice(0, limit);
+			.reverse();
 
-		const executions: Execution[] = [];
+		const executionIds = files.map((file) => file.replace(/^result_(.+)\.json$/, '$1'));
 
-		for (const file of files) {
-			try {
-				const content = fs.readFileSync(path.join(jsonDir, file), 'utf-8');
-				const raw: RawExecutionData = JSON.parse(content);
-				const executionId = file.replace(/^result_(.+)\.json$/, '$1');
-
-				// メタデータのみを抽出
-				const execution: Execution = {
-					id: executionId,
-					startTime: raw.start_time,
-					comment: raw.comment,
-					tagName: raw.tag_name ?? null,
-				};
-
-				// Load commit hash from meta.json
-				const metaPath = path.join(
-					this.workspaceRoot,
-					'.pahcer-ui',
-					'results',
-					`result_${executionId}`,
-					'meta.json',
-				);
-				if (fs.existsSync(metaPath)) {
-					try {
-						const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-						execution.commitHash = metadata.commitHash;
-					} catch (e) {
-						console.log(`error loading metadata for ${executionId}: ${e}`);
-					}
-				}
-
-				executions.push(execution);
-			} catch (e) {
-				console.error(`Failed to load ${file}:`, e);
-			}
-		}
-
-		return executions;
+		return await Promise.all(executionIds.map((id) => this.get(id)));
 	}
 
-	/**
-	 * 最新の実行を1件取得
-	 */
-	async getLatestExecution(): Promise<Execution | null> {
-		const executions = await this.loadLatestExecutions(1);
-		return executions.length > 0 ? executions[0] : null;
+	async save(execution: Execution): Promise<void> {
+		// result.json を書き込む
+		const result: ResultJson = {
+			start_time: execution.startTime.format('YYYY-MM-DD HH:mm:ss'),
+			comment: execution.comment,
+			tag_name: execution.tagName,
+		};
+
+		const resultPath = this.resultPath(execution.id);
+		await fs.writeFile(resultPath, JSON.stringify(result, null, 2), 'utf-8');
+
+		// meta/execution.json を書き込む
+		const metadataPath = this.metadataPath(execution.id);
+		const metadata: MetadataJson = {
+			commitHash: execution.commitHash,
+		};
+		await fs.mkdir(path.dirname(metadataPath), { recursive: true });
+		await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
 	}
 
-	/**
-	 * 特定の実行を読み込む
-	 */
-	async loadExecution(executionId: string): Promise<Execution | null> {
-		const jsonPath = path.join(
+	private resultPath(executionId: string): string {
+		return path.join(this.workspaceRoot, 'pahcer', 'json', `result_${executionId}.json`);
+	}
+
+	private metadataPath(executionId: string): string {
+		return path.join(
 			this.workspaceRoot,
-			'pahcer',
-			'json',
-			getResultFileName(executionId),
+			'.pahcer-ui',
+			'results',
+			`result_${executionId}`,
+			'meta',
+			'execution.json',
 		);
-
-		if (!fs.existsSync(jsonPath)) {
-			return null;
-		}
-
-		try {
-			const content = fs.readFileSync(jsonPath, 'utf-8');
-			const raw: RawExecutionData = JSON.parse(content);
-
-			const execution: Execution = {
-				id: executionId,
-				startTime: raw.start_time,
-				comment: raw.comment,
-				tagName: raw.tag_name ?? null,
-			};
-
-			// Load commit hash from meta.json
-			const metaPath = path.join(
-				this.workspaceRoot,
-				'.pahcer-ui',
-				'results',
-				`result_${executionId}`,
-				'meta.json',
-			);
-			if (fs.existsSync(metaPath)) {
-				try {
-					const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-					execution.commitHash = metadata.commitHash;
-				} catch (e) {
-					console.log(`error loading metadata for ${executionId}: ${e}`);
-				}
-			}
-
-			return execution;
-		} catch (e) {
-			console.error(`Failed to load execution ${executionId}:`, e);
-			return null;
-		}
-	}
-
-	/**
-	 * 実行のコメントを更新する
-	 */
-	async updateExecutionComment(executionId: string, comment: string): Promise<void> {
-		const jsonPath = path.join(
-			this.workspaceRoot,
-			'pahcer',
-			'json',
-			getResultFileName(executionId),
-		);
-
-		if (!fs.existsSync(jsonPath)) {
-			throw new Error(`Execution file not found: ${jsonPath}`);
-		}
-
-		try {
-			// JSONファイルを読み込む
-			const content = fs.readFileSync(jsonPath, 'utf-8');
-			const raw = JSON.parse(content);
-
-			// commentフィールドを更新
-			raw.comment = comment;
-
-			// JSONファイルに書き戻す（インデントを保持）
-			fs.writeFileSync(jsonPath, JSON.stringify(raw, null, 2), 'utf-8');
-		} catch (e) {
-			console.error(`Failed to update comment for ${executionId}:`, e);
-			throw e;
-		}
 	}
 }

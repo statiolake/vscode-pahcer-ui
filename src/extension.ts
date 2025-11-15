@@ -6,7 +6,8 @@ import { GitAdapter } from './infrastructure/gitAdapter';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutRepository } from './infrastructure/inOutRepository';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
-import { PahcerConfigFileRepository } from './infrastructure/pahcerConfigFileRepository';
+import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository';
+import { TestCaseRepository } from './infrastructure/testCaseRepository';
 import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './presentation/controller/commands/changeSortOrderCommand';
 import { initializeCommand } from './presentation/controller/commands/initializeCommand';
@@ -40,9 +41,10 @@ interface Adapters {
 	pahcerAdapter: PahcerAdapter;
 	executionRepository: ExecutionRepository;
 	inOutRepository: InOutRepository;
-	pahcerConfigFileRepository: PahcerConfigFileRepository;
+	pahcerConfigRepository: PahcerConfigRepository;
 	gitignoreAdapter: GitignoreAdapter;
 	gitAdapter: GitAdapter;
+	testCaseRepository: TestCaseRepository;
 }
 
 /**
@@ -68,14 +70,15 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const contextAdapter = new ContextAdapter();
 	const executionRepository = new ExecutionRepository(workspaceRoot);
 	const inOutRepository = new InOutRepository(workspaceRoot);
-	const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
+	const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
 	const gitAdapter = new GitAdapter(workspaceRoot);
+	const testCaseRepository = new TestCaseRepository(workspaceRoot);
 
 	// Create slim PahcerAdapter (infrastructure-only)
-	const pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository, workspaceRoot);
+	const pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
 
-	const pahcerStatus = pahcerAdapter.checkStatus();
+	const pahcerStatus = await pahcerAdapter.checkStatus();
 
 	// Set context for viewsWelcome
 	await contextAdapter.setPahcerStatus(pahcerStatus);
@@ -86,23 +89,24 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		pahcerAdapter,
 		executionRepository,
 		inOutRepository,
-		pahcerConfigFileRepository: pahcerConfigFileRepository,
+		pahcerConfigRepository,
 		gitignoreAdapter,
 		gitAdapter,
+		testCaseRepository,
 	};
 }
 
 /**
  * ユースケースを初期化
  */
-function initializeUseCases(workspaceRoot: string, adapters: Adapters): UseCases {
+function initializeUseCases(adapters: Adapters): UseCases {
 	const runPahcerUseCase = new RunPahcerUseCase(
 		adapters.pahcerAdapter,
 		adapters.gitAdapter,
 		adapters.inOutRepository,
 		adapters.executionRepository,
-		adapters.pahcerConfigFileRepository,
-		workspaceRoot,
+		adapters.testCaseRepository,
+		adapters.pahcerConfigRepository,
 	);
 
 	return {
@@ -154,7 +158,7 @@ async function registerTreeView(
 	controllers: Controllers,
 	adapters: Adapters,
 ): Promise<vscode.TreeView<unknown>> {
-	const pahcerStatus = adapters.pahcerAdapter.checkStatus();
+	const pahcerStatus = await adapters.pahcerAdapter.checkStatus();
 
 	const treeView = vscode.window.createTreeView('pahcerResults', {
 		treeDataProvider: controllers.treeViewController,
@@ -298,7 +302,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const adapters = await initializeAdapters(workspaceRoot);
 
 	// Step 3: Initialize all use cases
-	const useCases = initializeUseCases(workspaceRoot, adapters);
+	const useCases = initializeUseCases(adapters);
 
 	// Step 4: Initialize all controllers
 	const controllers = initializeControllers(context, workspaceRoot);

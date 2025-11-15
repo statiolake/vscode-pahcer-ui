@@ -26,7 +26,9 @@ export function addCommentCommand(
 
 		// Update comment in pahcer's JSON file
 		try {
-			await executionRepository.updateExecutionComment(item.executionId, comment);
+			const execution = await executionRepository.get(item.executionId);
+			execution.comment = comment;
+			await executionRepository.save(execution);
 
 			// Refresh tree view
 			treeViewController.refresh();

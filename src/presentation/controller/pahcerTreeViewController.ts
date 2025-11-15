@@ -18,7 +18,6 @@ import type {
 import { sortExecutionsForSeed, sortTestCases } from '../../domain/services/sortingService';
 import { ExecutionRepository } from '../../infrastructure/executionRepository';
 import { PahcerAdapter, PahcerStatus } from '../../infrastructure/pahcerAdapter';
-import { PahcerConfigFileRepository } from '../../infrastructure/pahcerConfigFileRepository';
 import { PahcerConfigRepository } from '../../infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
 import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
@@ -65,11 +64,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	private cachedTestCases?: TestCase[];
 
 	constructor(workspaceRoot: string) {
-		const pahcerConfigFileRepository = new PahcerConfigFileRepository(workspaceRoot);
-		this.pahcerAdapter = new PahcerAdapter(pahcerConfigFileRepository, workspaceRoot);
+		const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
+		this.pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
-		this.pahcerConfigRepository = new PahcerConfigRepository(pahcerConfigFileRepository);
+		this.pahcerConfigRepository = pahcerConfigRepository;
 		this.treeItemBuilder = new TreeItemBuilder();
 	}
 
@@ -164,7 +163,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 */
 	async getChildren(element?: PahcerTreeItem): Promise<PahcerTreeItem[]> {
 		// Check pahcer status
-		const status = this.pahcerAdapter.checkStatus();
+		const status = await this.pahcerAdapter.checkStatus();
 
 		// If not ready, return empty array to show welcome view
 		if (status !== PahcerStatus.Ready) {
@@ -215,9 +214,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	 */
 	private async getExecutions(): Promise<PahcerTreeItem[]> {
 		// Load executions and test cases
-		const executions = await this.executionRepository.loadLatestExecutions();
+		const executions = await this.executionRepository.getAll();
 		const testCases = await this.testCaseRepository.loadAllTestCases();
-		const settings = await this.pahcerConfigRepository.loadConfig();
+		const config = await this.pahcerConfigRepository.get('normal');
 
 		if (executions.length === 0) {
 			const item = new PahcerTreeItem(
@@ -229,14 +228,14 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		}
 
 		// Calculate best scores
-		const bestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
+		const bestScores = calculateBestScoresFromTestCases(testCases, config.objective);
 
 		// Aggregate by execution
 		const executionStatsList = aggregateByExecution(
 			executions,
 			testCases,
 			bestScores,
-			settings.objective,
+			config.objective,
 		);
 
 		// Cache for reuse
@@ -279,8 +278,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		// Ensure bestScores are loaded
 		if (!this.cachedBestScores) {
 			const testCases = await this.testCaseRepository.loadAllTestCases();
-			const settings = await this.pahcerConfigRepository.loadConfig();
-			this.cachedBestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
+			const config = await this.pahcerConfigRepository.get('normal');
+			this.cachedBestScores = calculateBestScoresFromTestCases(testCases, config.objective);
 		}
 
 		// Summary
@@ -295,11 +294,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
 		// Calculate relative scores for each test case
 		const relativeScores = new Map<number, number>();
-		const settings = await this.pahcerConfigRepository.loadConfig();
+		const config = await this.pahcerConfigRepository.get('normal');
 		for (const testCase of executionStats.testCases) {
 			const bestScore = this.cachedBestScores.get(testCase.seed);
 			if (bestScore !== undefined && testCase.score > 0) {
-				if (settings.objective === 'max') {
+				if (config.objective === 'max') {
 					relativeScores.set(testCase.seed, (testCase.score / bestScore) * 100);
 				} else {
 					relativeScores.set(testCase.seed, (bestScore / testCase.score) * 100);
@@ -356,8 +355,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		}
 
 		// Calculate best scores and seed stats
-		const settings = await this.pahcerConfigRepository.loadConfig();
-		const bestScores = calculateBestScoresFromTestCases(testCases, settings.objective);
+		const config = await this.pahcerConfigRepository.get('normal');
+		const bestScores = calculateBestScoresFromTestCases(testCases, config.objective);
 		const statsMap = calculateSeedStats(testCases, bestScores);
 
 		// Cache for reuse
@@ -391,14 +390,16 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 		if (!this.cachedTestCases) {
 			this.cachedTestCases = await this.testCaseRepository.loadAllTestCases();
 		}
-		const executions = await this.executionRepository.loadLatestExecutions();
-		const settings = await this.pahcerConfigRepository.loadConfig();
+		const executions = (await this.executionRepository.getAll()).sort((a, b) =>
+			b.startTime.diff(a.startTime),
+		);
+		const config = await this.pahcerConfigRepository.get('normal');
 
 		// Ensure bestScores are calculated
 		if (!this.cachedBestScores) {
 			this.cachedBestScores = calculateBestScoresFromTestCases(
 				this.cachedTestCases,
-				settings.objective,
+				config.objective,
 			);
 		}
 
@@ -431,7 +432,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 			const bestScore = this.cachedBestScores.get(seed);
 			let relativeScore = 0;
 			if (bestScore !== undefined && executionData.testCase.score > 0) {
-				if (settings.objective === 'max') {
+				if (config.objective === 'max') {
 					relativeScore = (executionData.testCase.score / bestScore) * 100;
 				} else {
 					relativeScore = (bestScore / executionData.testCase.score) * 100;
@@ -474,7 +475,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 	async getCheckedResultsWithCommitHash(): Promise<Execution[]> {
 		const results: Execution[] = [];
 		for (const executionId of this.checkedResults) {
-			const execution = await this.executionRepository.loadExecution(executionId);
+			const execution = await this.executionRepository.get(executionId);
 			if (execution?.commitHash) {
 				results.push(execution);
 			}

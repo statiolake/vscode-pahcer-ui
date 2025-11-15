@@ -32,138 +32,58 @@ pahcer は AtCoder Heuristic Contest (AHC) のローカルテスト並列実行�
 ### アーキテクチャ概要
 
 ```
-┌─────────────────────────────────────┐
-│  コントローラ層（Controller Layer）  │  ← WebViewとのIPC、VSCode UIの制御
-│  - TreeViewコントローラ              │
-│  - WebViewコントローラ               │
-│  - コマンドハンドラ                  │
-└─────────────────────────────────────┘
-          ↓ 依存
-┌─────────────────────────────────────┐
-│   ドメイン層（Domain Layer）         │  ← 純粋なビジネスロジック、モデル定義
-│  - モデル定義                        │
-│  - 純粋関数                          │
-└─────────────────────────────────────┘
-          ↑ データ取得
-┌─────────────────────────────────────┐
-│  インフラ層（Infrastructure Layer）  │  ← ファイルI/O、外部システム連携
-│  - ファイルシステム操作              │
-│  - pahcer JSONリーダー               │
-│  - 設定の永続化                      │
-└─────────────────────────────────────┘
-
-┌─────────────────────────────────────┐
-│      ビュー層（View Layer）          │  ← UI構築（TreeItem、WebView UI）
-│  - TreeItem生成                      │
-│  - WebView React コンポーネント      │
-└─────────────────────────────────────┘
-          ↑ 使用される
-        コントローラ層
+┌────────────────────────────────────────┐
+│  プレゼンテーション層(Presentation)    │  ← VSCode UI制御、ユーザー入力処理
+│  └─ Controller & View                  │
+└────────────────────────────────────────┘
+                  ↓ 依存
+┌────────────────────────────────────────┐
+│  アプリケーション層(Application)       │  ← ユースケース、ワークフロー
+│  └─ Use Cases (RunPahcerUseCase等)    │
+└────────────────────────────────────────┘
+        ↓ 依存（リポジトリ・サービス使用）
+  ┌─────────────────────┬───────────────┐
+  ↓                     ↓               ↓
+┌────────────────┐ ┌─────────────┐ ┌────────────┐
+│ インフラ層     │ │ ドメイン層  │ │(Adapter)   │
+│ (Repository)   │ │ (Service)   │ │ (外部API)  │
+└────────────────┘ └─────────────┘ └────────────┘
+      ドメインモデルを返す  ←  純粋ビジネスロジック
 ```
 
-### 依存関係のルール
+**依存関係の流れ**:
+```
+Presentation → Application → (Infrastructure + Domain)
+                                    ↓
+                             Domain Models
+```
 
-**重要**: 依存関係は常に一方向です。
-
-- ✅ **コントローラ層 → ドメイン層**: OK
-- ✅ **コントローラ層 → インフラ層**: OK
-- ✅ **コントローラ層 → ビュー層**: OK
-- ✅ **インフラ層 → ドメイン層**: OK（インフラ読み出し後はドメインモデルを返却）
-- ✅ **ビュー層 → ドメイン層**: OK（UI構築にドメインモデルを使用）
-- ❌ **ドメイン層 → インフラ層**: NG（ドメインは純粋に保つ）
-- ❌ **ドメイン層 → コントローラ層**: NG
-- ❌ **ドメイン層 → ビュー層**: NG
-- ❌ **インフラ層 → コントローラ層**: NG
-- ❌ **インフラ層 → ビュー層**: NG
-- ❌ **ビュー層 → インフラ層**: NG
-- ❌ **ビュー層 → コントローラ層**: NG
 
 ---
 
 ## ディレクトリ構造
 
 ```
-.
-├── pahcer/
-│   └── json/
-│       └── result_*.json           # pahcer が出力するテスト実行結果
-├── tools/
-│   ├── in/                         # 入力ファイル
-│   ├── out/                        # 出力ファイル（最新実行）
-│   └── err/                        # エラーファイル（最新実行）
-├── .pahcer-ui/                     # この拡張機能が作成するディレクトリ
-│   ├── config.json                 # 比較モード設定
-│   ├── results/                    # 実行結果の保存先
-│   │   └── result_${id}/
-│   │       ├── out/                # 各実行の出力ファイルのコピー
-│   │       ├── err/                # 各実行のエラーファイルのコピー
-│   │       └── meta.json           # コメント等のメタ情報
-│   └── visualizer/                 # ビジュアライザのダウンロード先
-│       ├── *.html                  # ビジュアライザHTML
-│       ├── *.js                    # JavaScript
-│       ├── *.css                   # CSS
-│       └── *_bg.wasm               # WASM
-└── src/
-    ├── domain/                     # ドメイン層
-    │   ├── models/                 # ドメインモデル
-    │   │   ├── pahcerResult.ts     # 実行結果モデル
-    │   │   ├── testCase.ts         # テストケースモデル
-    │   │   ├── resultMetadata.ts   # メタデータモデル
-    │   │   ├── comparisonConfig.ts # 比較設定モデル
-    │   │   └── visualizerConfig.ts # ビジュアライザ設定モデル
-    │   ├── valueObjects/           # 値オブジェクト
-    │   │   ├── resultId.ts         # 実行結果ID
-    │   │   ├── seed.ts             # Seed番号
-    │   │   ├── score.ts            # スコア
-    │   │   └── executionTime.ts    # 実行時間
-    │   └── services/               # ドメインサービス（純粋関数）
-    │       ├── groupingService.ts  # グルーピングロジック
-    │       ├── sortingService.ts   # ソートロジック
-    │       ├── aggregationService.ts # 集計ロジック
-    │       └── expressionEvaluator.ts # 数式評価
-    │
-    ├── infrastructure/             # インフラ層（フラット構造）
-    │   ├── pahcerResultRepository.ts # JSON読み込み
-    │   ├── inputFileRepository.ts  # 入力ファイル読み込み
-    │   ├── outputFileRepository.ts # 出力ファイル読み込み
-    │   ├── metadataRepository.ts   # メタデータ読み書き
-    │   ├── configRepository.ts     # 比較設定の永続化
-    │   ├── fileWatcher.ts          # ファイル監視
-    │   ├── visualizerDownloader.ts # HTML/依存ファイルダウンロード
-    │   ├── visualizerCache.ts      # キャッシュ管理
-    │   ├── workspaceAdapter.ts     # ワークスペース情報取得
-    │   ├── configAdapter.ts        # VSCode設定読み書き
-    │   └── terminalAdapter.ts      # ターミナル操作
-    │
-    ├── controller/                 # コントローラ層
-    │   ├── commands/               # コマンドハンドラ
-    │   │   ├── runCommand.ts       # pahcer run コマンド
-    │   │   ├── refreshCommand.ts   # リフレッシュコマンド
-    │   │   ├── switchModeCommand.ts # モード切り替えコマンド
-    │   │   ├── addCommentCommand.ts # コメント追加コマンド
-    │   │   └── changeSortOrderCommand.ts # ソート順変更コマンド
-    │   ├── pahcerTreeViewController.ts # TreeViewのメインコントローラ
-    │   ├── visualizerViewController.ts # ビジュアライザWebViewコントローラ
-    │   └── comparisonViewController.ts # 比較WebViewコントローラ
-    │
-    ├── view/                       # ビュー層（UI構築）
-    │   ├── treeView/               # TreeView UI構築
-    │   │   └── treeItemBuilder.ts  # TreeItem生成
-    │   └── webview/                # WebView内UI
-    │       ├── comparison/         # 比較ビュー
-    │       │   ├── ComparisonView.tsx
-    │       │   ├── components/
-    │       │   │   ├── ComparisonChart.tsx
-    │       │   │   ├── ControlPanel.tsx
-    │       │   │   └── StatsTable.tsx
-    │       │   ├── types.ts
-    │       │   └── index.tsx
-    │       └── shared/             # 共有ユーティリティ
-    │           └── utils/
-    │               ├── vscode.ts   # VSCode API取得
-    │               └── expression.ts # 数式評価
-    │
-    └── extension.ts                # エントリポイント（コマンド登録のみ）
+src/
+├── domain/                         # ドメイン層（純粋なビジネスロジック）
+│   ├── models/                     # ドメインモデル定義
+│   ├── valueObjects/               # 値オブジェクト
+│   └── services/                   # ドメインサービス（純粋関数）
+│
+├── infrastructure/                 # インフラ層（ファイルI/O、外部API連携）
+│   └── （リポジトリ・アダプターのフラット構造）
+│
+├── application/                    # アプリケーション層（ユースケース・ワークフロー）
+│   └── （ユースケースクラス）
+│
+├── presentation/                   # プレゼンテーション層（UI制御）
+│   ├── controller/                 # コマンドハンドラ・UIコントローラ
+│   │   └── commands/               # コマンドハンドラ
+│   └── view/                       # UI構築（TreeItem、WebView）
+│       ├── treeView/               # TreeView UI構築
+│       └── webview/                # WebView内UI
+│
+└── extension.ts                    # エントリポイント
 ```
 
 ---
@@ -172,106 +92,235 @@ pahcer は AtCoder Heuristic Contest (AHC) のローカルテスト並列実行�
 
 ### 1. ドメイン層（Domain Layer）
 
-**責務**: ビジネスロジックとドメインモデルの定義
+**責務**: ビジネスロジックとドメインモデルを定義し、エンティティとして存在
 
-**特徴**:
-- 外部依存を一切持たない（`node:fs`, `vscode`, `node:https` 等を使用しない）
-- 純粋関数のみで構成
-- インフラ層からデータを受け取り、処理結果を返す
+**✅ すべき事（SHOULD DO）**:
+- ドメインモデル（クラス、インターフェース）を定義
+- ビジネス規則と検証ロジックを実装（コンストラクタで不変条件を検証）
+- ドメインサービス（純粋関数）を提供：入力→出力が決定的（副作用なし）
+- 値オブジェクトで型安全性を確保
+- ドメインモデルで `path`、`id` など識別に必要な情報を持つ
 
-**ファイル命名規則**: camelCase（例: `pahcerResult.ts`, `groupingService.ts`）
+**❌ してはいけない事（SHOULD NOT DO）**:
+- `node:fs`、`node:http`、`vscode` など外部ライブラリをインポート
+- ファイルI/O、ネットワーク通信、データベースアクセス
+- インフラ層に依存（import すること自体が違反）
+- プレゼンテーション層の詳細（TreeItem、UIコンポーネント）を知る
+
+**ファイル命名規則**: camelCase（例: `pahcerConfig.ts`, `sortingService.ts`）
 
 **例**:
 ```typescript
-// ドメインモデル
-export interface PahcerResult {
-	startTime: string;
-	caseCount: number;
-	totalScore: number;
-	// ...
+// ドメインモデル（不変条件を検証）
+export class PahcerConfig {
+	constructor(
+		private _id: string,
+		private _path: string,
+		private _startSeed: number,
+		private _endSeed: number,
+	) {
+		if (this._startSeed < 0) throw new Error('startSeed must be non-negative');
+		if (this._endSeed < this._startSeed) throw new Error('endSeed must be >= startSeed');
+	}
+	get path(): string { return this._path; }
+	get startSeed(): number { return this._startSeed; }
+	set startSeed(value: number) { this._startSeed = value; }
 }
 
-// 純粋関数
+// ドメインサービス（純粋関数）
 export function sortTestCases(cases: TestCase[], order: ExecutionSortOrder): TestCase[] {
-	// 外部依存なし、入力に対して決定的な出力を返す
+	// 副作用なし、入力に対して決定的な出力を返す
+	return cases.sort((a, b) => a.seed - b.seed);
 }
 ```
 
 ### 2. インフラ層（Infrastructure Layer）
 
-**責務**: 外部システムとの通信、データの永続化
+**責務**: ファイルI/O、外部API呼び出し、データを永続化・取得してドメインモデルに変換
 
-**特徴**:
-- ファイルI/O、ネットワーク通信等の副作用を持つ処理
-- ドメインモデルの型でデータを返す
-- エラーハンドリングはインフラ層で行う
-- フラット構造（サブディレクトリなし）
+**✅ すべき事（SHOULD DO）**:
+- ファイル読み書き、ネットワーク通信などの副作用を処理
+- 外部フォーマット（JSON、TOML、CSV）をドメインモデルに変換
+- ドメインモデルの型でデータを返す（ドメインに型安全性を保証）
+- エラーハンドリング（ファイルがない、フォーマットが不正など）
+- リポジトリで複数の関連ファイルをカプセル化（例：`PahcerConfigRepository` は TOML ファイルの読み書き両方を担当）
+- アダプターで外部API（pahcer CLI、Git コマンド）をラップ
 
-**ファイル命名規則**: camelCase（例: `pahcerResultRepository.ts`, `configAdapter.ts`）
+**❌ してはいけない事（SHOULD NOT DO）**:
+- ビジネスロジックを実装（ドメインに任せる）
+- ドメインロジックのない「ファイルの読み書き」だけの実装は避け、データの意味を解釈する
+- コントローラ層での直接ファイル操作（全てリポジトリ経由）
+- ドメインモデルを持たずに raw JSON/オブジェクトで返す
+- コマンド実行や file I/O の詳細をコントローラに露出させる
+
+**ファイル命名規則**: camelCase（例: `pahcerConfigRepository.ts`, `pahcerAdapter.ts`）
 
 **例**:
 ```typescript
-export class PahcerResultRepository {
-	async loadLatestResults(limit = 10): Promise<PahcerResultWithId[]> {
-		// ファイルI/Oを行い、ドメインモデルに変換して返す
+// リポジトリ：ファイル I/O とドメインモデル変換
+export class PahcerConfigRepository {
+	async get(id: 'normal' | 'temporary'): Promise<PahcerConfig> {
+		const content = await fs.readFile(this.getPath(id), 'utf-8');
+		const startSeed = this.extractStartSeed(content);
+		const endSeed = this.extractEndSeed(content);
+		return new PahcerConfig(id, path, startSeed, endSeed, 'max');
+	}
+
+	async save(config: PahcerConfig): Promise<void> {
+		let content = await fs.readFile(config.path, 'utf-8');
+		content = this.replaceStartSeed(content, config.startSeed);
+		await fs.writeFile(config.path, content, 'utf-8');
+	}
+}
+
+// アダプター：外部 CLI のラップ
+export class PahcerAdapter {
+	async run(configFile?: PahcerConfig): Promise<number | undefined> {
+		let command = 'pahcer run';
+		if (configFile) {
+			command += ` --setting-file "${configFile.path}"`;  // path は domain model から取得
+		}
+		return this.executeTask('Pahcer Run', command);
 	}
 }
 ```
 
-### 3. コントローラ層（Controller Layer）
+### 3. アプリケーション層（Application Layer）
 
-**責務**: UIとドメインロジックの橋渡し
+**責務**: ユースケース・ワークフロー全体を調整（インフラとドメインの組み合わせ）
 
-**特徴**:
-- VSCode UIとドメインロジックの橋渡し
-- WebViewとのIPC抽象化
-- インフラ層からデータを取得し、ドメインロジックで処理し、UIに表示
-- コマンドハンドラとして動作
+**✅ すべき事（SHOULD DO）**:
+- ユースケースクラス（例：`RunPahcerUseCase`）でワークフロー全体を記述
+- インフラ層（リポジトリ・アダプター）からデータ取得
+- ドメインサービスでビジネスロジック実行
+- 複数のステップを try/finally で安全に実行
+- システム仕様（「テンポラリ設定ファイルを作成→実行→削除」など）を担当
 
-**ファイル命名規則**: camelCase（例: `pahcerTreeViewController.ts`, `runCommand.ts`）
+**❌ してはいけない事（SHOULD NOT DO）**:
+- 純粋なビジネスロジックを実装（ドメインに移す）
+- ファイル I/O を直接実行（リポジトリ経由）
+- UI に依存（プレゼンテーションはアプリケーションを呼ぶ側）
+- ドメインに属すべき検証ロジックを実装
+
+**ファイル命名規則**: camelCase（例: `runPahcerUseCase.ts`）
 
 **例**:
 ```typescript
-export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerTreeItem> {
-	private resultRepository: PahcerResultRepository;
-	private configAdapter: ConfigAdapter;
-	private treeItemBuilder: TreeItemBuilder;
+// ユースケース：ワークフロー全体を調整
+export class RunPahcerUseCase {
+	async run(options?: PahcerRunOptions): Promise<void> {
+		// Step 1: ドメイン状態取得
+		let commitHash: string | null;
+		try {
+			commitHash = await this.gitAdapter.commitSourceBeforeExecution();
+		} catch (error) {
+			throw new Error(`git operation failed: ${error}`);
+		}
 
-	async getChildren(element?: PahcerTreeItem): Promise<PahcerTreeItem[]> {
-		// インフラ層からデータ取得
-		const results = await this.resultRepository.loadLatestResults(10);
+		// Step 2: テンポラリ設定管理（システム仕様）
+		let tempConfig: PahcerConfig | undefined;
+		if (options?.startSeed !== undefined) {
+			tempConfig = await this.pahcerConfigRepository.get('temporary');
+			tempConfig.startSeed = options.startSeed;  // domain model を直接更新
+			await this.pahcerConfigRepository.save(tempConfig);
+		}
 
-		// ドメインロジックで処理
-		const grouped = groupByExecution(results);
-
-		// ビュー層でUI構築
-		return grouped.map(g => this.treeItemBuilder.buildExecutionItem(g));
+		try {
+			// Step 3: ドメインモデルを渡す（string path ではなく）
+			await this.pahcerAdapter.run(options, tempConfig);
+			// Step 4: 結果を処理
+			const allExecutions = await this.executionRepository.getAll();
+			// ... rest of workflow
+		} finally {
+			// Step 5: テンポラリファイル削除（システム仕様）
+			if (tempConfig) {
+				await this.pahcerConfigRepository.delete('temporary');
+			}
+		}
 	}
 }
 ```
 
-### 4. ビュー層（View Layer）
+### 4. プレゼンテーション層（Presentation Layer）
 
-**責務**: UI構築に専念
+**責座**: ユーザー入力を受け取り、アプリケーション層を呼び出し、結果をUIに反映
 
-**特徴**:
-- UI構築のみ（TreeItem生成、React コンポーネント）
-- コントローラ層から呼び出される
-- ドメインやインフラに依存しない
+**✅ すべき事（SHOULD DO）**:
+- コマンドハンドラでユーザー操作（クリック、入力）を捕捉
+- アプリケーション層（ユースケース）を呼び出し
+- インフラ層からデータ取得し、UI に反映
+- TreeItem や React コンポーネントを生成・更新
+- VSCode API（ウィンドウ、メッセージボックス）とのやり取り
+
+**❌ してはいけない事（SHOULD NOT DO）**:
+- ビジネスロジックを実装（ドメインに移す）
+- ファイル I/O を直接実行（インフラ経由）
+- ドメイン値オブジェクトを作成・変更（ドメイン層に任せる）
+- アプリケーション層をスキップしてインフラ直呼び出し（重要な制御フローをスキップする）
 
 **ファイル命名規則**:
-- TypeScript: camelCase（例: `treeItemBuilder.ts`）
+- TypeScript: camelCase（例: `pahcerTreeViewController.ts`, `runCommand.ts`）
 - React: PascalCase（例: `ComparisonView.tsx`）
 
 **例**:
 ```typescript
+// コマンドハンドラ
+export function runCommand(
+	runPahcerUseCase: RunPahcerUseCase,
+): () => Promise<void> {
+	return async () => {
+		try {
+			// アプリケーション層を呼び出し
+			await runPahcerUseCase.run();
+			vscode.window.showInformationMessage('Pahcer execution completed');
+		} catch (error) {
+			vscode.window.showErrorMessage(`Pahcer run failed: ${error}`);
+		}
+	};
+}
+
+// TreeViewController
+export class PahcerTreeViewController {
+	async getChildren(): Promise<PahcerTreeItem[]> {
+		// インフラ層からデータ取得
+		const results = await this.executionRepository.getAll();
+
+		// ドメインサービス（純粋関数）で処理
+		const sorted = sortExecutions(results, this.sortOrder);
+
+		// ビュー層で UI 構築
+		return sorted.map(r => this.treeItemBuilder.build(r));
+	}
+}
+
+// ビュー層（UI構築のみ）
 export class TreeItemBuilder {
-	buildExecutionItem(item: PahcerResultWithId, comment: string): vscode.TreeItem {
-		// VSCode TreeItemを構築するだけ
-		// ビジネスロジックは含まない
+	build(execution: Execution): vscode.TreeItem {
+		const item = new vscode.TreeItem(
+			`[${execution.caseCount}] Score: ${execution.totalScore}`,
+		);
+		item.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+		return item;
 	}
 }
 ```
+
+### 依存関係のルール（４層モデル）
+
+```
+Presentation → Application → Infrastructure + Domain
+                               ↓
+                        Domain Models (type-safe)
+```
+
+- ✅ **Presentation → Application**: OK
+- ✅ **Application → Infrastructure**: OK（リポジトリ・アダプター経由）
+- ✅ **Application → Domain**: OK（ドメインサービス、モデル）
+- ✅ **Infrastructure → Domain**: OK（ドメインモデルを返す）
+- ✅ **Presentation → Infrastructure**: OK（データ表示のため）
+- ❌ **Domain → 他の層**: NG（ドメインは純粋に保つ）
+- ❌ **Infrastructure → Presentation**: NG
+- ❌ **Application を経由せず直接 Infrastructure を呼び出す**: NG（ワークフローが分散）
 
 ---
 

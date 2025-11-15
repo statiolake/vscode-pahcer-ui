@@ -1,3 +1,5 @@
+import type { Dayjs } from 'dayjs';
+
 /**
  * テスト実行のエンティティ（メタデータのみ）
  * 実行ごとの集計情報は ExecutionAggregationService で計算
@@ -6,7 +8,7 @@ export interface Execution {
 	/** 実行ID（例: "20250111_123456"） */
 	id: string;
 	/** 開始時刻 */
-	startTime: string;
+	startTime: Dayjs;
 	/** コメント */
 	comment: string;
 	/** タグ名 */
@@ -19,26 +21,14 @@ export interface Execution {
  * 実行結果の短いタイトル（MM/DD HH:MM）
  */
 export function getShortTitle(execution: Execution): string {
-	const date = new Date(execution.startTime);
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hour = String(date.getHours()).padStart(2, '0');
-	const minute = String(date.getMinutes()).padStart(2, '0');
-	return `${month}/${day} ${hour}:${minute}`;
+	return execution.startTime.format('MM/DD HH:mm');
 }
 
 /**
  * 実行結果の長いタイトル（YYYY/MM/DD HH:MM:SS）
  */
 export function getLongTitle(execution: Execution): string {
-	const date = new Date(execution.startTime);
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hour = String(date.getHours()).padStart(2, '0');
-	const minute = String(date.getMinutes()).padStart(2, '0');
-	const second = String(date.getSeconds()).padStart(2, '0');
-	return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+	return execution.startTime.format('YYYY/MM/DD HH:mm:ss');
 }
 
 /**

@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import * as vscode from 'vscode';
-import type { PahcerConfigFileRepository } from './pahcerConfigFileRepository';
+import type { PahcerConfig } from '../domain/models/configFile';
+import type { PahcerConfigRepository } from './pahcerConfigRepository';
 
 /**
  * pahcerのインストール状態
@@ -29,26 +30,27 @@ export interface PahcerRunOptions {
  * 責務:
  * - pahcer CLIコマンドの実行
  * - pahcerのインストール・初期化状態の確認
+ * - テンポラリ設定ファイルの作成・管理（pahcer実行時のみ）
  *
  * 注：ビジネスロジック（Git統合、ファイルコピー、解析）はRunPahcerUseCaseに委譲
  */
 export class PahcerAdapter {
 	constructor(
-		private pahcerConfigFileRepository: PahcerConfigFileRepository,
+		private pahcerConfigRepository: PahcerConfigRepository,
 		private workspaceRoot: string,
 	) {}
 
 	/**
 	 * pahcerのインストール・初期化状態を確認
 	 */
-	checkStatus(): PahcerStatus {
+	async checkStatus(): Promise<PahcerStatus> {
 		// Check if pahcer is installed
 		if (!this.isPahcerInstalled()) {
 			return PahcerStatus.NotInstalled;
 		}
 
 		// Check if pahcer is initialized (pahcer_config.toml exists)
-		if (!this.isInitialized()) {
+		if (!(await this.isInitialized())) {
 			return PahcerStatus.NotInitialized;
 		}
 
@@ -58,17 +60,14 @@ export class PahcerAdapter {
 	/**
 	 * pahcer run コマンドを実行（コマンド実行のみ）
 	 * @param options 実行オプション
-	 * @param tempConfigPath テンポラリ設定ファイルパス（あれば使用）
+	 * @param configFile テンポラリ設定ファイル（あれば使用）
 	 * @returns 終了コード
 	 */
-	async run(
-		options?: PahcerRunOptions,
-		tempConfigPath?: string | null,
-	): Promise<number | undefined> {
+	async run(options?: PahcerRunOptions, configFile?: PahcerConfig): Promise<number | undefined> {
 		// Step 1: コマンドラインを組み立てる
 		let command = 'pahcer run';
-		if (tempConfigPath) {
-			command += ` --setting-file "${tempConfigPath}"`;
+		if (configFile) {
+			command += ` --setting-file "${configFile.path}"`;
 		}
 		if (options?.freezeBestScores) {
 			command += ' --freeze-best-scores';
@@ -153,9 +152,14 @@ export class PahcerAdapter {
 	}
 
 	/**
-	 * pahcerが初期化されているかチェック（pahcer_config.tomlの存在確認）
+	 * pahcerが初期化されているかチェック（pahcer_config.tomlが正常に読み込めるか確認）
 	 */
-	private isInitialized(): boolean {
-		return this.pahcerConfigFileRepository.exists();
+	private async isInitialized(): Promise<boolean> {
+		try {
+			await this.pahcerConfigRepository.get('normal');
+			return true;
+		} catch {
+			return false;
+		}
 	}
 }

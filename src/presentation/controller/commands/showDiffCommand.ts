@@ -19,9 +19,7 @@ export function showDiffCommand(
 		}
 
 		// Sort by startTime to ensure older is left, newer is right
-		const sorted = checkedExecutions.sort(
-			(a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-		);
+		const sorted = checkedExecutions.sort((a, b) => a.startTime.valueOf() - b.startTime.valueOf());
 
 		const [older, newer] = sorted;
 

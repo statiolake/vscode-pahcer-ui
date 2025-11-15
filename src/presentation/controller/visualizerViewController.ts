@@ -113,9 +113,9 @@ export class VisualizerViewController {
 		// Get execution time from result file if resultId is provided
 		let executionTime = '';
 		if (resultId) {
-			const result = await this.executionRepository.loadExecution(resultId);
+			const result = await this.executionRepository.get(resultId);
 			if (result) {
-				executionTime = ` (${new Date(result.startTime).toLocaleString()})`;
+				executionTime = ` (${result.startTime.toDate().toLocaleString()})`;
 			}
 		}
 

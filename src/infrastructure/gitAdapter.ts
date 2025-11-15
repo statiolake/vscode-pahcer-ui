@@ -67,7 +67,6 @@ export class GitAdapter {
 		if (gitIntegration === null) {
 			// Gitリポジトリでない場合は無効化
 			if (!this.isGitRepository()) {
-				await config.update('gitIntegration', false, vscode.ConfigurationTarget.Workspace);
 				return null;
 			}
 
