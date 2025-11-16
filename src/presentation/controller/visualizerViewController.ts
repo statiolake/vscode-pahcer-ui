@@ -158,6 +158,7 @@ export class VisualizerViewController {
 				vscode.ViewColumn.Active,
 				{
 					enableScripts: true,
+					retainContextWhenHidden: true,
 					localResourceRoots: [vscode.Uri.file(this.visualizerCache.getVisualizerDir())],
 				},
 			);
