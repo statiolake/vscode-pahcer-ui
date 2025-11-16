@@ -125,7 +125,7 @@ export class VisualizerViewController {
 			throw new Error('resultId is required to load archived test case files');
 		}
 
-		const input = await this.inOutFilesAdapter.loadArchived('in', { executionId: resultId, seed });
+		const input = await this.inOutFilesAdapter.loadIn(seed);
 		const output = await this.inOutFilesAdapter.loadArchived('out', {
 			executionId: resultId,
 			seed,

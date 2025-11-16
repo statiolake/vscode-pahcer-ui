@@ -84,7 +84,7 @@ export class RunPahcerUseCase {
 		const latestExecution = allExecutions[0];
 
 		// Step 5: 出力ファイルをコピー
-		await this.inOutFilesAdapter.archiveFiles(latestExecution.id);
+		await this.inOutFilesAdapter.archiveOutputs(latestExecution.id);
 
 		// Step 6: 実行結果を解析してメタデータを保存
 		await this.analyzeExecution(latestExecution.id);
