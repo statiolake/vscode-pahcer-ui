@@ -4,9 +4,9 @@ import type { VisualizerViewController } from '../visualizerViewController';
  * ビジュアライザ表示コマンドハンドラ
  */
 export function showVisualizerCommand(
-	visualizerViewController: VisualizerViewController,
+  visualizerViewController: VisualizerViewController,
 ): (seed: number, executionId?: string) => Promise<void> {
-	return async (seed: number, executionId?: string) => {
-		await visualizerViewController.showVisualizerForCase(seed, executionId);
-	};
+  return async (seed: number, executionId?: string) => {
+    await visualizerViewController.showVisualizerForCase(seed, executionId);
+  };
 }

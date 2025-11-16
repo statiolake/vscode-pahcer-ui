@@ -11,60 +11,60 @@ import type { PahcerStatus } from './pahcerAdapter';
  * - 変更時の影響範囲を限定
  */
 export class ContextAdapter {
-	/**
-	 * pahcer のステータスを設定
-	 * package.json の when 句で使用: `pahcer.status == 'ready'`
-	 */
-	async setPahcerStatus(status: PahcerStatus): Promise<void> {
-		const statusString = this.pahcerStatusToString(status);
-		await vscode.commands.executeCommand('setContext', 'pahcer.status', statusString);
-	}
+  /**
+   * pahcer のステータスを設定
+   * package.json の when 句で使用: `pahcer.status == 'ready'`
+   */
+  async setPahcerStatus(status: PahcerStatus): Promise<void> {
+    const statusString = this.pahcerStatusToString(status);
+    await vscode.commands.executeCommand('setContext', 'pahcer.status', statusString);
+  }
 
-	/**
-	 * 初期化ビューの表示状態を設定
-	 * package.json の when 句で使用: `pahcer.showInitialization`
-	 */
-	async setShowInitialization(show: boolean): Promise<void> {
-		await vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', show);
-	}
+  /**
+   * 初期化ビューの表示状態を設定
+   * package.json の when 句で使用: `pahcer.showInitialization`
+   */
+  async setShowInitialization(show: boolean): Promise<void> {
+    await vscode.commands.executeCommand('setContext', 'pahcer.showInitialization', show);
+  }
 
-	/**
-	 * 実行オプションビューの表示状態を設定
-	 * package.json の when 句で使用: `pahcer.showRunOptions`
-	 */
-	async setShowRunOptions(show: boolean): Promise<void> {
-		await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', show);
-	}
+  /**
+   * 実行オプションビューの表示状態を設定
+   * package.json の when 句で使用: `pahcer.showRunOptions`
+   */
+  async setShowRunOptions(show: boolean): Promise<void> {
+    await vscode.commands.executeCommand('setContext', 'pahcer.showRunOptions', show);
+  }
 
-	/**
-	 * グルーピングモードを設定
-	 * package.json の when 句で使用: `pahcer.groupingMode == 'byExecution'`
-	 */
-	async setGroupingMode(mode: GroupingMode): Promise<void> {
-		await vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
-	}
+  /**
+   * グルーピングモードを設定
+   * package.json の when 句で使用: `pahcer.groupingMode == 'byExecution'`
+   */
+  async setGroupingMode(mode: GroupingMode): Promise<void> {
+    await vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
+  }
 
-	/**
-	 * 差分表示コマンドの有効/無効を設定
-	 * package.json の when 句で使用: `pahcer.canShowDiff`
-	 */
-	async setCanShowDiff(canShow: boolean): Promise<void> {
-		await vscode.commands.executeCommand('setContext', 'pahcer.canShowDiff', canShow);
-	}
+  /**
+   * 差分表示コマンドの有効/無効を設定
+   * package.json の when 句で使用: `pahcer.canShowDiff`
+   */
+  async setCanShowDiff(canShow: boolean): Promise<void> {
+    await vscode.commands.executeCommand('setContext', 'pahcer.canShowDiff', canShow);
+  }
 
-	/**
-	 * PahcerStatus を文字列に変換
-	 */
-	private pahcerStatusToString(status: PahcerStatus): string {
-		switch (status) {
-			case 0: // PahcerStatus.NotInstalled
-				return 'notInstalled';
-			case 1: // PahcerStatus.NotInitialized
-				return 'notInitialized';
-			case 2: // PahcerStatus.Ready
-				return 'ready';
-			default:
-				return 'unknown';
-		}
-	}
+  /**
+   * PahcerStatus を文字列に変換
+   */
+  private pahcerStatusToString(status: PahcerStatus): string {
+    switch (status) {
+      case 0: // PahcerStatus.NotInstalled
+        return 'notInstalled';
+      case 1: // PahcerStatus.NotInitialized
+        return 'notInitialized';
+      case 2: // PahcerStatus.Ready
+        return 'ready';
+      default:
+        return 'unknown';
+    }
+  }
 }

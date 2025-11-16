@@ -8,265 +8,265 @@ import { VisualizerDownloader } from '../../infrastructure/visualizerDownloader'
  * ビジュアライザのWebViewコントローラ
  */
 export class VisualizerViewController {
-	private static currentPanel: vscode.WebviewPanel | undefined;
+  private static currentPanel: vscode.WebviewPanel | undefined;
 
-	private inOutFilesAdapter: InOutFilesAdapter;
-	private executionRepository: ExecutionRepository;
-	private visualizerDownloader: VisualizerDownloader;
-	private visualizerCache: VisualizerCache;
-	private readonly CONFIG_SECTION = 'pahcer-ui';
+  private inOutFilesAdapter: InOutFilesAdapter;
+  private executionRepository: ExecutionRepository;
+  private visualizerDownloader: VisualizerDownloader;
+  private visualizerCache: VisualizerCache;
+  private readonly CONFIG_SECTION = 'pahcer-ui';
 
-	constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
-		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
+  constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
+    const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
 
-		this.inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-		this.executionRepository = new ExecutionRepository(workspaceRoot);
-		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
-		this.visualizerCache = new VisualizerCache(visualizerDir);
-	}
+    this.inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
+    this.executionRepository = new ExecutionRepository(workspaceRoot);
+    this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
+    this.visualizerCache = new VisualizerCache(visualizerDir);
+  }
 
-	/**
-	 * ビジュアライザを表示
-	 */
-	async showVisualizerForCase(seed: number, resultId?: string): Promise<void> {
-		console.log(
-			`[VisualizerViewController] Showing visualizer for seed: ${seed}, resultId: ${resultId}`,
-		);
+  /**
+   * ビジュアライザを表示
+   */
+  async showVisualizerForCase(seed: number, resultId?: string): Promise<void> {
+    console.log(
+      `[VisualizerViewController] Showing visualizer for seed: ${seed}, resultId: ${resultId}`,
+    );
 
-		// Check if visualizer is already downloaded
-		let htmlFileName = this.visualizerCache.getCachedHtmlFileName();
+    // Check if visualizer is already downloaded
+    let htmlFileName = this.visualizerCache.getCachedHtmlFileName();
 
-		// Get visualizer URL if HTML file not found
-		if (!htmlFileName) {
-			console.log(
-				`[VisualizerViewController] No cached visualizer found, requesting URL from user`,
-			);
+    // Get visualizer URL if HTML file not found
+    if (!htmlFileName) {
+      console.log(
+        `[VisualizerViewController] No cached visualizer found, requesting URL from user`,
+      );
 
-			const url = await vscode.window.showInputBox({
-				prompt: 'AtCoder公式ビジュアライザのURLを入力してください',
-				placeHolder: 'https://img.atcoder.jp/ahc054/YDAxDRZr_v2.html?lang=ja',
-				validateInput: (value) => {
-					if (!value) {
-						return 'URLを入力してください';
-					}
-					if (!value.startsWith('https://img.atcoder.jp/')) {
-						return 'AtCoderの公式URLを入力してください';
-					}
-					const urlWithoutQuery = value.split('?')[0];
-					if (!urlWithoutQuery.endsWith('.html')) {
-						return 'HTMLファイルのURLを入力してください';
-					}
-					return null;
-				},
-			});
+      const url = await vscode.window.showInputBox({
+        prompt: 'AtCoder公式ビジュアライザのURLを入力してください',
+        placeHolder: 'https://img.atcoder.jp/ahc054/YDAxDRZr_v2.html?lang=ja',
+        validateInput: (value) => {
+          if (!value) {
+            return 'URLを入力してください';
+          }
+          if (!value.startsWith('https://img.atcoder.jp/')) {
+            return 'AtCoderの公式URLを入力してください';
+          }
+          const urlWithoutQuery = value.split('?')[0];
+          if (!urlWithoutQuery.endsWith('.html')) {
+            return 'HTMLファイルのURLを入力してください';
+          }
+          return null;
+        },
+      });
 
-			if (!url) {
-				console.log(`[VisualizerViewController] User cancelled URL input`);
-				return;
-			}
+      if (!url) {
+        console.log(`[VisualizerViewController] User cancelled URL input`);
+        return;
+      }
 
-			console.log(`[VisualizerViewController] User provided URL: ${url}`);
+      console.log(`[VisualizerViewController] User provided URL: ${url}`);
 
-			// Download visualizer files
-			await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: 'ビジュアライザをダウンロード中...',
-					cancellable: false,
-				},
-				async () => {
-					try {
-						console.log(`[VisualizerViewController] Starting download`);
-						htmlFileName = await this.visualizerDownloader.download(url);
-						console.log(`[VisualizerViewController] Download completed: ${htmlFileName}`);
-					} catch (e) {
-						console.error(
-							`[VisualizerViewController] Download failed:`,
-							e instanceof Error ? e.message : String(e),
-						);
-						throw e;
-					}
-				},
-			);
-		} else {
-			console.log(`[VisualizerViewController] Using cached visualizer: ${htmlFileName}`);
-		}
+      // Download visualizer files
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'ビジュアライザをダウンロード中...',
+          cancellable: false,
+        },
+        async () => {
+          try {
+            console.log(`[VisualizerViewController] Starting download`);
+            htmlFileName = await this.visualizerDownloader.download(url);
+            console.log(`[VisualizerViewController] Download completed: ${htmlFileName}`);
+          } catch (e) {
+            console.error(
+              `[VisualizerViewController] Download failed:`,
+              e instanceof Error ? e.message : String(e),
+            );
+            throw e;
+          }
+        },
+      );
+    } else {
+      console.log(`[VisualizerViewController] Using cached visualizer: ${htmlFileName}`);
+    }
 
-		if (!htmlFileName) {
-			console.error(`[VisualizerViewController] HTML file name is empty`);
-			vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
-			return;
-		}
+    if (!htmlFileName) {
+      console.error(`[VisualizerViewController] HTML file name is empty`);
+      vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
+      return;
+    }
 
-		// Open visualizer with test case data
-		await this.openVisualizer(seed, resultId, htmlFileName);
-	}
+    // Open visualizer with test case data
+    await this.openVisualizer(seed, resultId, htmlFileName);
+  }
 
-	/**
-	 * ビジュアライザを開く
-	 */
-	private async openVisualizer(
-		seed: number,
-		resultId: string | undefined,
-		htmlFileName: string,
-	): Promise<void> {
-		// Get execution time from result file if resultId is provided
-		let executionTime = '';
-		if (resultId) {
-			const result = await this.executionRepository.get(resultId);
-			if (result) {
-				executionTime = ` (${result.startTime.toDate().toLocaleString()})`;
-			}
-		}
+  /**
+   * ビジュアライザを開く
+   */
+  private async openVisualizer(
+    seed: number,
+    resultId: string | undefined,
+    htmlFileName: string,
+  ): Promise<void> {
+    // Get execution time from result file if resultId is provided
+    let executionTime = '';
+    if (resultId) {
+      const result = await this.executionRepository.get(resultId);
+      if (result) {
+        executionTime = ` (${result.startTime.toDate().toLocaleString()})`;
+      }
+    }
 
-		// Read test case input and output from archived files
-		// resultId should always be provided as execution results are archived immediately after running
-		if (!resultId) {
-			throw new Error('resultId is required to load archived test case files');
-		}
+    // Read test case input and output from archived files
+    // resultId should always be provided as execution results are archived immediately after running
+    if (!resultId) {
+      throw new Error('resultId is required to load archived test case files');
+    }
 
-		const input = await this.inOutFilesAdapter.loadIn(seed);
-		const output = await this.inOutFilesAdapter.loadArchived('out', {
-			executionId: resultId,
-			seed,
-		});
+    const input = await this.inOutFilesAdapter.loadIn(seed);
+    const output = await this.inOutFilesAdapter.loadArchived('out', {
+      executionId: resultId,
+      seed,
+    });
 
-		// Get current zoom level from settings
-		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-		const savedZoomLevel = config.get<number>('visualizerZoomLevel') || 1.0;
+    // Get current zoom level from settings
+    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+    const savedZoomLevel = config.get<number>('visualizerZoomLevel') || 1.0;
 
-		// Reuse existing panel if available, otherwise create new one
-		if (VisualizerViewController.currentPanel) {
-			// Update title
-			VisualizerViewController.currentPanel.title = `Seed ${seed}${executionTime}`;
+    // Reuse existing panel if available, otherwise create new one
+    if (VisualizerViewController.currentPanel) {
+      // Update title
+      VisualizerViewController.currentPanel.title = `Seed ${seed}${executionTime}`;
 
-			// Reveal panel if hidden
-			VisualizerViewController.currentPanel.reveal(vscode.ViewColumn.Active);
+      // Reveal panel if hidden
+      VisualizerViewController.currentPanel.reveal(vscode.ViewColumn.Active);
 
-			// Update only input/output without reloading WebView
-			VisualizerViewController.currentPanel.webview.postMessage({
-				type: 'updateTestCase',
-				seed,
-				input,
-				output,
-			});
-		} else {
-			// Create a new webview panel
-			const panel = vscode.window.createWebviewPanel(
-				'pahcerVisualizer',
-				`Seed ${seed}${executionTime}`,
-				vscode.ViewColumn.Active,
-				{
-					enableScripts: true,
-					retainContextWhenHidden: true,
-					localResourceRoots: [vscode.Uri.file(this.visualizerCache.getVisualizerDir())],
-				},
-			);
+      // Update only input/output without reloading WebView
+      VisualizerViewController.currentPanel.webview.postMessage({
+        type: 'updateTestCase',
+        seed,
+        input,
+        output,
+      });
+    } else {
+      // Create a new webview panel
+      const panel = vscode.window.createWebviewPanel(
+        'pahcerVisualizer',
+        `Seed ${seed}${executionTime}`,
+        vscode.ViewColumn.Active,
+        {
+          enableScripts: true,
+          retainContextWhenHidden: true,
+          localResourceRoots: [vscode.Uri.file(this.visualizerCache.getVisualizerDir())],
+        },
+      );
 
-			VisualizerViewController.currentPanel = panel;
+      VisualizerViewController.currentPanel = panel;
 
-			// Listen for messages from the webview
-			panel.webview.onDidReceiveMessage(async (message) => {
-				if (message.type === 'saveZoomLevel') {
-					const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-					await config.update(
-						'visualizerZoomLevel',
-						message.zoomLevel,
-						vscode.ConfigurationTarget.Global,
-					);
-				}
-			});
+      // Listen for messages from the webview
+      panel.webview.onDidReceiveMessage(async (message) => {
+        if (message.type === 'saveZoomLevel') {
+          const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
+          await config.update(
+            'visualizerZoomLevel',
+            message.zoomLevel,
+            vscode.ConfigurationTarget.Global,
+          );
+        }
+      });
 
-			// Reset currentPanel when the panel is disposed
-			panel.onDidDispose(() => {
-				VisualizerViewController.currentPanel = undefined;
-			});
+      // Reset currentPanel when the panel is disposed
+      panel.onDidDispose(() => {
+        VisualizerViewController.currentPanel = undefined;
+      });
 
-			// Read HTML content
-			let htmlContent = this.visualizerCache.readHtml(htmlFileName);
+      // Read HTML content
+      let htmlContent = this.visualizerCache.readHtml(htmlFileName);
 
-			// Convert local paths to webview URIs
-			htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
+      // Convert local paths to webview URIs
+      htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
 
-			// Inject input/output data and message listener
-			htmlContent = this.injectTestCaseData(htmlContent, seed, input, output, savedZoomLevel);
+      // Inject input/output data and message listener
+      htmlContent = this.injectTestCaseData(htmlContent, seed, input, output, savedZoomLevel);
 
-			panel.webview.html = htmlContent;
-		}
-	}
+      panel.webview.html = htmlContent;
+    }
+  }
 
-	/**
-	 * リソースパスをWebView URIに変換
-	 */
-	private convertResourcePaths(html: string, webview: vscode.Webview): string {
-		console.log(`[VisualizerViewController] Converting resource paths in HTML`);
+  /**
+   * リソースパスをWebView URIに変換
+   */
+  private convertResourcePaths(html: string, webview: vscode.Webview): string {
+    console.log(`[VisualizerViewController] Converting resource paths in HTML`);
 
-		// Convert relative paths to webview URIs
-		html = html.replace(/src=["']\.\/([^"']+)["']/g, (match, fileName) => {
-			if (this.visualizerCache.resourceExists(fileName)) {
-				const resourceUri = webview.asWebviewUri(
-					vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
-				);
-				console.log(
-					`[VisualizerViewController] Converted relative path: ./${fileName} -> ${resourceUri}`,
-				);
-				return `src="${resourceUri}"`;
-			} else {
-				console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
-			}
-			return match;
-		});
+    // Convert relative paths to webview URIs
+    html = html.replace(/src=["']\.\/([^"']+)["']/g, (match, fileName) => {
+      if (this.visualizerCache.resourceExists(fileName)) {
+        const resourceUri = webview.asWebviewUri(
+          vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+        );
+        console.log(
+          `[VisualizerViewController] Converted relative path: ./${fileName} -> ${resourceUri}`,
+        );
+        return `src="${resourceUri}"`;
+      } else {
+        console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
+      }
+      return match;
+    });
 
-		// Also handle protocol-relative URLs that we downloaded
-		html = html.replace(
-			/src=["']\/\/img\.atcoder\.jp\/[^"']*\/([^"'/]+)["']/g,
-			(match, fileName) => {
-				if (this.visualizerCache.resourceExists(fileName)) {
-					const resourceUri = webview.asWebviewUri(
-						vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
-					);
-					console.log(
-						`[VisualizerViewController] Converted protocol-relative URL: ${fileName} -> ${resourceUri}`,
-					);
-					return `src="${resourceUri}"`;
-				} else {
-					console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
-				}
-				return match;
-			},
-		);
+    // Also handle protocol-relative URLs that we downloaded
+    html = html.replace(
+      /src=["']\/\/img\.atcoder\.jp\/[^"']*\/([^"'/]+)["']/g,
+      (match, fileName) => {
+        if (this.visualizerCache.resourceExists(fileName)) {
+          const resourceUri = webview.asWebviewUri(
+            vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+          );
+          console.log(
+            `[VisualizerViewController] Converted protocol-relative URL: ${fileName} -> ${resourceUri}`,
+          );
+          return `src="${resourceUri}"`;
+        } else {
+          console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
+        }
+        return match;
+      },
+    );
 
-		// Handle imports from ES modules
-		html = html.replace(/from\s+["']\.\/([^"']+\.js)["']/g, (match, fileName) => {
-			if (this.visualizerCache.resourceExists(fileName)) {
-				const resourceUri = webview.asWebviewUri(
-					vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
-				);
-				console.log(
-					`[VisualizerViewController] Converted module import: ./${fileName} -> ${resourceUri}`,
-				);
-				return `from "${resourceUri}"`;
-			} else {
-				console.warn(`[VisualizerViewController] Module not found: ${fileName}`);
-			}
-			return match;
-		});
+    // Handle imports from ES modules
+    html = html.replace(/from\s+["']\.\/([^"']+\.js)["']/g, (match, fileName) => {
+      if (this.visualizerCache.resourceExists(fileName)) {
+        const resourceUri = webview.asWebviewUri(
+          vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+        );
+        console.log(
+          `[VisualizerViewController] Converted module import: ./${fileName} -> ${resourceUri}`,
+        );
+        return `from "${resourceUri}"`;
+      } else {
+        console.warn(`[VisualizerViewController] Module not found: ${fileName}`);
+      }
+      return match;
+    });
 
-		console.log(`[VisualizerViewController] Resource path conversion completed`);
-		return html;
-	}
+    console.log(`[VisualizerViewController] Resource path conversion completed`);
+    return html;
+  }
 
-	/**
-	 * テストケースデータを注入
-	 */
-	private injectTestCaseData(
-		html: string,
-		seed: number,
-		input: string,
-		output: string,
-		initialZoomLevel: number,
-	): string {
-		const injection = `
+  /**
+   * テストケースデータを注入
+   */
+  private injectTestCaseData(
+    html: string,
+    seed: number,
+    input: string,
+    output: string,
+    initialZoomLevel: number,
+  ): string {
+    const injection = `
             <script>
                 window.PAHCER_SEED = ${seed};
                 window.PAHCER_INPUT = ${JSON.stringify(input)};
@@ -429,21 +429,21 @@ export class VisualizerViewController {
             </script>
         `;
 
-		if (html.includes('</head>')) {
-			html = html.replace('</head>', `${injection}</head>`);
-		} else if (html.includes('<body>')) {
-			html = html.replace('<body>', `<body>${injection}`);
-		} else {
-			html = injection + html;
-		}
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${injection}</head>`);
+    } else if (html.includes('<body>')) {
+      html = html.replace('<body>', `<body>${injection}`);
+    } else {
+      html = injection + html;
+    }
 
-		return html;
-	}
+    return html;
+  }
 
-	/**
-	 * リセット（テスト用）
-	 */
-	static reset(): void {
-		VisualizerViewController.currentPanel = undefined;
-	}
+  /**
+   * リセット（テスト用）
+   */
+  static reset(): void {
+    VisualizerViewController.currentPanel = undefined;
+  }
 }

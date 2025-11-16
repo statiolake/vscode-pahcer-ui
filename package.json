@@ -1,302 +1,302 @@
 {
-	"name": "vscode-pahcer-ui",
-	"displayName": "Pahcer UI",
-	"description": "UI for Pahcer",
-	"repository": "https://github.com/statiolake/vscode-pahcer-ui",
-	"publisher": "statiolake",
-	"author": "statiolake",
-	"license": "MIT",
-	"version": "0.3.2",
-	"engines": {
-		"vscode": "^1.104.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [],
-	"main": "./dist/extension.js",
-	"contributes": {
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "pahcer",
-					"title": "Pahcer",
-					"icon": "$(rocket)"
-				}
-			]
-		},
-		"views": {
-			"pahcer": [
-				{
-					"type": "webview",
-					"id": "pahcerInitialization",
-					"name": "初期化",
-					"when": "pahcer.showInitialization"
-				},
-				{
-					"type": "webview",
-					"id": "pahcerRunOptions",
-					"name": "実行オプション",
-					"when": "pahcer.showRunOptions"
-				},
-				{
-					"id": "pahcerResults",
-					"name": "テスト結果",
-					"when": "!pahcer.showRunOptions && !pahcer.showInitialization"
-				}
-			]
-		},
-		"viewsWelcome": [
-			{
-				"view": "pahcerResults",
-				"contents": "Pahcer UI を利用するには、まず Pahcer をインストールする必要があります。\n\n[Pahcer の GitHub ページを開く](command:pahcer-ui.openGitHub)\n\nインストール後、ウィンドウを再読み込みしてください。\n\n[ウィンドウを再読み込み](command:workbench.action.reloadWindow)",
-				"when": "pahcer.status == notInstalled"
-			},
-			{
-				"view": "pahcerResults",
-				"contents": "Pahcer を実行するには、まず初期設定を行う必要があります。\n\n[初期化する](command:pahcer-ui.initialize)",
-				"when": "pahcer.status == notInitialized"
-			}
-		],
-		"commands": [
-			{
-				"command": "pahcer-ui.run",
-				"title": "Pahcer: テストを実行",
-				"icon": "$(run-all)"
-			},
-			{
-				"command": "pahcer-ui.runWithOptions",
-				"title": "Pahcer: 詳細実行...",
-				"icon": "$(play)"
-			},
-			{
-				"command": "pahcer-ui.refresh",
-				"title": "Pahcer: 結果を更新",
-				"icon": "$(refresh)"
-			},
-			{
-				"command": "pahcer-ui.switchToSeed",
-				"title": "Pahcer: Seedごとにグルーピング",
-				"icon": "$(arrow-swap)"
-			},
-			{
-				"command": "pahcer-ui.switchToExecution",
-				"title": "Pahcer: 実行ごとにグルーピング",
-				"icon": "$(arrow-swap)"
-			},
-			{
-				"command": "pahcer-ui.addComment",
-				"title": "Pahcer: コメントを追加"
-			},
-			{
-				"command": "pahcer-ui.changeSortOrder",
-				"title": "Pahcer: 並び順を変更",
-				"icon": "$(list-filter)"
-			},
-			{
-				"command": "pahcer-ui.openInputFile",
-				"title": "Pahcer: 入力ファイルを開く"
-			},
-			{
-				"command": "pahcer-ui.openOutputFile",
-				"title": "Pahcer: 出力ファイルを開く"
-			},
-			{
-				"command": "pahcer-ui.openErrorFile",
-				"title": "Pahcer: エラーファイルを開く"
-			},
-			{
-				"command": "pahcer-ui.showDiff",
-				"title": "Pahcer: 差分を表示",
-				"icon": "$(git-compare)"
-			},
-			{
-				"command": "pahcer-ui.openGitHub",
-				"title": "Pahcer: GitHub ページを開く"
-			},
-			{
-				"command": "pahcer-ui.initialize",
-				"title": "Pahcer: 初期化"
-			},
-			{
-				"command": "pahcer-ui.showVisualizer",
-				"title": "Pahcer: ビジュアライザを表示"
-			},
-			{
-				"command": "pahcer-ui.showResultsNotFoundError",
-				"title": "Pahcer: 結果が見つかりません"
-			}
-		],
-		"menus": {
-			"view/title": [
-				{
-					"command": "pahcer-ui.run",
-					"when": "view == pahcerResults",
-					"group": "navigation@1"
-				},
-				{
-					"command": "pahcer-ui.runWithOptions",
-					"when": "view == pahcerResults",
-					"group": "navigation@1"
-				},
-				{
-					"command": "pahcer-ui.refresh",
-					"when": "view == pahcerResults",
-					"group": "navigation@2"
-				},
-				{
-					"command": "pahcer-ui.changeSortOrder",
-					"when": "view == pahcerResults",
-					"group": "navigation@3"
-				},
-				{
-					"command": "pahcer-ui.switchToSeed",
-					"when": "view == pahcerResults && pahcer.groupingMode == byExecution",
-					"group": "navigation@4"
-				},
-				{
-					"command": "pahcer-ui.switchToExecution",
-					"when": "view == pahcerResults && pahcer.groupingMode == bySeed",
-					"group": "navigation@4"
-				},
-				{
-					"command": "pahcer-ui.showDiff",
-					"when": "view == pahcerResults && pahcer.canShowDiff",
-					"group": "navigation@5"
-				}
-			],
-			"view/item/context": [
-				{
-					"command": "pahcer-ui.addComment",
-					"when": "view == pahcerResults && viewItem == execution"
-				},
-				{
-					"command": "pahcer-ui.openInputFile",
-					"when": "view == pahcerResults && viewItem == case",
-					"group": "files@1"
-				},
-				{
-					"command": "pahcer-ui.openOutputFile",
-					"when": "view == pahcerResults && viewItem == case",
-					"group": "files@2"
-				},
-				{
-					"command": "pahcer-ui.openErrorFile",
-					"when": "view == pahcerResults && viewItem == case",
-					"group": "files@3"
-				}
-			]
-		},
-		"configuration": {
-			"title": "Pahcer UI",
-			"properties": {
-				"pahcer-ui.groupingMode": {
-					"type": "string",
-					"enum": [
-						"byExecution",
-						"bySeed"
-					],
-					"default": "byExecution",
-					"description": "表示モード (実行ごと / Seedごと)"
-				},
-				"pahcer-ui.executionSortOrder": {
-					"type": "string",
-					"enum": [
-						"seedAsc",
-						"seedDesc",
-						"relativeScoreAsc",
-						"relativeScoreDesc",
-						"absoluteScoreAsc",
-						"absoluteScoreDesc"
-					],
-					"enumDescriptions": [
-						"シードの昇順",
-						"シードの降順",
-						"相対スコアの昇順",
-						"相対スコアの降順",
-						"絶対スコアの昇順",
-						"絶対スコアの降順"
-					],
-					"default": "seedAsc",
-					"description": "実行ごと表示時のソート順"
-				},
-				"pahcer-ui.seedSortOrder": {
-					"type": "string",
-					"enum": [
-						"executionAsc",
-						"executionDesc",
-						"absoluteScoreAsc",
-						"absoluteScoreDesc"
-					],
-					"enumDescriptions": [
-						"実行の昇順",
-						"実行の降順",
-						"絶対スコアの昇順",
-						"絶対スコアの降順"
-					],
-					"default": "executionDesc",
-					"description": "Seedごと表示時のソート順"
-				},
-				"pahcer-ui.visualizerZoomLevel": {
-					"type": "number",
-					"default": 1,
-					"minimum": 0.5,
-					"maximum": 3,
-					"description": "ビジュアライザのズームレベル"
-				},
-				"pahcer-ui.gitIntegration": {
-					"type": "boolean",
-					"default": null,
-					"description": "Git統合を有効にするかどうか (nullの場合は初回に確認)"
-				}
-			}
-		}
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run build",
-		"compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js",
-		"build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
-		"package": "vsce package --no-dependencies",
-		"publish": "vsce publish",
-		"check-types": "tsc --noEmit",
-		"lint": "eslint src && biome check .",
-		"format": "biome check --write . && biome format --write .",
-		"prepare": "husky",
-		"lint-staged": "lint-staged"
-	},
-	"lint-staged": {
-		"*.{js,ts,json}": [
-			"biome format --write"
-		],
-		"*.{js,ts}": [
-			"biome check --write"
-		]
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.2.5",
-		"@types/mocha": "^10.0.10",
-		"@types/node": "22.x",
-		"@types/react": "^19.2.0",
-		"@types/react-dom": "^19.2.0",
-		"@types/vscode": "^1.104.0",
-		"@typescript-eslint/eslint-plugin": "^8.45.0",
-		"@typescript-eslint/parser": "^8.45.0",
-		"@vscode/test-cli": "^0.0.11",
-		"@vscode/test-electron": "^2.5.2",
-		"@vscode/vsce": "^3.6.2",
-		"chart.js": "^4.5.0",
-		"esbuild": "^0.25.10",
-		"eslint": "^9.36.0",
-		"husky": "^9.1.7",
-		"lint-staged": "^16.2.3",
-		"npm-run-all": "^4.1.5",
-		"typescript": "^5.9.3"
-	},
-	"dependencies": {
-		"dayjs": "^1.11.19",
-		"react": "^19.2.0",
-		"react-chartjs-2": "^5.3.0",
-		"react-dom": "^19.2.0",
-		"zod": "^4.1.12"
-	}
+  "name": "vscode-pahcer-ui",
+  "displayName": "Pahcer UI",
+  "description": "UI for Pahcer",
+  "repository": "https://github.com/statiolake/vscode-pahcer-ui",
+  "publisher": "statiolake",
+  "author": "statiolake",
+  "license": "MIT",
+  "version": "0.3.2",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pahcer",
+          "title": "Pahcer",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "pahcer": [
+        {
+          "type": "webview",
+          "id": "pahcerInitialization",
+          "name": "初期化",
+          "when": "pahcer.showInitialization"
+        },
+        {
+          "type": "webview",
+          "id": "pahcerRunOptions",
+          "name": "実行オプション",
+          "when": "pahcer.showRunOptions"
+        },
+        {
+          "id": "pahcerResults",
+          "name": "テスト結果",
+          "when": "!pahcer.showRunOptions && !pahcer.showInitialization"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "pahcerResults",
+        "contents": "Pahcer UI を利用するには、まず Pahcer をインストールする必要があります。\n\n[Pahcer の GitHub ページを開く](command:pahcer-ui.openGitHub)\n\nインストール後、ウィンドウを再読み込みしてください。\n\n[ウィンドウを再読み込み](command:workbench.action.reloadWindow)",
+        "when": "pahcer.status == notInstalled"
+      },
+      {
+        "view": "pahcerResults",
+        "contents": "Pahcer を実行するには、まず初期設定を行う必要があります。\n\n[初期化する](command:pahcer-ui.initialize)",
+        "when": "pahcer.status == notInitialized"
+      }
+    ],
+    "commands": [
+      {
+        "command": "pahcer-ui.run",
+        "title": "Pahcer: テストを実行",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "pahcer-ui.runWithOptions",
+        "title": "Pahcer: 詳細実行...",
+        "icon": "$(play)"
+      },
+      {
+        "command": "pahcer-ui.refresh",
+        "title": "Pahcer: 結果を更新",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pahcer-ui.switchToSeed",
+        "title": "Pahcer: Seedごとにグルーピング",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "pahcer-ui.switchToExecution",
+        "title": "Pahcer: 実行ごとにグルーピング",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "pahcer-ui.addComment",
+        "title": "Pahcer: コメントを追加"
+      },
+      {
+        "command": "pahcer-ui.changeSortOrder",
+        "title": "Pahcer: 並び順を変更",
+        "icon": "$(list-filter)"
+      },
+      {
+        "command": "pahcer-ui.openInputFile",
+        "title": "Pahcer: 入力ファイルを開く"
+      },
+      {
+        "command": "pahcer-ui.openOutputFile",
+        "title": "Pahcer: 出力ファイルを開く"
+      },
+      {
+        "command": "pahcer-ui.openErrorFile",
+        "title": "Pahcer: エラーファイルを開く"
+      },
+      {
+        "command": "pahcer-ui.showDiff",
+        "title": "Pahcer: 差分を表示",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "pahcer-ui.openGitHub",
+        "title": "Pahcer: GitHub ページを開く"
+      },
+      {
+        "command": "pahcer-ui.initialize",
+        "title": "Pahcer: 初期化"
+      },
+      {
+        "command": "pahcer-ui.showVisualizer",
+        "title": "Pahcer: ビジュアライザを表示"
+      },
+      {
+        "command": "pahcer-ui.showResultsNotFoundError",
+        "title": "Pahcer: 結果が見つかりません"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pahcer-ui.run",
+          "when": "view == pahcerResults",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pahcer-ui.runWithOptions",
+          "when": "view == pahcerResults",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pahcer-ui.refresh",
+          "when": "view == pahcerResults",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pahcer-ui.changeSortOrder",
+          "when": "view == pahcerResults",
+          "group": "navigation@3"
+        },
+        {
+          "command": "pahcer-ui.switchToSeed",
+          "when": "view == pahcerResults && pahcer.groupingMode == byExecution",
+          "group": "navigation@4"
+        },
+        {
+          "command": "pahcer-ui.switchToExecution",
+          "when": "view == pahcerResults && pahcer.groupingMode == bySeed",
+          "group": "navigation@4"
+        },
+        {
+          "command": "pahcer-ui.showDiff",
+          "when": "view == pahcerResults && pahcer.canShowDiff",
+          "group": "navigation@5"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pahcer-ui.addComment",
+          "when": "view == pahcerResults && viewItem == execution"
+        },
+        {
+          "command": "pahcer-ui.openInputFile",
+          "when": "view == pahcerResults && viewItem == case",
+          "group": "files@1"
+        },
+        {
+          "command": "pahcer-ui.openOutputFile",
+          "when": "view == pahcerResults && viewItem == case",
+          "group": "files@2"
+        },
+        {
+          "command": "pahcer-ui.openErrorFile",
+          "when": "view == pahcerResults && viewItem == case",
+          "group": "files@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Pahcer UI",
+      "properties": {
+        "pahcer-ui.groupingMode": {
+          "type": "string",
+          "enum": [
+            "byExecution",
+            "bySeed"
+          ],
+          "default": "byExecution",
+          "description": "表示モード (実行ごと / Seedごと)"
+        },
+        "pahcer-ui.executionSortOrder": {
+          "type": "string",
+          "enum": [
+            "seedAsc",
+            "seedDesc",
+            "relativeScoreAsc",
+            "relativeScoreDesc",
+            "absoluteScoreAsc",
+            "absoluteScoreDesc"
+          ],
+          "enumDescriptions": [
+            "シードの昇順",
+            "シードの降順",
+            "相対スコアの昇順",
+            "相対スコアの降順",
+            "絶対スコアの昇順",
+            "絶対スコアの降順"
+          ],
+          "default": "seedAsc",
+          "description": "実行ごと表示時のソート順"
+        },
+        "pahcer-ui.seedSortOrder": {
+          "type": "string",
+          "enum": [
+            "executionAsc",
+            "executionDesc",
+            "absoluteScoreAsc",
+            "absoluteScoreDesc"
+          ],
+          "enumDescriptions": [
+            "実行の昇順",
+            "実行の降順",
+            "絶対スコアの昇順",
+            "絶対スコアの降順"
+          ],
+          "default": "executionDesc",
+          "description": "Seedごと表示時のソート順"
+        },
+        "pahcer-ui.visualizerZoomLevel": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 3,
+          "description": "ビジュアライザのズームレベル"
+        },
+        "pahcer-ui.gitIntegration": {
+          "type": "boolean",
+          "default": null,
+          "description": "Git統合を有効にするかどうか (nullの場合は初回に確認)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js",
+    "build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src && biome check .",
+    "format": "biome check --write . && biome format --write .",
+    "prepare": "husky",
+    "lint-staged": "lint-staged"
+  },
+  "lint-staged": {
+    "*.{js,ts,json}": [
+      "biome format --write"
+    ],
+    "*.{js,ts}": [
+      "biome check --write"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.5",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/vscode": "^1.104.0",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.2",
+    "chart.js": "^4.5.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.36.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.3",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.19",
+    "react": "^19.2.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.12"
+  }
 }

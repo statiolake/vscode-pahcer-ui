@@ -1,15 +1,15 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "compile",
-			"type": "npm",
-			"script": "compile",
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "compile",
+      "type": "npm",
+      "script": "compile",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
 }

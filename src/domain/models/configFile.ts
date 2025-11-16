@@ -8,51 +8,51 @@ export type ConfigId = 'normal' | 'temporary';
  * - 値の取得・設定を提供
  */
 export class PahcerConfig {
-	constructor(
-		private readonly _id: ConfigId,
-		private readonly _path: string,
-		private _startSeed: number,
-		private _endSeed: number,
-		private _objective: 'max' | 'min',
-	) {
-		if (this._startSeed < 0) {
-			throw new Error('startSeed must be non-negative');
-		}
+  constructor(
+    private readonly _id: ConfigId,
+    private readonly _path: string,
+    private _startSeed: number,
+    private _endSeed: number,
+    private _objective: 'max' | 'min',
+  ) {
+    if (this._startSeed < 0) {
+      throw new Error('startSeed must be non-negative');
+    }
 
-		if (this._endSeed < this._startSeed) {
-			throw new Error('endSeed must be greater than or equal to startSeed');
-		}
-	}
+    if (this._endSeed < this._startSeed) {
+      throw new Error('endSeed must be greater than or equal to startSeed');
+    }
+  }
 
-	get id(): ConfigId {
-		return this._id;
-	}
+  get id(): ConfigId {
+    return this._id;
+  }
 
-	get path(): string {
-		return this._path;
-	}
+  get path(): string {
+    return this._path;
+  }
 
-	get startSeed(): number {
-		return this._startSeed;
-	}
+  get startSeed(): number {
+    return this._startSeed;
+  }
 
-	set startSeed(value: number) {
-		this._startSeed = value;
-	}
+  set startSeed(value: number) {
+    this._startSeed = value;
+  }
 
-	get endSeed(): number {
-		return this._endSeed;
-	}
+  get endSeed(): number {
+    return this._endSeed;
+  }
 
-	set endSeed(value: number) {
-		this._endSeed = value;
-	}
+  set endSeed(value: number) {
+    this._endSeed = value;
+  }
 
-	get objective(): 'max' | 'min' {
-		return this._objective;
-	}
+  get objective(): 'max' | 'min' {
+    return this._objective;
+  }
 
-	set objective(value: 'max' | 'min') {
-		this._objective = value;
-	}
+  set objective(value: 'max' | 'min') {
+    this._objective = value;
+  }
 }

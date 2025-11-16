@@ -1,17 +1,17 @@
 {
-	"compilerOptions": {
-		"module": "ESNext",
-		"target": "ES2022",
-		"lib": ["ES2022", "DOM"],
-		"jsx": "react-jsx",
-		"moduleResolution": "bundler",
-		"sourceMap": true,
-		"strict": true /* enable all strict type-checking options */,
-		"skipLibCheck": true,
-		"noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
-		"noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
-		"noUnusedParameters": true /* Report errors on unused parameters. */
-	},
-	"include": ["src/**/*", "webview/**/*"],
-	"exclude": ["node_modules", "dist"]
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "sourceMap": true,
+    "strict": true /* enable all strict type-checking options */,
+    "skipLibCheck": true,
+    "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
+    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
+    "noUnusedParameters": true /* Report errors on unused parameters. */
+  },
+  "include": ["src/**/*", "webview/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

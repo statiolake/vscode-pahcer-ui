@@ -6,10 +6,10 @@ import { asErrnoException } from '../util/lang';
 import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
 
 class NotFoundError extends Error {
-	constructor(message: string) {
-		super(message);
-		this.name = 'NotFoundError';
-	}
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
 }
 
 /**
@@ -18,105 +18,105 @@ class NotFoundError extends Error {
  * テストケースは TestCaseRepository が負責
  */
 export class ExecutionRepository {
-	constructor(private workspaceRoot: string) {}
+  constructor(private workspaceRoot: string) {}
 
-	async get(executionId: string): Promise<Execution> {
-		// pahcer が出力した result.json から実行情報を読み込む
-		let content: string;
-		try {
-			content = await fs.readFile(this.resultPath(executionId), 'utf-8');
-		} catch {
-			throw new NotFoundError(`Execution result file not found: ${executionId}`);
-		}
+  async get(executionId: string): Promise<Execution> {
+    // pahcer が出力した result.json から実行情報を読み込む
+    let content: string;
+    try {
+      content = await fs.readFile(this.resultPath(executionId), 'utf-8');
+    } catch {
+      throw new NotFoundError(`Execution result file not found: ${executionId}`);
+    }
 
-		const result = ResultJsonSchema.parse(JSON.parse(content));
-		const execution: Execution = {
-			id: executionId,
-			startTime: dayjs(result.start_time),
-			comment: result.comment,
-			tagName: result.tag_name ?? null,
-		};
+    const result = ResultJsonSchema.parse(JSON.parse(content));
+    const execution: Execution = {
+      id: executionId,
+      startTime: dayjs(result.start_time),
+      comment: result.comment,
+      tagName: result.tag_name ?? null,
+    };
 
-		// メタデータから commitHash を読み込む
-		try {
-			const metadataContent = await fs.readFile(this.metadataPath(executionId), 'utf-8');
-			const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
-			execution.commitHash = metadata.commitHash;
-		} catch (e) {
-			if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
-				throw e;
-			}
+    // メタデータから commitHash を読み込む
+    try {
+      const metadataContent = await fs.readFile(this.metadataPath(executionId), 'utf-8');
+      const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
+      execution.commitHash = metadata.commitHash;
+    } catch (e) {
+      if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+        throw e;
+      }
 
-			// メタデータがない場合は古いメタデータから読み混んでみる
-			// FIXME: 将来的に削除する
-			try {
-				const metadataContent = await fs.readFile(
-					path.join(
-						this.workspaceRoot,
-						'.pahcer-ui',
-						'results',
-						`result_${executionId}`,
-						'meta.json',
-					),
-					'utf-8',
-				);
-				const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
-				execution.commitHash = metadata.commitHash;
-			} catch {
-				// 古いメタデータもない場合は commitHash を設定しない
-			}
-		}
+      // メタデータがない場合は古いメタデータから読み混んでみる
+      // FIXME: 将来的に削除する
+      try {
+        const metadataContent = await fs.readFile(
+          path.join(
+            this.workspaceRoot,
+            '.pahcer-ui',
+            'results',
+            `result_${executionId}`,
+            'meta.json',
+          ),
+          'utf-8',
+        );
+        const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
+        execution.commitHash = metadata.commitHash;
+      } catch {
+        // 古いメタデータもない場合は commitHash を設定しない
+      }
+    }
 
-		return execution;
-	}
+    return execution;
+  }
 
-	async getAll(): Promise<Execution[]> {
-		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
-		if (!existsSync(jsonDir)) {
-			return [];
-		}
+  async getAll(): Promise<Execution[]> {
+    const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
+    if (!existsSync(jsonDir)) {
+      return [];
+    }
 
-		const files = (await fs.readdir(jsonDir))
-			.filter((f) => f.startsWith('result_') && f.endsWith('.json'))
-			.sort()
-			.reverse();
+    const files = (await fs.readdir(jsonDir))
+      .filter((f) => f.startsWith('result_') && f.endsWith('.json'))
+      .sort()
+      .reverse();
 
-		const executionIds = files.map((file) => file.replace(/^result_(.+)\.json$/, '$1'));
+    const executionIds = files.map((file) => file.replace(/^result_(.+)\.json$/, '$1'));
 
-		return await Promise.all(executionIds.map((id) => this.get(id)));
-	}
+    return await Promise.all(executionIds.map((id) => this.get(id)));
+  }
 
-	async save(execution: Execution): Promise<void> {
-		// result.json をまず読み混んで更新する
-		const resultPath = this.resultPath(execution.id);
-		const existingResult = await fs.readFile(resultPath, 'utf-8');
-		const result = ResultJsonSchema.parse(JSON.parse(existingResult));
-		result.start_time = execution.startTime.format('YYYY-MM-DD HH:mm:ss');
-		result.comment = execution.comment;
-		result.tag_name = execution.tagName;
-		await fs.writeFile(resultPath, JSON.stringify(result, null, 2), 'utf-8');
+  async save(execution: Execution): Promise<void> {
+    // result.json をまず読み混んで更新する
+    const resultPath = this.resultPath(execution.id);
+    const existingResult = await fs.readFile(resultPath, 'utf-8');
+    const result = ResultJsonSchema.parse(JSON.parse(existingResult));
+    result.start_time = execution.startTime.format('YYYY-MM-DD HH:mm:ss');
+    result.comment = execution.comment;
+    result.tag_name = execution.tagName;
+    await fs.writeFile(resultPath, JSON.stringify(result, null, 2), 'utf-8');
 
-		// meta/execution.json を書き込む
-		const metadataPath = this.metadataPath(execution.id);
-		const metadata = {
-			commitHash: execution.commitHash,
-		};
-		await fs.mkdir(path.dirname(metadataPath), { recursive: true });
-		await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
-	}
+    // meta/execution.json を書き込む
+    const metadataPath = this.metadataPath(execution.id);
+    const metadata = {
+      commitHash: execution.commitHash,
+    };
+    await fs.mkdir(path.dirname(metadataPath), { recursive: true });
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+  }
 
-	private resultPath(executionId: string): string {
-		return path.join(this.workspaceRoot, 'pahcer', 'json', `result_${executionId}.json`);
-	}
+  private resultPath(executionId: string): string {
+    return path.join(this.workspaceRoot, 'pahcer', 'json', `result_${executionId}.json`);
+  }
 
-	private metadataPath(executionId: string): string {
-		return path.join(
-			this.workspaceRoot,
-			'.pahcer-ui',
-			'results',
-			`result_${executionId}`,
-			'meta',
-			'execution.json',
-		);
-	}
+  private metadataPath(executionId: string): string {
+    return path.join(
+      this.workspaceRoot,
+      '.pahcer-ui',
+      'results',
+      `result_${executionId}`,
+      'meta',
+      'execution.json',
+    );
+  }
 }

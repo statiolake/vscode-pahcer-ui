@@ -3,6 +3,6 @@ import { InitializationView } from './InitializationView';
 
 const container = document.getElementById('root');
 if (container) {
-	const root = createRoot(container);
-	root.render(<InitializationView />);
+  const root = createRoot(container);
+  root.render(<InitializationView />);
 }

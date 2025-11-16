@@ -11,21 +11,21 @@ import type { PahcerTreeItem } from '../pahcerTreeViewController';
  * - エディタ操作
  */
 export function openInputFileCommand(
-	inOutFilesAdapter: InOutFilesAdapter,
+  inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
-	return async (item: PahcerTreeItem) => {
-		if (item.seed == null) {
-			return;
-		}
+  return async (item: PahcerTreeItem) => {
+    if (item.seed == null) {
+      return;
+    }
 
-		const inputPath = inOutFilesAdapter.getNonArchivedPath('in', item.seed);
-		try {
-			const document = await vscode.workspace.openTextDocument(inputPath);
-			await vscode.window.showTextDocument(document);
-		} catch (e) {
-			vscode.window.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
-		}
-	};
+    const inputPath = inOutFilesAdapter.getNonArchivedPath('in', item.seed);
+    try {
+      const document = await vscode.workspace.openTextDocument(inputPath);
+      await vscode.window.showTextDocument(document);
+    } catch (e) {
+      vscode.window.showErrorMessage(`ファイルを開けませんでした: ${inputPath}: ${e}`);
+    }
+  };
 }
 
 /**
@@ -38,24 +38,24 @@ export function openInputFileCommand(
  * - エディタ操作
  */
 export function openOutputFileCommand(
-	inOutFilesAdapter: InOutFilesAdapter,
+  inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
-	return async (item: PahcerTreeItem) => {
-		if (item.seed === null || item.seed === undefined || !item.executionId) {
-			return;
-		}
+  return async (item: PahcerTreeItem) => {
+    if (item.seed === null || item.seed === undefined || !item.executionId) {
+      return;
+    }
 
-		const outputPath = inOutFilesAdapter.getArchivedPath('out', {
-			executionId: item.executionId,
-			seed: item.seed,
-		});
-		try {
-			const document = await vscode.workspace.openTextDocument(outputPath);
-			await vscode.window.showTextDocument(document);
-		} catch (e) {
-			vscode.window.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
-		}
-	};
+    const outputPath = inOutFilesAdapter.getArchivedPath('out', {
+      executionId: item.executionId,
+      seed: item.seed,
+    });
+    try {
+      const document = await vscode.workspace.openTextDocument(outputPath);
+      await vscode.window.showTextDocument(document);
+    } catch (e) {
+      vscode.window.showErrorMessage(`ファイルを開けませんでした: ${outputPath}: ${e}`);
+    }
+  };
 }
 
 /**
@@ -68,22 +68,22 @@ export function openOutputFileCommand(
  * - エディタ操作
  */
 export function openErrorFileCommand(
-	inOutFilesAdapter: InOutFilesAdapter,
+  inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
-	return async (item: PahcerTreeItem) => {
-		if (item.seed === null || item.seed === undefined || !item.executionId) {
-			return;
-		}
+  return async (item: PahcerTreeItem) => {
+    if (item.seed === null || item.seed === undefined || !item.executionId) {
+      return;
+    }
 
-		const errorPath = inOutFilesAdapter.getArchivedPath('err', {
-			executionId: item.executionId,
-			seed: item.seed,
-		});
-		try {
-			const document = await vscode.workspace.openTextDocument(errorPath);
-			await vscode.window.showTextDocument(document);
-		} catch (e) {
-			vscode.window.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
-		}
-	};
+    const errorPath = inOutFilesAdapter.getArchivedPath('err', {
+      executionId: item.executionId,
+      seed: item.seed,
+    });
+    try {
+      const document = await vscode.workspace.openTextDocument(errorPath);
+      await vscode.window.showTextDocument(document);
+    } catch (e) {
+      vscode.window.showErrorMessage(`ファイルを開けませんでした: ${errorPath}: ${e}`);
+    }
+  };
 }
