@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ExecutionRepository } from '../../infrastructure/executionRepository';
-import { InOutRepository } from '../../infrastructure/inOutRepository';
+import { InOutFilesAdapter } from '../../infrastructure/inOutFilesAdapter';
 import { VisualizerCache } from '../../infrastructure/visualizerCache';
 import { VisualizerDownloader } from '../../infrastructure/visualizerDownloader';
 
@@ -10,7 +10,7 @@ import { VisualizerDownloader } from '../../infrastructure/visualizerDownloader'
 export class VisualizerViewController {
 	private static currentPanel: vscode.WebviewPanel | undefined;
 
-	private inOutRepository: InOutRepository;
+	private inOutFilesAdapter: InOutFilesAdapter;
 	private executionRepository: ExecutionRepository;
 	private visualizerDownloader: VisualizerDownloader;
 	private visualizerCache: VisualizerCache;
@@ -19,7 +19,7 @@ export class VisualizerViewController {
 	constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
 		const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
 
-		this.inOutRepository = new InOutRepository(workspaceRoot);
+		this.inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
 		this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
 		this.visualizerCache = new VisualizerCache(visualizerDir);
@@ -119,9 +119,17 @@ export class VisualizerViewController {
 			}
 		}
 
-		// Read test case input and output
-		const input = (await this.inOutRepository.load('in', seed)) || '';
-		const output = (await this.inOutRepository.load('out', seed, resultId)) || '';
+		// Read test case input and output from archived files
+		// resultId should always be provided as execution results are archived immediately after running
+		if (!resultId) {
+			throw new Error('resultId is required to load archived test case files');
+		}
+
+		const input = await this.inOutFilesAdapter.loadArchived('in', { executionId: resultId, seed });
+		const output = await this.inOutFilesAdapter.loadArchived('out', {
+			executionId: resultId,
+			seed,
+		});
 
 		// Get current zoom level from settings
 		const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);

@@ -27,8 +27,8 @@ export function calculateSeedStats(
 
 	// seed ごとにテストケースをグループ化
 	for (const testCase of testCases) {
-		const existing = seedMap.get(testCase.seed) || [];
-		seedMap.set(testCase.seed, [...existing, testCase]);
+		const existing = seedMap.get(testCase.id.seed) || [];
+		seedMap.set(testCase.id.seed, [...existing, testCase]);
 	}
 
 	const statsMap = new Map<number, SeedStats>();
@@ -76,8 +76,8 @@ export function calculateBestScoresFromTestCases(
 	// seed ごとにグループ化
 	const seedMap = new Map<number, TestCase[]>();
 	for (const tc of testCases) {
-		const existing = seedMap.get(tc.seed) || [];
-		seedMap.set(tc.seed, [...existing, tc]);
+		const existing = seedMap.get(tc.id.seed) || [];
+		seedMap.set(tc.id.seed, [...existing, tc]);
 	}
 
 	// 各 seed のベストスコアを計算

@@ -1,173 +1,150 @@
-import * as fs from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { TestCase } from '../domain/models/testCase';
-
-/**
- * JSONファイルから読み込んだ生データの型
- */
-interface RawExecutionData {
-	start_time: string;
-	case_count: number;
-	total_score: number;
-	total_score_log10: number;
-	total_relative_score: number;
-	max_execution_time: number;
-	comment: string;
-	tag_name: string | null;
-	wa_seeds: number[];
-	cases: Array<{
-		seed: number;
-		score: number;
-		relative_score: number;
-		execution_time: number;
-		error_message: string;
-	}>;
-}
+import { TestCase, TestCaseId } from '../domain/models/testCase';
+import { exists } from '../util/fs';
+import { asErrnoException } from '../util/lang';
+import type { InOutFilesAdapter } from './inOutFilesAdapter';
+import {
+	type ResultJsonCase,
+	ResultJsonSchema,
+	type TestCaseMetadata,
+	TestCaseMetadataSchema,
+} from './schemas';
 
 /**
  * テストケースリポジトリ
- * すべての TestCase を実行の垣根なく読み込む
- * メタデータ（解析データ）の読み書きも管理
+ * TestCase の CRUD 操作を提供
  *
- * ストレージ構造:
- * .pahcer-ui/results/result_${id}/
- *   meta/
- *     execution.json     (実行レベルメタデータ: commitHash等)
- *     testcase_0000.json (seed毎の解析データ: firstInputLine, stderrVars)
- *     testcase_0001.json
- *     ...
+ * データソース:
+ * - pahcer/json/result_${executionId}.json (実行結果の元データ)
+ * - .pahcer-ui/results/result_${executionId}/meta/testcase_{seed}.json (解析データ)
+ *
+ * 識別方法:
+ * - executionId と seed の複合キーで TestCase を一意に識別
  */
 export class TestCaseRepository {
-	constructor(private workspaceRoot: string) {}
+	constructor(
+		private inOutFilesAdapter: InOutFilesAdapter,
+		private workspaceRoot: string,
+	) {}
 
 	/**
-	 * メタディレクトリのパスを取得
+	 * 指定された TestCase を1件取得
+	 * @returns TestCase または null（存在しない場合）
 	 */
-	private getMetaDir(resultId: string): string {
-		return path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${resultId}`, 'meta');
+	async findById(id: TestCaseId): Promise<TestCase | undefined> {
+		const exectionJsonpath = this.getExecutionJsonPath(id.executionId);
+		try {
+			const content = await fs.readFile(exectionJsonpath, 'utf-8');
+			const executionJson = ResultJsonSchema.parse(JSON.parse(content));
+			// 該当する seed を検索
+			const caseData = (executionJson.cases ?? []).find((c) => c.seed === id.seed);
+			if (!caseData) {
+				return undefined;
+			}
+
+			return this.buildTestCase(id.executionId, caseData);
+		} catch (e) {
+			if (e instanceof Error && asErrnoException(e).code === 'ENOENT') {
+				return undefined;
+			}
+			console.error(`Failed to load execution JSON for ${id.executionId}:`, e);
+			throw e;
+		}
+	}
+
+	/**
+	 * 指定された executionId の全 TestCase を取得
+	 * @returns TestCase 配列（存在しない場合は空配列）
+	 */
+	async findByExecutionId(executionId: string): Promise<TestCase[]> {
+		const jsonPath = this.getExecutionJsonPath(executionId);
+
+		try {
+			const content = await fs.readFile(jsonPath, 'utf-8');
+			const raw = ResultJsonSchema.parse(JSON.parse(content));
+
+			const testCases = await Promise.all(
+				(raw.cases ?? []).map((c) => this.buildTestCase(executionId, c)),
+			);
+			return testCases;
+		} catch (e) {
+			if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+				throw e;
+			}
+
+			// ファイルが存在しない場合は空配列を返す
+			return [];
+		}
+	}
+
+	/**
+	 * TestCase のメタデータを保存
+	 */
+	async upsert(testCase: TestCase): Promise<void> {
+		// execution.json 部分は readonly なので変更されることはないと信じ、書き込まない
+		// (書き込むと Pahcer 本体をを壊してしまう可能性もあるので)
+		await this.upsertMetadata(testCase);
+	}
+
+	private async upsertMetadata(testCase: TestCase): Promise<void> {
+		const metaPath = this.getMetaPath(testCase.id);
+		await fs.mkdir(path.dirname(metaPath), { recursive: true });
+		const metadata: TestCaseMetadata = {
+			firstInputLine: testCase.firstInputLine,
+			stderrVars: testCase.stderrVars,
+		};
+		await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2));
+	}
+
+	/**
+	 * TestCase オブジェクトを構築
+	 */
+	private async buildTestCase(executionId: string, caseData: ResultJsonCase): Promise<TestCase> {
+		const id = new TestCaseId(executionId, caseData.seed);
+		const foundOutput = await exists(this.inOutFilesAdapter.getArchivedPath('out', id));
+		const testCase = new TestCase(
+			id,
+			caseData.score,
+			caseData.execution_time,
+			caseData.error_message,
+			foundOutput,
+		);
+
+		// メタデータがあれば読み込む
+		try {
+			const metaPath = this.getMetaPath(id);
+			const metaContent = await fs.readFile(metaPath, 'utf-8');
+			const metadata = TestCaseMetadataSchema.parse(JSON.parse(metaContent));
+			testCase.firstInputLine = metadata.firstInputLine;
+			testCase.stderrVars = metadata.stderrVars;
+		} catch (e) {
+			if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+				throw e;
+			}
+
+			// メタデータファイルが存在しない場合は無視
+		}
+
+		return testCase;
+	}
+
+	private getExecutionJsonPath(executionId: string): string {
+		return path.join(this.workspaceRoot, 'pahcer', 'json', `result_${executionId}.json`);
 	}
 
 	/**
 	 * テストケースメタデータファイルのパスを取得
 	 */
-	private getTestCaseMetaPath(resultId: string, seed: number): string {
-		const seedStr = String(seed).padStart(4, '0');
-		return path.join(this.getMetaDir(resultId), `testcase_${seedStr}.json`);
-	}
-
-	/**
-	 * すべてのテストケースを読み込む
-	 */
-	async loadAllTestCases(): Promise<TestCase[]> {
-		const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
-
-		if (!fs.existsSync(jsonDir)) {
-			return [];
-		}
-
-		const testCases: TestCase[] = [];
-		const files = fs
-			.readdirSync(jsonDir)
-			.filter((f) => f.startsWith('result_') && f.endsWith('.json'))
-			.sort()
-			.reverse();
-
-		for (const file of files) {
-			try {
-				const content = fs.readFileSync(path.join(jsonDir, file), 'utf-8');
-				const raw: RawExecutionData = JSON.parse(content);
-				const executionId = file.replace(/^result_(.+)\.json$/, '$1');
-
-				// 出力ファイルの存在チェック
-				const outDir = path.join(
-					this.workspaceRoot,
-					'.pahcer-ui',
-					'results',
-					`result_${executionId}`,
-					'out',
-				);
-				const existingFiles = new Set<string>(fs.existsSync(outDir) ? fs.readdirSync(outDir) : []);
-
-				// 各テストケースを TestCase に変換
-				for (const c of raw.cases) {
-					const seedStr = String(c.seed).padStart(4, '0');
-					const foundOutput = existingFiles.has(`${seedStr}.txt`);
-
-					const testCase: TestCase = {
-						executionId,
-						seed: c.seed,
-						score: c.score,
-						executionTime: c.execution_time,
-						errorMessage: c.error_message,
-						foundOutput,
-					};
-
-					// メタデータがあれば読み込む
-					const metadata = await this.loadTestCaseMetadata(executionId, c.seed);
-					if (metadata) {
-						testCase.firstInputLine = metadata.firstInputLine;
-						testCase.stderrVars = metadata.stderrVars;
-					}
-
-					testCases.push(testCase);
-				}
-			} catch (e) {
-				console.error(`Failed to load ${file}:`, e);
-			}
-		}
-
-		return testCases;
-	}
-
-	/**
-	 * テストケースメタデータを読み込む
-	 */
-	private async loadTestCaseMetadata(
-		resultId: string,
-		seed: number,
-	): Promise<{ firstInputLine: string; stderrVars: Record<string, number> } | null> {
-		const metaPath = this.getTestCaseMetaPath(resultId, seed);
-
-		if (!fs.existsSync(metaPath)) {
-			return null;
-		}
-
-		try {
-			const content = fs.readFileSync(metaPath, 'utf-8');
-			return JSON.parse(content);
-		} catch (e) {
-			console.error(`Failed to load metadata for ${resultId}:${seed}:`, e);
-			return null;
-		}
-	}
-
-	/**
-	 * テストケースを保存（メタデータ込み）
-	 */
-	async save(testCase: TestCase): Promise<void> {
-		const metaDir = this.getMetaDir(testCase.executionId);
-
-		// メタディレクトリを作成
-		if (!fs.existsSync(metaDir)) {
-			fs.mkdirSync(metaDir, { recursive: true });
-		}
-
-		// テストケースのメタデータを保存（analysis情報）
-		const metadata = {
-			firstInputLine: testCase.firstInputLine || '',
-			stderrVars: testCase.stderrVars || {},
-		};
-
-		const metaPath = this.getTestCaseMetaPath(testCase.executionId, testCase.seed);
-		fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2));
-	}
-
-	/**
-	 * 複数のテストケースを一括保存
-	 */
-	async saveMany(testCases: TestCase[]): Promise<void> {
-		for (const testCase of testCases) {
-			await this.save(testCase);
-		}
+	private getMetaPath(testCaseId: TestCaseId): string {
+		const seedStr = String(testCaseId.seed).padStart(4, '0');
+		return path.join(
+			this.workspaceRoot,
+			'.pahcer-ui',
+			'results',
+			`result_${testCaseId.executionId}`,
+			'meta',
+			`testcase_${seedStr}.json`,
+		);
 	}
 }

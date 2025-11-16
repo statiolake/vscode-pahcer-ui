@@ -2,22 +2,8 @@ import { existsSync, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import dayjs from 'dayjs';
 import type { Execution } from '../domain/models/execution';
-
-/**
- * JSONファイルから読み込んだ生データの型（pahcer が出力する JSON 形式）
- */
-interface ResultJson {
-	start_time: string;
-	comment: string;
-	tag_name: string | null;
-}
-
-/**
- * JSONファイルから読み込んだメタデータの型
- */
-interface MetadataJson {
-	commitHash?: string;
-}
+import { asErrnoException } from '../util/lang';
+import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
 
 class NotFoundError extends Error {
 	constructor(message: string) {
@@ -43,7 +29,7 @@ export class ExecutionRepository {
 			throw new NotFoundError(`Execution result file not found: ${executionId}`);
 		}
 
-		const result: ResultJson = JSON.parse(content);
+		const result = ResultJsonSchema.parse(JSON.parse(content));
 		const execution: Execution = {
 			id: executionId,
 			startTime: dayjs(result.start_time),
@@ -53,13 +39,15 @@ export class ExecutionRepository {
 
 		// メタデータから commitHash を読み込む
 		try {
-			const metadata: MetadataJson = JSON.parse(
-				await fs.readFile(this.metadataPath(executionId), 'utf-8'),
-			);
+			const metadataContent = await fs.readFile(this.metadataPath(executionId), 'utf-8');
+			const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
 			execution.commitHash = metadata.commitHash;
 		} catch (e) {
+			if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+				throw e;
+			}
+
 			// メタデータがない場合は無視
-			console.log(`error loading metadata for ${executionId}: ${e}`);
 		}
 
 		return execution;
@@ -82,19 +70,18 @@ export class ExecutionRepository {
 	}
 
 	async save(execution: Execution): Promise<void> {
-		// result.json を書き込む
-		const result: ResultJson = {
-			start_time: execution.startTime.format('YYYY-MM-DD HH:mm:ss'),
-			comment: execution.comment,
-			tag_name: execution.tagName,
-		};
-
+		// result.json をまず読み混んで更新する
 		const resultPath = this.resultPath(execution.id);
+		const existingResult = await fs.readFile(resultPath, 'utf-8');
+		const result = ResultJsonSchema.parse(JSON.parse(existingResult));
+		result.start_time = execution.startTime.format('YYYY-MM-DD HH:mm:ss');
+		result.comment = execution.comment;
+		result.tag_name = execution.tagName;
 		await fs.writeFile(resultPath, JSON.stringify(result, null, 2), 'utf-8');
 
 		// meta/execution.json を書き込む
 		const metadataPath = this.metadataPath(execution.id);
-		const metadata: MetadataJson = {
+		const metadata = {
 			commitHash: execution.commitHash,
 		};
 		await fs.mkdir(path.dirname(metadataPath), { recursive: true });

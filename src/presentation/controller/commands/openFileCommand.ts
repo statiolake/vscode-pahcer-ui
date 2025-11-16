@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { InOutRepository } from '../../../infrastructure/inOutRepository';
+import type { InOutFilesAdapter } from '../../../infrastructure/inOutFilesAdapter';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
 /**
@@ -11,19 +11,14 @@ import type { PahcerTreeItem } from '../pahcerTreeViewController';
  * - エディタ操作
  */
 export function openInputFileCommand(
-	inOutRepository: InOutRepository,
+	inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed) {
 			return;
 		}
 
-		if (!inOutRepository.exists('in', item.seed)) {
-			vscode.window.showErrorMessage(`入力ファイルが見つかりません: ${item.seed}`);
-			return;
-		}
-
-		const inputPath = inOutRepository.getPath('in', item.seed);
+		const inputPath = inOutFilesAdapter.getNonArchivedPath('in', item.seed);
 		try {
 			const document = await vscode.workspace.openTextDocument(inputPath);
 			await vscode.window.showTextDocument(document);
@@ -43,21 +38,17 @@ export function openInputFileCommand(
  * - エディタ操作
  */
 export function openOutputFileCommand(
-	inOutRepository: InOutRepository,
+	inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed || !item.executionId) {
 			return;
 		}
 
-		if (!inOutRepository.exists('out', item.seed, item.executionId)) {
-			vscode.window.showErrorMessage(
-				`出力ファイルが見つかりません: ${item.seed}@${item.executionId}`,
-			);
-			return;
-		}
-
-		const outputPath = inOutRepository.getPath('out', item.seed, item.executionId);
+		const outputPath = inOutFilesAdapter.getArchivedPath('out', {
+			executionId: item.executionId,
+			seed: item.seed,
+		});
 		try {
 			const document = await vscode.workspace.openTextDocument(outputPath);
 			await vscode.window.showTextDocument(document);
@@ -77,21 +68,17 @@ export function openOutputFileCommand(
  * - エディタ操作
  */
 export function openErrorFileCommand(
-	inOutRepository: InOutRepository,
+	inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
 		if (!item.seed || !item.executionId) {
 			return;
 		}
 
-		if (!inOutRepository.exists('err', item.seed, item.executionId)) {
-			vscode.window.showErrorMessage(
-				`エラーファイルが見つかりません: ${item.seed}@${item.executionId}`,
-			);
-			return;
-		}
-
-		const errorPath = inOutRepository.getPath('err', item.seed, item.executionId);
+		const errorPath = inOutFilesAdapter.getArchivedPath('err', {
+			executionId: item.executionId,
+			seed: item.seed,
+		});
 		try {
 			const document = await vscode.workspace.openTextDocument(errorPath);
 			await vscode.window.showTextDocument(document);

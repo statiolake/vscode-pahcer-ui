@@ -33,7 +33,7 @@ export function aggregateByExecution(
 ): ExecutionStats[] {
 	return executions.map((execution) => {
 		// この実行に属するテストケースを取得
-		const executionTestCases = testCases.filter((tc) => tc.executionId === execution.id);
+		const executionTestCases = testCases.filter((tc) => tc.id.executionId === execution.id);
 
 		// 統計を計算
 		let totalScore = 0;
@@ -46,10 +46,10 @@ export function aggregateByExecution(
 			maxExecutionTime = Math.max(maxExecutionTime, tc.executionTime);
 
 			if (tc.score <= 0) {
-				waSeeds.push(tc.seed);
+				waSeeds.push(tc.id.seed);
 			} else {
 				// 相対スコアを計算
-				const bestScore = bestScores.get(tc.seed);
+				const bestScore = bestScores.get(tc.id.seed);
 				if (bestScore !== undefined) {
 					if (objective === 'max') {
 						totalRelativeScore += (tc.score / bestScore) * 100;

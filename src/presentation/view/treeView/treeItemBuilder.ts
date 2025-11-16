@@ -96,7 +96,7 @@ export class TreeItemBuilder {
 	 * @param resultId 実行結果ID
 	 */
 	buildTestCaseItem(testCase: TestCase, relativeScore: number, resultId?: string): vscode.TreeItem {
-		const seedStr = String(testCase.seed).padStart(4, '0');
+		const seedStr = String(testCase.id.seed).padStart(4, '0');
 		const label = `${seedStr}: ${testCase.score} (${relativeScore.toFixed(3)}%)`;
 		const description = `${(testCase.executionTime * 1000).toFixed(2)}ms`;
 
@@ -109,14 +109,14 @@ export class TreeItemBuilder {
 			item.command = {
 				command: 'pahcer-ui.showVisualizer',
 				title: 'Show Visualizer',
-				arguments: [testCase.seed, resultId],
+				arguments: [testCase.id.seed, resultId],
 			};
 		} else {
 			// For cases without output file, show error notification
 			item.command = {
 				command: 'pahcer-ui.showResultsNotFoundError',
 				title: 'Show Results Not Found Error',
-				arguments: [testCase.seed],
+				arguments: [testCase.id.seed],
 			};
 		}
 

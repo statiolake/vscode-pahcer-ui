@@ -53,6 +53,7 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
 				freezeBestScores: options.freezeBestScores,
 			});
 		} catch (error) {
+			console.error(error);
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			vscode.window.showErrorMessage(`実行に失敗しました: ${errorMessage}`);
 		}

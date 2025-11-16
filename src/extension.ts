@@ -4,7 +4,7 @@ import { ContextAdapter } from './infrastructure/contextAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { GitAdapter } from './infrastructure/gitAdapter';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
-import { InOutRepository } from './infrastructure/inOutRepository';
+import { InOutFilesAdapter } from './infrastructure/inOutFilesAdapter';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
@@ -40,7 +40,7 @@ interface Adapters {
 	contextAdapter: ContextAdapter;
 	pahcerAdapter: PahcerAdapter;
 	executionRepository: ExecutionRepository;
-	inOutRepository: InOutRepository;
+	inOutFilesAdapter: InOutFilesAdapter;
 	pahcerConfigRepository: PahcerConfigRepository;
 	gitignoreAdapter: GitignoreAdapter;
 	gitAdapter: GitAdapter;
@@ -69,11 +69,11 @@ interface UseCases {
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 	const contextAdapter = new ContextAdapter();
 	const executionRepository = new ExecutionRepository(workspaceRoot);
-	const inOutRepository = new InOutRepository(workspaceRoot);
+	const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
 	const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
 	const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
 	const gitAdapter = new GitAdapter(workspaceRoot);
-	const testCaseRepository = new TestCaseRepository(workspaceRoot);
+	const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
 
 	// Create slim PahcerAdapter (infrastructure-only)
 	const pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
@@ -88,7 +88,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 		contextAdapter,
 		pahcerAdapter,
 		executionRepository,
-		inOutRepository,
+		inOutFilesAdapter,
 		pahcerConfigRepository,
 		gitignoreAdapter,
 		gitAdapter,
@@ -103,7 +103,7 @@ function initializeUseCases(adapters: Adapters): UseCases {
 	const runPahcerUseCase = new RunPahcerUseCase(
 		adapters.pahcerAdapter,
 		adapters.gitAdapter,
-		adapters.inOutRepository,
+		adapters.inOutFilesAdapter,
 		adapters.executionRepository,
 		adapters.testCaseRepository,
 		adapters.pahcerConfigRepository,
@@ -273,15 +273,15 @@ function registerCommands(
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openInputFile',
-			openInputFileCommand(adapters.inOutRepository),
+			openInputFileCommand(adapters.inOutFilesAdapter),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openOutputFile',
-			openOutputFileCommand(adapters.inOutRepository),
+			openOutputFileCommand(adapters.inOutFilesAdapter),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.openErrorFile',
-			openErrorFileCommand(adapters.inOutRepository),
+			openErrorFileCommand(adapters.inOutFilesAdapter),
 		),
 		vscode.commands.registerCommand(
 			'pahcer-ui.showDiff',

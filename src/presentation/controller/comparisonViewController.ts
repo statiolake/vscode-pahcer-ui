@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { type Execution, getLongTitle } from '../../domain/models/execution';
 import { calculateBestScoresFromTestCases } from '../../domain/services/aggregationService';
 import { ExecutionRepository } from '../../infrastructure/executionRepository';
+import { InOutFilesAdapter } from '../../infrastructure/inOutFilesAdapter';
 import { PahcerConfigRepository } from '../../infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
 import { UIConfigRepository } from '../../infrastructure/uiConfigRepository';
@@ -32,7 +33,8 @@ export class ComparisonViewController {
 		workspaceRoot: string,
 	) {
 		this.executionRepository = new ExecutionRepository(workspaceRoot);
-		this.testCaseRepository = new TestCaseRepository(workspaceRoot);
+		const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
+		this.testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
 		this.uiConfigRepository = new UIConfigRepository(workspaceRoot);
 		this.pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
 	}
@@ -116,20 +118,20 @@ export class ComparisonViewController {
 	 * 比較データを準備
 	 */
 	private async prepareComparisonData(executions: Execution[]) {
-		// Load test cases and settings
-		const testCases = await this.testCaseRepository.loadAllTestCases();
+		// Load test cases for selected executions
+		const testCasesArray = await Promise.all(
+			executions.map((exec) => this.testCaseRepository.findByExecutionId(exec.id)),
+		);
+		const testCases = testCasesArray.flat();
 		const pahcerConfig = await this.pahcerConfigRepository.get('normal');
 
 		// Calculate best scores
 		const bestScores = calculateBestScoresFromTestCases(testCases, pahcerConfig.objective);
 
 		// Collect all seeds for selected executions
-		const executionIds = new Set(executions.map((e) => e.id));
 		const allSeeds = new Set<number>();
 		for (const testCase of testCases) {
-			if (executionIds.has(testCase.executionId)) {
-				allSeeds.add(testCase.seed);
-			}
+			allSeeds.add(testCase.id.seed);
 		}
 		const seeds = Array.from(allSeeds).sort((a, b) => a - b);
 
@@ -141,10 +143,10 @@ export class ComparisonViewController {
 			stderrData[execution.id] = {};
 
 			// Get test cases for this execution
-			const executionTestCases = testCases.filter((tc) => tc.executionId === execution.id);
+			const executionTestCases = testCases.filter((tc) => tc.id.executionId === execution.id);
 
 			for (const testCase of executionTestCases) {
-				const seed = testCase.seed;
+				const seed = testCase.id.seed;
 
 				// Use analysis data from TestCase object
 				if (testCase.firstInputLine !== undefined) {
@@ -174,10 +176,10 @@ export class ComparisonViewController {
 				id: execution.id,
 				time: getLongTitle(execution),
 				cases: testCases
-					.filter((tc) => tc.executionId === execution.id)
+					.filter((tc) => tc.id.executionId === execution.id)
 					.map((tc) => {
 						// Calculate relative score
-						const bestScore = bestScores.get(tc.seed);
+						const bestScore = bestScores.get(tc.id.seed);
 						let relativeScore = 0;
 						if (tc.score > 0 && bestScore !== undefined) {
 							if (pahcerConfig.objective === 'max') {
@@ -188,7 +190,7 @@ export class ComparisonViewController {
 						}
 
 						return {
-							seed: tc.seed,
+							seed: tc.id.seed,
 							score: tc.score,
 							relativeScore,
 							executionTime: tc.executionTime,

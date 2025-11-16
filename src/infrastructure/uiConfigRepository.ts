@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { DEFAULT_UI_CONFIG, type UIConfig } from '../domain/models/uiConfig';
+import { UIConfigSchema } from './schemas';
 
 /**
  * 比較設定のリポジトリ
@@ -26,7 +27,7 @@ export class UIConfigRepository {
 			return { ...DEFAULT_UI_CONFIG };
 		}
 
-		const loaded = JSON.parse(content);
+		const loaded = UIConfigSchema.parse(JSON.parse(content));
 		return {
 			...DEFAULT_UI_CONFIG,
 			...loaded,
@@ -37,7 +38,7 @@ export class UIConfigRepository {
 	 * 設定を保存する
 	 */
 	async save(config: UIConfig): Promise<void> {
-		await fs.mkdir(this.configPath, { recursive: true });
-		await fs.writeFile(this.configPath, JSON.stringify(config));
+		await fs.mkdir(this.configDirPath, { recursive: true });
+		await fs.writeFile(this.configPath, JSON.stringify(config, null, 2));
 	}
 }

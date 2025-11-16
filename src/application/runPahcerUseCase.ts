@@ -1,7 +1,8 @@
 import type { PahcerConfig } from '../domain/models/configFile';
 import type { ExecutionRepository } from '../infrastructure/executionRepository';
+import { FileAnalyzer } from '../infrastructure/fileAnalyzer';
 import type { GitAdapter } from '../infrastructure/gitAdapter';
-import type { InOutRepository } from '../infrastructure/inOutRepository';
+import type { InOutFilesAdapter } from '../infrastructure/inOutFilesAdapter';
 import type { PahcerAdapter, PahcerRunOptions } from '../infrastructure/pahcerAdapter';
 import type { PahcerConfigRepository } from '../infrastructure/pahcerConfigRepository';
 import type { TestCaseRepository } from '../infrastructure/testCaseRepository';
@@ -28,7 +29,7 @@ export class RunPahcerUseCase {
 	constructor(
 		private pahcerAdapter: PahcerAdapter,
 		private gitAdapter: GitAdapter,
-		private inOutRepository: InOutRepository,
+		private inOutFilesAdapter: InOutFilesAdapter,
 		private executionRepository: ExecutionRepository,
 		private testCaseRepository: TestCaseRepository,
 		private pahcerConfigRepository: PahcerConfigRepository,
@@ -83,7 +84,7 @@ export class RunPahcerUseCase {
 		const latestExecution = allExecutions[0];
 
 		// Step 5: 出力ファイルをコピー
-		await this.inOutRepository.copyOutputFiles(latestExecution.id);
+		await this.inOutFilesAdapter.archiveFiles(latestExecution.id);
 
 		// Step 6: 実行結果を解析してメタデータを保存
 		await this.analyzeExecution(latestExecution.id);
@@ -95,8 +96,7 @@ export class RunPahcerUseCase {
 		}
 
 		// Step 7: テストケースデータから統計情報を取得
-		const allTestCases = await this.testCaseRepository.loadAllTestCases();
-		const executionTestCases = allTestCases.filter((tc) => tc.executionId === latestExecution.id);
+		const executionTestCases = await this.testCaseRepository.findByExecutionId(latestExecution.id);
 		const caseCount = executionTestCases.length;
 		const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
 
@@ -112,52 +112,24 @@ export class RunPahcerUseCase {
 	 * 実行結果を解析してメタデータを保存
 	 */
 	private async analyzeExecution(executionId: string): Promise<void> {
-		const allTestCases = await this.testCaseRepository.loadAllTestCases();
-		// この実行IDのテストケースをフィルタ
-		const executionTestCases = allTestCases.filter((tc) => tc.executionId === executionId);
-
-		if (executionTestCases.length === 0) {
-			return;
-		}
-
-		// 並列処理用にファイルパスを収集
-		const inputFilePaths = executionTestCases.map((tc) =>
-			this.inOutRepository.getLatestPath('in', tc.seed),
-		);
-		const stderrFilePaths = executionTestCases.map((tc) =>
-			this.inOutRepository.getArchivedPath('err', executionId, tc.seed),
-		);
-
-		// ファイルを並列読み込み
-		const { FileAnalyzer } = await import('../infrastructure/fileAnalyzer');
-		const [inputResults, stderrResults] = await Promise.all([
-			FileAnalyzer.readFirstLinesParallel(inputFilePaths),
-			FileAnalyzer.parseStderrVariablesParallel(stderrFilePaths),
-		]);
+		const testCases = await this.testCaseRepository.findByExecutionId(executionId);
 
 		// 各テストケースにメタデータを追加して保存
-		const testCasesToSave = [];
+		await Promise.all(
+			testCases.map(async (tc) => {
+				const inputPath = this.inOutFilesAdapter.getNonArchivedPath('in', tc.id.seed);
+				const stderrPath = this.inOutFilesAdapter.getArchivedPath('err', tc.id);
 
-		for (let i = 0; i < executionTestCases.length; i++) {
-			const testCase = executionTestCases[i];
-			const inputPath = inputFilePaths[i];
-			const stderrPath = stderrFilePaths[i];
+				// 解析データを取得
+				const firstInputLine = await FileAnalyzer.readFirstLine(inputPath);
+				const stderrVars = (await FileAnalyzer.parseStderrVariables(stderrPath)) || {};
 
-			// 解析データを取得
-			const firstInputLine = inputResults.get(inputPath) || '';
-			const stderrVars = stderrResults.get(stderrPath) || {};
+				// TestCaseに解析データを追加
+				tc.firstInputLine = firstInputLine;
+				tc.stderrVars = stderrVars;
 
-			// TestCaseに解析データを追加
-			const enrichedTestCase = {
-				...testCase,
-				firstInputLine,
-				stderrVars,
-			};
-
-			testCasesToSave.push(enrichedTestCase);
-		}
-
-		// 一括保存
-		await this.testCaseRepository.saveMany(testCasesToSave);
+				await this.testCaseRepository.upsert(tc);
+			}),
+		);
 	}
 }

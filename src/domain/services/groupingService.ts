@@ -33,17 +33,17 @@ export function groupBySeed(testCases: TestCase[], executions: Execution[]): See
 	const executionMap = new Map(executions.map((e) => [e.id, e]));
 
 	for (const testCase of testCases) {
-		const execution = executionMap.get(testCase.executionId);
+		const execution = executionMap.get(testCase.id.executionId);
 		if (!execution) {
 			continue;
 		}
 
-		const executionList = seedMap.get(testCase.seed) || [];
+		const executionList = seedMap.get(testCase.id.seed) || [];
 		executionList.push({
 			execution,
 			testCase,
 		});
-		seedMap.set(testCase.seed, executionList);
+		seedMap.set(testCase.id.seed, executionList);
 	}
 
 	const groups: SeedGroup[] = [];

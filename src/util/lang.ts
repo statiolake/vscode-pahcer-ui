@@ -1,3 +1,3 @@
-export const assertNever = (value: never, message?: string): never => {
-	throw new Error(message ?? `This value must be handled: ${value}`);
-};
+export function asErrnoException(error: Error): NodeJS.ErrnoException {
+	return error;
+}

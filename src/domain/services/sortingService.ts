@@ -38,22 +38,22 @@ export function sortTestCases(
 
 	switch (order) {
 		case 'seedAsc':
-			sorted.sort((a, b) => a.seed - b.seed);
+			sorted.sort((a, b) => a.id.seed - b.id.seed);
 			break;
 		case 'seedDesc':
-			sorted.sort((a, b) => b.seed - a.seed);
+			sorted.sort((a, b) => b.id.seed - a.id.seed);
 			break;
 		case 'relativeScoreAsc':
 			if (relativeScores) {
 				sorted.sort(
-					(a, b) => (relativeScores.get(a.seed) ?? 0) - (relativeScores.get(b.seed) ?? 0),
+					(a, b) => (relativeScores.get(a.id.seed) ?? 0) - (relativeScores.get(b.id.seed) ?? 0),
 				);
 			}
 			break;
 		case 'relativeScoreDesc':
 			if (relativeScores) {
 				sorted.sort(
-					(a, b) => (relativeScores.get(b.seed) ?? 0) - (relativeScores.get(a.seed) ?? 0),
+					(a, b) => (relativeScores.get(b.id.seed) ?? 0) - (relativeScores.get(a.id.seed) ?? 0),
 				);
 			}
 			break;
