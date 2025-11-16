@@ -123,7 +123,25 @@ export class TestCaseRepository {
 				throw e;
 			}
 
-			// メタデータファイルが存在しない場合は無視
+			// メタデータファイルが存在しない場合は古いメタデータから読み込んでみる
+			// FIXME: 将来的に削除する
+			try {
+				const oldMetaContent = await fs.readFile(
+					path.join(
+						this.workspaceRoot,
+						'.pahcer-ui',
+						'results',
+						`result_${executionId}`,
+						'meta.json',
+					),
+					'utf-8',
+				);
+				const oldMeta = JSON.parse(oldMetaContent);
+				testCase.firstInputLine = oldMeta.analysis[caseData.seed]?.firstInputLine;
+				testCase.stderrVars = oldMeta.analysis[caseData.seed]?.stderrVars;
+			} catch {
+				// 古いメタデータもない場合は何もしない
+			}
 		}
 
 		return testCase;

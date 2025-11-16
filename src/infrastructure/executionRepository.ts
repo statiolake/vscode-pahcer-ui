@@ -47,7 +47,24 @@ export class ExecutionRepository {
 				throw e;
 			}
 
-			// メタデータがない場合は無視
+			// メタデータがない場合は古いメタデータから読み混んでみる
+			// FIXME: 将来的に削除する
+			try {
+				const metadataContent = await fs.readFile(
+					path.join(
+						this.workspaceRoot,
+						'.pahcer-ui',
+						'results',
+						`result_${executionId}`,
+						'meta.json',
+					),
+					'utf-8',
+				);
+				const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
+				execution.commitHash = metadata.commitHash;
+			} catch {
+				// 古いメタデータもない場合は commitHash を設定しない
+			}
 		}
 
 		return execution;
