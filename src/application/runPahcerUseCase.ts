@@ -17,13 +17,15 @@ import type { TestCaseRepository } from '../infrastructure/testCaseRepository';
  * - 実行結果の解析とメタデータ保存
  *
  * フロー:
- * 1. Git統合：実行前にソースコードをコミット
- * 2. テンポラリ設定ファイル作成（必要な場合）
- * 3. pahcer runコマンド実行
- * 4. テンポラリファイルクリーンアップ
- * 5. 出力ファイルをコピー
- * 6. 実行結果を解析してメタデータ保存
- * 7. Git統合：実行後に結果をコミット
+ * 1. 古い出力ファイルを削除
+ * 2. Git統合：実行前にソースコードをコミット
+ * 3. テンポラリ設定ファイル作成（必要な場合）
+ * 4. pahcer runコマンド実行
+ * 5. テンポラリファイルクリーンアップ
+ * 6. 出力ファイルをコピー
+ * 7. アーカイブ済みの出力ファイルを削除
+ * 8. 実行結果を解析してメタデータ保存
+ * 9. Git統合：実行後に結果をコミット
  */
 export class RunPahcerUseCase {
   constructor(
@@ -41,7 +43,10 @@ export class RunPahcerUseCase {
   async run(options?: PahcerRunOptions): Promise<void> {
     options = options ?? {};
 
-    // Step 1: Git統合 - 実行前にソースコードをコミット
+    // Step 1: 古い出力ファイルを削除（前回の実行結果のクリーンアップ）
+    await this.inOutFilesAdapter.removeOutputs();
+
+    // Step 2: Git統合 - 実行前にソースコードをコミット
     let commitHash: string | null;
     try {
       commitHash = await this.gitAdapter.commitSourceBeforeExecution();
@@ -49,7 +54,7 @@ export class RunPahcerUseCase {
       throw new Error(`gitの操作に失敗しました: ${error}`);
     }
 
-    // Step 2: テンポラリ設定ファイルを作成（必要な場合）
+    // Step 3: テンポラリ設定ファイルを作成（必要な場合）
     let tempConfig: PahcerConfig | undefined;
     if (options.startSeed !== undefined || options.endSeed !== undefined) {
       tempConfig = await this.pahcerConfigRepository.get('temporary');
@@ -67,7 +72,7 @@ export class RunPahcerUseCase {
     }
 
     try {
-      // Step 3: pahcer runコマンドを実行
+      // Step 4: pahcer runコマンドを実行
       await this.pahcerAdapter.run(options, tempConfig);
     } finally {
       // テンポラリ設定ファイルをクリーンアップ
@@ -76,17 +81,20 @@ export class RunPahcerUseCase {
       }
     }
 
-    // Step 4: 最新の実行結果を取得
+    // Step 5: 最新の実行結果を取得
     const allExecutions = await this.executionRepository.getAll();
     if (allExecutions.length === 0) {
       throw new Error('実行結果を取得できませんでした');
     }
     const latestExecution = allExecutions[0];
 
-    // Step 5: 出力ファイルをコピー
+    // Step 6: 出力ファイルをコピー
     await this.inOutFilesAdapter.archiveOutputs(latestExecution.id);
 
-    // Step 6: 実行結果を解析してメタデータを保存
+    // Step 7: アーカイブ済みの出力ファイルを削除
+    await this.inOutFilesAdapter.removeOutputs();
+
+    // Step 8: 実行結果を解析してメタデータを保存
     await this.analyzeExecution(latestExecution.id);
 
     // Step 6.5: コミットハッシュを保存

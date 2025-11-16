@@ -79,6 +79,33 @@ export class InOutFilesAdapter {
   }
 
   /**
+   * tools/out と tools/err ディレクトリを削除
+   * 実行前に古い出力をクリーンアップ、実行後にアーカイブ済みの出力を削除するために使用
+   */
+  async removeOutputs(): Promise<void> {
+    const toolsOutDir = path.join(this.workspaceRoot, 'tools', 'out');
+    const toolsErrDir = path.join(this.workspaceRoot, 'tools', 'err');
+
+    try {
+      await fs.rm(toolsOutDir, { recursive: true, force: true });
+    } catch (e) {
+      if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+        throw e;
+      }
+      // ファイルが存在しない場合は続行
+    }
+
+    try {
+      await fs.rm(toolsErrDir, { recursive: true, force: true });
+    } catch (e) {
+      if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+        throw e;
+      }
+      // ファイルが存在しない場合は続行
+    }
+  }
+
+  /**
    * 出力ファイルをアーカイブ（out, err のみ）
    * 入力ファイル (in) は不変なため、アーカイブせず tools/in から常に取得
    * 注：解析処理はユースケース層で実装
