@@ -14,7 +14,7 @@ export function openInputFileCommand(
 	inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
-		if (!item.seed) {
+		if (item.seed == null) {
 			return;
 		}
 
@@ -41,7 +41,7 @@ export function openOutputFileCommand(
 	inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
-		if (!item.seed || !item.executionId) {
+		if (item.seed === null || item.seed === undefined || !item.executionId) {
 			return;
 		}
 
@@ -71,7 +71,7 @@ export function openErrorFileCommand(
 	inOutFilesAdapter: InOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
 	return async (item: PahcerTreeItem) => {
-		if (!item.seed || !item.executionId) {
+		if (item.seed === null || item.seed === undefined || !item.executionId) {
 			return;
 		}
 

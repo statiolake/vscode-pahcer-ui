@@ -26,7 +26,7 @@ export default [
 			],
 
 			curly: 'warn',
-			eqeqeq: 'warn',
+			eqeqeq: ['warn', 'smart'],
 			'no-throw-literal': 'warn',
 			semi: 'warn',
 		},
