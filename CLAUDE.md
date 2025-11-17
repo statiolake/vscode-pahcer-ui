@@ -49,6 +49,9 @@ pahcer は AtCoder Heuristic Contest (AHC) のローカルテスト並列実行�
 │ (Repository)   │ │ (Service)   │ │ (外部API)  │
 └────────────────┘ └─────────────┘ └────────────┘
       ドメインモデルを返す  ←  純粋ビジネスロジック
+                      ↑
+                      │
+          Repository Interface (依存性逆転)
 ```
 
 **依存関係の流れ**:
@@ -58,6 +61,21 @@ Presentation → Application → (Infrastructure + Domain)
                              Domain Models
 ```
 
+**依存性逆転の原則**:
+- Repository のインターフェースはドメイン層に定義
+- インフラ層は実装を提供
+- アプリケーション層はインターフェースに依存
+- Constructor DI で依存性を注入
+
+**命名規則（Repository vs Adapter/Client）**:
+- **Repository**: オブジェクトのコレクションとして CRUD 操作を提供（`findById()`, `findAll()`, `upsert()`, `delete()`）
+  - 例：`ExecutionRepository`, `TestCaseRepository`
+- **Adapter/Client**: コレクション操作以外の外部インタラクション（コマンド実行、API 呼び出しなど）
+  - 例：`GitAdapter`, `PahcerAdapter`, `VisualizerClient`
+
+**日時型の統一**:
+- `Date` を使わず、`Dayjs` に統一（値オブジェクトとして使用）
+- 純粋で副作用がないため、ドメイン層で使用可能
 
 ---
 
@@ -66,15 +84,16 @@ Presentation → Application → (Infrastructure + Domain)
 ```
 src/
 ├── domain/                         # ドメイン層（純粋なビジネスロジック）
-│   ├── models/                     # ドメインモデル定義
+│   ├── models/                     # ドメインモデル定義（クラス）
+│   ├── repositories/               # リポジトリインターフェース（依存性逆転）
 │   ├── valueObjects/               # 値オブジェクト
-│   └── services/                   # ドメインサービス（純粋関数）
+│   └── services/                   # ドメインサービス（純粋関数を持つクラス）
 │
 ├── infrastructure/                 # インフラ層（ファイルI/O、外部API連携）
-│   └── （リポジトリ・アダプターのフラット構造）
+│   └── （リポジトリ実装・アダプターのフラット構造）
 │
 ├── application/                    # アプリケーション層（ユースケース・ワークフロー）
-│   └── （ユースケースクラス）
+│   └── （ユースケースクラス、Constructor DI で依存性注入）
 │
 ├── presentation/                   # プレゼンテーション層（UI制御）
 │   ├── controller/                 # コマンドハンドラ・UIコントローラ
@@ -83,7 +102,7 @@ src/
 │       ├── treeView/               # TreeView UI構築
 │       └── webview/                # WebView内UI
 │
-└── extension.ts                    # エントリポイント
+└── extension.ts                    # エントリポイント（DI コンテナ）
 ```
 
 ---
@@ -95,59 +114,92 @@ src/
 **責務**: ビジネスロジックとドメインモデルを定義し、エンティティとして存在
 
 **✅ すべき事（SHOULD DO）**:
-- ドメインモデル（クラス、インターフェース）を定義
+- ドメインモデルを **クラス** として定義（interface/type ではなく class を使用）
 - ビジネス規則と検証ロジックを実装（コンストラクタで不変条件を検証）
-- ドメインサービス（純粋関数）を提供：入力→出力が決定的（副作用なし）
-- 値オブジェクトで型安全性を確保
-- ドメインモデルで `path`、`id` など識別に必要な情報を持つ
+- **readonly プロパティをデフォルト**とし、必要に応じて setter を提供
+  - 例：`readonly id: string`, `get startSeed()`, `set startSeed(value)`
+- ドメインサービスを **クラス** として提供（裸の関数ではなく、static メソッドを持つクラスを使用）
+  - 純粋関数：入力→出力が決定的（副作用なし）
+- 値オブジェクトで型安全性を確保（例：Dayjs を日時型として使用）
+- **リポジトリインターフェース**をドメイン層で定義（依存性逆転の原則）
+  - 例：`IExecutionRepository`, `ITestCaseRepository`
+- ドメインモデルで `id` など識別に必要な情報を持つ
 
 **❌ してはいけない事（SHOULD NOT DO）**:
-- `node:fs`、`node:http`、`vscode` など外部ライブラリをインポート
+- `node:fs`、`node:http`、`vscode` など**副作用を持つ外部ライブラリ**をインポート
+  - ただし、`dayjs`（日時値オブジェクト）など**純粋で副作用がない**値オブジェクトは OK
+  - 判断基準：「副作用がないか」「値オブジェクトとして使えるか」
 - ファイルI/O、ネットワーク通信、データベースアクセス
 - インフラ層に依存（import すること自体が違反）
 - プレゼンテーション層の詳細（TreeItem、UIコンポーネント）を知る
+- `workspaceRoot: string` などインフラ固有の情報を保持
 
 **ファイル命名規則**: camelCase（例: `pahcerConfig.ts`, `sortingService.ts`）
 
 **例**:
 ```typescript
-// ドメインモデル（不変条件を検証）
+// ドメインモデル（クラス、readonly デフォルト、必要に応じて setter）
 export class PahcerConfig {
-	constructor(
-		private _id: string,
-		private _path: string,
-		private _startSeed: number,
-		private _endSeed: number,
-	) {
-		if (this._startSeed < 0) throw new Error('startSeed must be non-negative');
-		if (this._endSeed < this._startSeed) throw new Error('endSeed must be >= startSeed');
+	readonly id: ConfigId;
+	readonly path: string;
+	private _startSeed: number;
+	private _endSeed: number;
+	readonly objective: 'max' | 'min';
+
+	constructor(id: ConfigId, path: string, startSeed: number, endSeed: number, objective: 'max' | 'min') {
+		if (startSeed < 0) throw new Error('startSeed must be non-negative');
+		if (endSeed < startSeed) throw new Error('endSeed must be >= startSeed');
+		this.id = id;
+		this.path = path;
+		this._startSeed = startSeed;
+		this._endSeed = endSeed;
+		this.objective = objective;
 	}
-	get path(): string { return this._path; }
+
 	get startSeed(): number { return this._startSeed; }
 	set startSeed(value: number) { this._startSeed = value; }
+	get endSeed(): number { return this._endSeed; }
+	set endSeed(value: number) { this._endSeed = value; }
 }
 
-// ドメインサービス（純粋関数）
-export function sortTestCases(cases: TestCase[], order: ExecutionSortOrder): TestCase[] {
-	// 副作用なし、入力に対して決定的な出力を返す
-	return cases.sort((a, b) => a.seed - b.seed);
+// リポジトリインターフェース（ドメイン層で定義）
+export interface IExecutionRepository {
+	findById(id: string): Promise<Execution | undefined>;
+	findAll(): Promise<Execution[]>;
+	upsert(execution: Execution): Promise<void>;
+}
+
+// ドメインサービス（クラス、静的メソッドで純粋関数を提供）
+export class TestCaseSorter {
+	static sortByOrder(cases: TestCase[], order: ExecutionSortOrder): TestCase[] {
+		// 副作用なし、入力に対して決定的な出力を返す
+		return [...cases].sort((a, b) => a.seed - b.seed);
+	}
 }
 ```
 
 ### 2. インフラ層（Infrastructure Layer）
 
-**責務**: ファイルI/O、外部API呼び出し、データを永続化・取得してドメインモデルに変換
+**責務**: ファイルI/O、外部API呼び出し、VSCode API の呼び出しなど、外部世界とのインタラクション全般を担当し、ドメインモデルに変換
 
 **✅ すべき事（SHOULD DO）**:
-- ファイル読み書き、ネットワーク通信などの副作用を処理
+- **ドメイン層で定義されたリポジトリインターフェースを実装**
+  - 例：`ExecutionRepository implements IExecutionRepository`
+- **`workspaceRoot` などのインフラ固有情報をカプセル化**（上位層に露出させない）
+  - コンストラクタで受け取り、内部で使用
+- ファイル読み書き、ネットワーク通信、外部コマンド実行などの副作用を処理
+- VSCode API（Task、diff コマンド、ターミナルなど）の呼び出しをラップ
+  - 重要：主な責務は「処理を実行する」こと。UI表示は副次的な効果
+  - 例）`PahcerAdapter.run()` は「pahcer を実行する」が責務。ターミナルに表示されるのは副次効果
 - 外部フォーマット（JSON、TOML、CSV）をドメインモデルに変換
 - ドメインモデルの型でデータを返す（ドメインに型安全性を保証）
 - エラーハンドリング（ファイルがない、フォーマットが不正など）
 - リポジトリで複数の関連ファイルをカプセル化（例：`PahcerConfigRepository` は TOML ファイルの読み書き両方を担当）
-- アダプターで外部API（pahcer CLI、Git コマンド）をラップ
+- アダプターで外部API（pahcer CLI、Git コマンド、VSCode Task など）をラップ
 
 **❌ してはいけない事（SHOULD NOT DO）**:
-- ビジネスロジックを実装（ドメインに任せる）
+- ビジネスロジック・ユースケースロジックを実装（ドメイン・アプリケーション層に任せる）
+- 「UI の表示/非表示を切り替える」「設定値を変更するかユーザーに問い合わせる」などのユースケース判断
 - ドメインロジックのない「ファイルの読み書き」だけの実装は避け、データの意味を解釈する
 - コントローラ層での直接ファイル操作（全てリポジトリ経由）
 - ドメインモデルを持たずに raw JSON/オブジェクトで返す
@@ -157,19 +209,32 @@ export function sortTestCases(cases: TestCase[], order: ExecutionSortOrder): Tes
 
 **例**:
 ```typescript
-// リポジトリ：ファイル I/O とドメインモデル変換
-export class PahcerConfigRepository {
-	async get(id: 'normal' | 'temporary'): Promise<PahcerConfig> {
-		const content = await fs.readFile(this.getPath(id), 'utf-8');
-		const startSeed = this.extractStartSeed(content);
-		const endSeed = this.extractEndSeed(content);
-		return new PahcerConfig(id, path, startSeed, endSeed, 'max');
+// リポジトリ実装：ドメインインターフェースを実装、workspaceRoot をカプセル化
+export class ExecutionRepository implements IExecutionRepository {
+	constructor(private workspaceRoot: string) {}  // インフラ固有情報を隠蔽
+
+	async findById(executionId: string): Promise<Execution | undefined> {
+		const content = await fs.readFile(this.resultPath(executionId), 'utf-8');
+		const result = ResultJsonSchema.parse(JSON.parse(content));
+		return new Execution(
+			executionId,
+			dayjs(result.start_time),  // Dayjs を使用
+			result.comment,
+			result.tag_name ?? null,
+		);
 	}
 
-	async save(config: PahcerConfig): Promise<void> {
-		let content = await fs.readFile(config.path, 'utf-8');
-		content = this.replaceStartSeed(content, config.startSeed);
-		await fs.writeFile(config.path, content, 'utf-8');
+	async findAll(): Promise<Execution[]> {
+		const files = await fs.readdir(path.join(this.workspaceRoot, 'pahcer', 'json'));
+		// ...
+	}
+
+	async upsert(execution: Execution): Promise<void> {
+		// ...
+	}
+
+	private resultPath(executionId: string): string {
+		return path.join(this.workspaceRoot, 'pahcer', 'json', `result_${executionId}.json`);
 	}
 }
 
@@ -190,24 +255,38 @@ export class PahcerAdapter {
 **責務**: ユースケース・ワークフロー全体を調整（インフラとドメインの組み合わせ）
 
 **✅ すべき事（SHOULD DO）**:
+- **Constructor DI で依存性を注入**（リポジトリインターフェースに依存）
+  - 例：`constructor(private executionRepository: IExecutionRepository)`
 - ユースケースクラス（例：`RunPahcerUseCase`）でワークフロー全体を記述
-- インフラ層（リポジトリ・アダプター）からデータ取得
+- **リポジトリインターフェース経由**でデータ取得（具体的な実装に依存しない）
 - ドメインサービスでビジネスロジック実行
 - 複数のステップを try/finally で安全に実行
+- **ユースケース判断**：「Git 統合を有効にするか」「設定を変更するか」などのユースケース分岐判定
+  - 例）Git 統合が有効になっていない場合に、ユーザーに対話的に問い合わせるかどうかを決定
 - システム仕様（「テンポラリ設定ファイルを作成→実行→削除」など）を担当
 
 **❌ してはいけない事（SHOULD NOT DO）**:
-- 純粋なビジネスロジックを実装（ドメインに移す）
+- 純粋なビジネスロジックを実装（ドメインサービスに委譲する）
+  - ❌ データの管理、集計、ソート、フィルタリングなどをユースケース内で実装
+  - ✅ ドメインサービスを呼び出す
 - ファイル I/O を直接実行（リポジトリ経由）
 - UI に依存（プレゼンテーションはアプリケーションを呼ぶ側）
 - ドメインに属すべき検証ロジックを実装
+- `workspaceRoot` などインフラ固有情報に直接依存
 
 **ファイル命名規則**: camelCase（例: `runPahcerUseCase.ts`）
 
 **例**:
 ```typescript
-// ユースケース：ワークフロー全体を調整
+// ユースケース：Constructor DI でリポジトリインターフェースを注入
 export class RunPahcerUseCase {
+	constructor(
+		private executionRepository: IExecutionRepository,  // インターフェースに依存
+		private pahcerConfigRepository: IPahcerConfigRepository,
+		private gitAdapter: GitAdapter,
+		private pahcerAdapter: PahcerAdapter,
+	) {}
+
 	async run(options?: PahcerRunOptions): Promise<void> {
 		// Step 1: ドメイン状態取得
 		let commitHash: string | null;
@@ -220,19 +299,21 @@ export class RunPahcerUseCase {
 		// Step 2: テンポラリ設定管理（システム仕様）
 		let tempConfig: PahcerConfig | undefined;
 		if (options?.startSeed !== undefined) {
-			tempConfig = await this.pahcerConfigRepository.get('temporary');
+			tempConfig = await this.pahcerConfigRepository.findById('temporary');
 			tempConfig.startSeed = options.startSeed;  // domain model を直接更新
-			await this.pahcerConfigRepository.save(tempConfig);
+			await this.pahcerConfigRepository.upsert(tempConfig);
 		}
 
 		try {
 			// Step 3: ドメインモデルを渡す（string path ではなく）
 			await this.pahcerAdapter.run(options, tempConfig);
 			// Step 4: 結果を処理
-			const allExecutions = await this.executionRepository.getAll();
+			const allExecutions = await this.executionRepository.findAll();
+			// Step 5: ドメインサービスに集計処理を委譲
+			const stats = ExecutionStatistics.calculate(allExecutions);
 			// ... rest of workflow
 		} finally {
-			// Step 5: テンポラリファイル削除（システム仕様）
+			// Step 6: テンポラリファイル削除（システム仕様）
 			if (tempConfig) {
 				await this.pahcerConfigRepository.delete('temporary');
 			}
@@ -247,16 +328,20 @@ export class RunPahcerUseCase {
 
 **✅ すべき事（SHOULD DO）**:
 - コマンドハンドラでユーザー操作（クリック、入力）を捕捉
+- **Constructor DI でユースケースを注入**
 - アプリケーション層（ユースケース）を呼び出し
-- インフラ層からデータ取得し、UI に反映
+- リポジトリインターフェース経由でデータ取得し、UI に反映
 - TreeItem や React コンポーネントを生成・更新
 - VSCode API（ウィンドウ、メッセージボックス）とのやり取り
 
 **❌ してはいけない事（SHOULD NOT DO）**:
-- ビジネスロジックを実装（ドメインに移す）
-- ファイル I/O を直接実行（インフラ経由）
+- ビジネスロジックを実装（ドメインサービスに委譲する）
+  - ❌ ソート、フィルタリング、集計をコントローラ内で実装
+  - ✅ ドメインサービスを呼び出す
+- ファイル I/O を直接実行（リポジトリ経由）
 - ドメイン値オブジェクトを作成・変更（ドメイン層に任せる）
 - アプリケーション層をスキップしてインフラ直呼び出し（重要な制御フローをスキップする）
+- `workspaceRoot` などインフラ固有情報に直接依存
 
 **ファイル命名規則**:
 - TypeScript: camelCase（例: `pahcerTreeViewController.ts`, `runCommand.ts`）
@@ -264,7 +349,7 @@ export class RunPahcerUseCase {
 
 **例**:
 ```typescript
-// コマンドハンドラ
+// コマンドハンドラ：ユースケースを DI
 export function runCommand(
 	runPahcerUseCase: RunPahcerUseCase,
 ): () => Promise<void> {
@@ -279,14 +364,19 @@ export function runCommand(
 	};
 }
 
-// TreeViewController
+// TreeViewController：リポジトリインターフェースを DI
 export class PahcerTreeViewController {
+	constructor(
+		private executionRepository: IExecutionRepository,
+		private treeItemBuilder: TreeItemBuilder,
+	) {}
+
 	async getChildren(): Promise<PahcerTreeItem[]> {
-		// インフラ層からデータ取得
-		const results = await this.executionRepository.getAll();
+		// リポジトリインターフェース経由でデータ取得
+		const results = await this.executionRepository.findAll();
 
 		// ドメインサービス（純粋関数）で処理
-		const sorted = sortExecutions(results, this.sortOrder);
+		const sorted = ExecutionSorter.sortByOrder(results, this.sortOrder);
 
 		// ビュー層で UI 構築
 		return sorted.map(r => this.treeItemBuilder.build(r));
