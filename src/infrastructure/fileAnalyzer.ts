@@ -1,17 +1,16 @@
 import * as fs from 'node:fs';
+import type { IFileAnalyzer } from '../domain/interfaces/IFileAnalyzer';
 import { parseStderrVariables as domainParseStderr } from '../domain/services/stderrParser';
 
 /**
- * ファイル解析ユーティリティ
+ * ファイル解析アダプター
  * ストリーミング処理で大きなファイルにも対応
  */
-export class FileAnalyzer {
-  private constructor() {}
-
+export class FileAnalyzer implements IFileAnalyzer {
   /**
    * ファイルの1行目だけを読み込む（ストリーミング）
    */
-  static async readFirstLine(filePath: string): Promise<string> {
+  async readFirstLine(filePath: string): Promise<string> {
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       const lines = content.split('\n');
@@ -25,7 +24,7 @@ export class FileAnalyzer {
   /**
    * ファイルの先頭N行と末尾N行を読み込む（メモリ読み込み）
    */
-  static async readHeadAndTail(
+  async readHeadAndTail(
     filePath: string,
     headLines = 100,
     tailLines = 100,
@@ -45,11 +44,11 @@ export class FileAnalyzer {
   /**
    * 複数のファイルの1行目を並列読み込み
    */
-  static async readFirstLinesParallel(filePaths: string[]): Promise<Map<string, string>> {
+  async readFirstLinesParallel(filePaths: string[]): Promise<Map<string, string>> {
     const results = await Promise.all(
       filePaths.map(async (path) => ({
         path,
-        content: await FileAnalyzer.readFirstLine(path),
+        content: await this.readFirstLine(path),
       })),
     );
 
@@ -63,7 +62,7 @@ export class FileAnalyzer {
   /**
    * 複数のファイルの先頭・末尾を並列読み込み
    */
-  static async readHeadAndTailParallel(
+  async readHeadAndTailParallel(
     filePaths: string[],
     headLines = 100,
     tailLines = 100,
@@ -71,7 +70,7 @@ export class FileAnalyzer {
     const results = await Promise.all(
       filePaths.map(async (path) => ({
         path,
-        content: await FileAnalyzer.readHeadAndTail(path, headLines, tailLines),
+        content: await this.readHeadAndTail(path, headLines, tailLines),
       })),
     );
 
@@ -86,12 +85,12 @@ export class FileAnalyzer {
    * stderrファイルから変数を抽出（$varname = value）
    * 先頭100行と末尾100行のみをストリーミングで読み込んでパース
    */
-  static async parseStderrVariables(
+  async parseStderrVariables(
     filePath: string,
     headLines = 100,
     tailLines = 100,
   ): Promise<Record<string, number>> {
-    const { head, tail } = await FileAnalyzer.readHeadAndTail(filePath, headLines, tailLines);
+    const { head, tail } = await this.readHeadAndTail(filePath, headLines, tailLines);
 
     // Parse head first
     const variables = domainParseStderr(head);
@@ -108,7 +107,7 @@ export class FileAnalyzer {
   /**
    * 複数のstderrファイルから変数を並列抽出
    */
-  static async parseStderrVariablesParallel(
+  async parseStderrVariablesParallel(
     filePaths: string[],
     headLines = 100,
     tailLines = 100,
@@ -116,7 +115,7 @@ export class FileAnalyzer {
     const results = await Promise.all(
       filePaths.map(async (path) => ({
         path,
-        variables: await FileAnalyzer.parseStderrVariables(path, headLines, tailLines),
+        variables: await this.parseStderrVariables(path, headLines, tailLines),
       })),
     );
 

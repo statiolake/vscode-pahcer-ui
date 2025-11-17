@@ -1,6 +1,7 @@
 import { existsSync, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import dayjs from 'dayjs';
+import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
 import type { Execution } from '../domain/models/execution';
 import { asErrnoException } from '../util/lang';
 import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
@@ -10,7 +11,7 @@ import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
  * pahcer が出力する result.json と meta/execution.json を読み書きする
  * テストケースは TestCaseRepository が負責
  */
-export class ExecutionRepository {
+export class ExecutionRepository implements IExecutionRepository {
   constructor(private workspaceRoot: string) {}
 
   async findById(executionId: string): Promise<Execution | undefined> {

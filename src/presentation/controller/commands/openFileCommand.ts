@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { InOutFilesAdapter } from '../../../infrastructure/inOutFilesAdapter';
+import type { IInOutFilesAdapter } from '../../../domain/interfaces/IInOutFilesAdapter';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
 /**
@@ -11,7 +11,7 @@ import type { PahcerTreeItem } from '../pahcerTreeViewController';
  * - エディタ操作
  */
 export function openInputFileCommand(
-  inOutFilesAdapter: InOutFilesAdapter,
+  inOutFilesAdapter: IInOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     if (item.seed == null) {
@@ -38,7 +38,7 @@ export function openInputFileCommand(
  * - エディタ操作
  */
 export function openOutputFileCommand(
-  inOutFilesAdapter: InOutFilesAdapter,
+  inOutFilesAdapter: IInOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     if (item.seed === null || item.seed === undefined || !item.executionId) {
@@ -68,7 +68,7 @@ export function openOutputFileCommand(
  * - エディタ操作
  */
 export function openErrorFileCommand(
-  inOutFilesAdapter: InOutFilesAdapter,
+  inOutFilesAdapter: IInOutFilesAdapter,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     if (item.seed === null || item.seed === undefined || !item.executionId) {

@@ -1,29 +1,23 @@
 import * as vscode from 'vscode';
-import { ExecutionRepository } from '../../infrastructure/executionRepository';
-import { InOutFilesAdapter } from '../../infrastructure/inOutFilesAdapter';
-import { VisualizerCache } from '../../infrastructure/visualizerCache';
-import { VisualizerDownloader } from '../../infrastructure/visualizerDownloader';
+import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
+import type { IInOutFilesAdapter } from '../../domain/interfaces/IInOutFilesAdapter';
+import type { IVisualizerCache } from '../../domain/interfaces/IVisualizerCache';
+import type { IVisualizerDownloader } from '../../domain/interfaces/IVisualizerDownloader';
 
 /**
  * ビジュアライザのWebViewコントローラ
  */
 export class VisualizerViewController {
   private static currentPanel: vscode.WebviewPanel | undefined;
-
-  private inOutFilesAdapter: InOutFilesAdapter;
-  private executionRepository: ExecutionRepository;
-  private visualizerDownloader: VisualizerDownloader;
-  private visualizerCache: VisualizerCache;
   private readonly CONFIG_SECTION = 'pahcer-ui';
 
-  constructor(_context: vscode.ExtensionContext, workspaceRoot: string) {
-    const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
-
-    this.inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-    this.executionRepository = new ExecutionRepository(workspaceRoot);
-    this.visualizerDownloader = new VisualizerDownloader(visualizerDir);
-    this.visualizerCache = new VisualizerCache(visualizerDir);
-  }
+  constructor(
+    _context: vscode.ExtensionContext,
+    private inOutFilesAdapter: IInOutFilesAdapter,
+    private executionRepository: IExecutionRepository,
+    private visualizerDownloader: IVisualizerDownloader,
+    private visualizerCache: IVisualizerCache,
+  ) {}
 
   /**
    * ビジュアライザを表示

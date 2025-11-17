@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import type { IUIConfigRepository } from '../domain/interfaces/IUIConfigRepository';
 import { DEFAULT_UI_CONFIG, type UIConfig } from '../domain/models/uiConfig';
 import { asErrnoException } from '../util/lang';
 import { UIConfigSchema } from './schemas';
@@ -7,7 +8,7 @@ import { UIConfigSchema } from './schemas';
 /**
  * 比較設定のリポジトリ
  */
-export class UIConfigRepository {
+export class UIConfigRepository implements IUIConfigRepository {
   private configDirPath: string;
   private configPath: string;
 

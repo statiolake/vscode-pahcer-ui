@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import type { IInOutFilesAdapter } from '../domain/interfaces/IInOutFilesAdapter';
 import type { TestCaseId } from '../domain/models/testCase';
 import { asErrnoException } from '../util/lang';
 
@@ -19,7 +20,7 @@ export type FileType = 'in' | 'out' | 'err';
  * 責務外（ユースケース層で実装）:
  * - ファイルの解析（TestCaseへの変換）
  */
-export class InOutFilesAdapter {
+export class InOutFilesAdapter implements IInOutFilesAdapter {
   constructor(private workspaceRoot: string) {}
 
   /**

@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-import type { ExecutionRepository } from '../../../infrastructure/executionRepository';
+import type { IExecutionRepository } from '../../../domain/interfaces/IExecutionRepository';
 import type { PahcerTreeItem, PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
  * コメント追加コマンドハンドラ
  */
 export function addCommentCommand(
-  executionRepository: ExecutionRepository,
+  executionRepository: IExecutionRepository,
   treeViewController: PahcerTreeViewController,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {

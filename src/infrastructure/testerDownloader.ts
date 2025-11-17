@@ -4,17 +4,17 @@ import * as http from 'node:http';
 import * as https from 'node:https';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import type { DownloadedTester, ITesterDownloader } from '../domain/interfaces/ITesterDownloader';
+
+// Re-export for backward compatibility
+export type { DownloadedTester };
 
 const execAsync = promisify(exec);
-
-export type DownloadedTester = {
-  seemsInteractive: boolean;
-};
 
 /**
  * ローカルテスターのダウンロードと展開を行うアダプター
  */
-export class TesterDownloader {
+export class TesterDownloader implements ITesterDownloader {
   constructor(private workspaceRoot: string) {}
 
   /**

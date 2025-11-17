@@ -1,10 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { IVisualizerCache } from '../domain/interfaces/IVisualizerCache';
 
 /**
  * ビジュアライザのキャッシュ管理
  */
-export class VisualizerCache {
+export class VisualizerCache implements IVisualizerCache {
   constructor(private visualizerDir: string) {
     if (!fs.existsSync(visualizerDir)) {
       fs.mkdirSync(visualizerDir, { recursive: true });

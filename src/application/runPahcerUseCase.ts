@@ -1,11 +1,12 @@
+import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
+import type { IFileAnalyzer } from '../domain/interfaces/IFileAnalyzer';
+import type { IGitAdapter } from '../domain/interfaces/IGitAdapter';
+import type { IInOutFilesAdapter } from '../domain/interfaces/IInOutFilesAdapter';
+import type { IPahcerAdapter } from '../domain/interfaces/IPahcerAdapter';
+import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
+import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
 import type { PahcerConfig } from '../domain/models/configFile';
-import type { ExecutionRepository } from '../infrastructure/executionRepository';
-import { FileAnalyzer } from '../infrastructure/fileAnalyzer';
-import type { GitAdapter } from '../infrastructure/gitAdapter';
-import type { InOutFilesAdapter } from '../infrastructure/inOutFilesAdapter';
-import type { PahcerAdapter, PahcerRunOptions } from '../infrastructure/pahcerAdapter';
-import type { PahcerConfigRepository } from '../infrastructure/pahcerConfigRepository';
-import type { TestCaseRepository } from '../infrastructure/testCaseRepository';
+import type { PahcerRunOptions } from '../domain/models/pahcerStatus';
 import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
 
 /**
@@ -30,12 +31,13 @@ import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
  */
 export class RunPahcerUseCase {
   constructor(
-    private pahcerAdapter: PahcerAdapter,
-    private gitAdapter: GitAdapter,
-    private inOutFilesAdapter: InOutFilesAdapter,
-    private executionRepository: ExecutionRepository,
-    private testCaseRepository: TestCaseRepository,
-    private pahcerConfigRepository: PahcerConfigRepository,
+    private pahcerAdapter: IPahcerAdapter,
+    private gitAdapter: IGitAdapter,
+    private inOutFilesAdapter: IInOutFilesAdapter,
+    private fileAnalyzer: IFileAnalyzer,
+    private executionRepository: IExecutionRepository,
+    private testCaseRepository: ITestCaseRepository,
+    private pahcerConfigRepository: IPahcerConfigRepository,
   ) {}
 
   /**
@@ -124,8 +126,8 @@ export class RunPahcerUseCase {
         const stderrPath = this.inOutFilesAdapter.getArchivedPath('err', tc.id);
 
         // 解析データを取得
-        const firstInputLine = await FileAnalyzer.readFirstLine(inputPath);
-        const stderrVars = (await FileAnalyzer.parseStderrVariables(stderrPath)) || {};
+        const firstInputLine = await this.fileAnalyzer.readFirstLine(inputPath);
+        const stderrVars = (await this.fileAnalyzer.parseStderrVariables(stderrPath)) || {};
 
         // TestCaseに解析データを追加
         tc.firstInputLine = firstInputLine;

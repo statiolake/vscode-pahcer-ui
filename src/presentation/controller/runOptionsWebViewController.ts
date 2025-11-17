@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { RunPahcerUseCase } from '../../application/runPahcerUseCase';
-import type { ContextAdapter } from '../../infrastructure/contextAdapter';
+import type { IContextAdapter } from '../../domain/interfaces/IContextAdapter';
 
 interface RunOptions {
   startSeed: number;
@@ -12,7 +12,7 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly runPahcerUseCase: RunPahcerUseCase,
-    private readonly contextAdapter: ContextAdapter,
+    private readonly contextAdapter: IContextAdapter,
   ) {}
 
   resolveWebviewView(

@@ -1,13 +1,22 @@
 import * as vscode from 'vscode';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
+import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
+import type { IPahcerConfigRepository } from './domain/interfaces/IPahcerConfigRepository';
+import type { ITestCaseRepository } from './domain/interfaces/ITestCaseRepository';
+import type { IUIConfigRepository } from './domain/interfaces/IUIConfigRepository';
 import { ContextAdapter } from './infrastructure/contextAdapter';
 import { ExecutionRepository } from './infrastructure/executionRepository';
+import { FileAnalyzer } from './infrastructure/fileAnalyzer';
 import { GitAdapter } from './infrastructure/gitAdapter';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutFilesAdapter } from './infrastructure/inOutFilesAdapter';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
+import { TesterDownloader } from './infrastructure/testerDownloader';
+import { UIConfigRepository } from './infrastructure/uiConfigRepository';
+import { VisualizerCache } from './infrastructure/visualizerCache';
+import { VisualizerDownloader } from './infrastructure/visualizerDownloader';
 import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './presentation/controller/commands/changeSortOrderCommand';
 import { initializeCommand } from './presentation/controller/commands/initializeCommand';
@@ -32,6 +41,7 @@ import { InitializationWebViewController } from './presentation/controller/initi
 import { PahcerTreeViewController } from './presentation/controller/pahcerTreeViewController';
 import { RunOptionsWebViewController } from './presentation/controller/runOptionsWebViewController';
 import { VisualizerViewController } from './presentation/controller/visualizerViewController';
+import { TreeItemBuilder } from './presentation/view/treeView/treeItemBuilder';
 
 /**
  * アダプター（インフラ層コンポーネント）の集合
@@ -39,12 +49,17 @@ import { VisualizerViewController } from './presentation/controller/visualizerVi
 interface Adapters {
   contextAdapter: ContextAdapter;
   pahcerAdapter: PahcerAdapter;
-  executionRepository: ExecutionRepository;
+  executionRepository: IExecutionRepository;
+  fileAnalyzer: FileAnalyzer;
   inOutFilesAdapter: InOutFilesAdapter;
-  pahcerConfigRepository: PahcerConfigRepository;
+  pahcerConfigRepository: IPahcerConfigRepository;
   gitignoreAdapter: GitignoreAdapter;
   gitAdapter: GitAdapter;
-  testCaseRepository: TestCaseRepository;
+  testCaseRepository: ITestCaseRepository;
+  testerDownloader: TesterDownloader;
+  uiConfigRepository: IUIConfigRepository;
+  visualizerCache: VisualizerCache;
+  visualizerDownloader: VisualizerDownloader;
 }
 
 /**
@@ -68,12 +83,21 @@ interface UseCases {
  */
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const contextAdapter = new ContextAdapter();
-  const executionRepository = new ExecutionRepository(workspaceRoot);
+  const executionRepository: IExecutionRepository = new ExecutionRepository(workspaceRoot);
+  const fileAnalyzer = new FileAnalyzer();
   const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-  const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
+  const pahcerConfigRepository: IPahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
   const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
   const gitAdapter = new GitAdapter(workspaceRoot);
-  const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
+  const testCaseRepository: ITestCaseRepository = new TestCaseRepository(
+    inOutFilesAdapter,
+    workspaceRoot,
+  );
+  const uiConfigRepository: IUIConfigRepository = new UIConfigRepository(workspaceRoot);
+  const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
+  const visualizerDownloader = new VisualizerDownloader(visualizerDir);
+  const visualizerCache = new VisualizerCache(visualizerDir);
+  const testerDownloader = new TesterDownloader(workspaceRoot);
 
   // Create slim PahcerAdapter (infrastructure-only)
   const pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
@@ -88,11 +112,16 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
     contextAdapter,
     pahcerAdapter,
     executionRepository,
+    fileAnalyzer,
     inOutFilesAdapter,
     pahcerConfigRepository,
     gitignoreAdapter,
     gitAdapter,
     testCaseRepository,
+    testerDownloader,
+    uiConfigRepository,
+    visualizerCache,
+    visualizerDownloader,
   };
 }
 
@@ -104,6 +133,7 @@ function initializeUseCases(adapters: Adapters): UseCases {
     adapters.pahcerAdapter,
     adapters.gitAdapter,
     adapters.inOutFilesAdapter,
+    adapters.fileAnalyzer,
     adapters.executionRepository,
     adapters.testCaseRepository,
     adapters.pahcerConfigRepository,
@@ -117,13 +147,28 @@ function initializeUseCases(adapters: Adapters): UseCases {
 /**
  * コントローラーを初期化
  */
-function initializeControllers(
-  context: vscode.ExtensionContext,
-  workspaceRoot: string,
-): Controllers {
-  const treeViewController = new PahcerTreeViewController(workspaceRoot);
-  const visualizerViewController = new VisualizerViewController(context, workspaceRoot);
-  const comparisonViewController = new ComparisonViewController(context, workspaceRoot);
+function initializeControllers(context: vscode.ExtensionContext, adapters: Adapters): Controllers {
+  const treeViewController = new PahcerTreeViewController(
+    adapters.pahcerAdapter,
+    adapters.executionRepository,
+    adapters.testCaseRepository,
+    adapters.pahcerConfigRepository,
+    new TreeItemBuilder(),
+  );
+  const visualizerViewController = new VisualizerViewController(
+    context,
+    adapters.inOutFilesAdapter,
+    adapters.executionRepository,
+    adapters.visualizerDownloader,
+    adapters.visualizerCache,
+  );
+  const comparisonViewController = new ComparisonViewController(
+    context,
+    adapters.executionRepository,
+    adapters.testCaseRepository,
+    adapters.uiConfigRepository,
+    adapters.pahcerConfigRepository,
+  );
 
   return {
     treeViewController,
@@ -146,6 +191,7 @@ function registerInitializationView(
     adapters.pahcerAdapter,
     adapters.contextAdapter,
     adapters.gitignoreAdapter,
+    adapters.testerDownloader,
   );
 
   return vscode.window.registerWebviewViewProvider('pahcerInitialization', initializationProvider);
@@ -218,7 +264,6 @@ function registerRunOptionsView(
  * すべてのコマンドを登録
  */
 function registerCommands(
-  workspaceRoot: string,
   adapters: Adapters,
   controllers: Controllers,
   useCases: UseCases,
@@ -285,7 +330,7 @@ function registerCommands(
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.showDiff',
-      showDiffCommand(controllers.treeViewController, workspaceRoot),
+      showDiffCommand(controllers.treeViewController, adapters.gitAdapter),
     ),
   ];
 }
@@ -305,7 +350,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const useCases = initializeUseCases(adapters);
 
   // Step 4: Initialize all controllers
-  const controllers = initializeControllers(context, workspaceRoot);
+  const controllers = initializeControllers(context, adapters);
 
   // Step 5: Register all views
   const initializationView = registerInitializationView(context, workspaceRoot, adapters);
@@ -313,7 +358,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const runOptionsView = registerRunOptionsView(context, useCases, adapters);
 
   // Step 6: Register all commands
-  const commands = registerCommands(workspaceRoot, adapters, controllers, useCases);
+  const commands = registerCommands(adapters, controllers, useCases);
 
   // Step 7: Add all disposables to context
   context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);

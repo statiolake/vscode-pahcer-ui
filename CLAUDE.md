@@ -90,19 +90,34 @@ Presentation → Application → (Infrastructure + Domain)
 src/
 ├── domain/                         # ドメイン層（純粋なビジネスロジック）
 │   ├── models/                     # ドメインモデル定義（クラス）
-│   ├── repositories/               # リポジトリインターフェース（依存性逆転）
+│   ├── interfaces/                 # リポジトリ・アダプターインターフェース（依存性逆転）
+│   │   ├── IExecutionRepository.ts
+│   │   ├── ITestCaseRepository.ts
+│   │   ├── IPahcerConfigRepository.ts
+│   │   ├── IUIConfigRepository.ts
+│   │   ├── IContextAdapter.ts
+│   │   ├── IGitAdapter.ts
+│   │   ├── IGitignoreAdapter.ts
+│   │   ├── IInOutFilesAdapter.ts
+│   │   ├── IPahcerAdapter.ts
+│   │   └── index.ts               # 全インターフェースのエクスポート
 │   ├── valueObjects/               # 値オブジェクト
 │   └── services/                   # ドメインサービス（純粋関数を持つクラス）
 │
 ├── infrastructure/                 # インフラ層（ファイルI/O、外部API連携）
-│   └── （リポジトリ実装・アダプターのフラット構造）
+│   ├── *Repository.ts             # リポジトリ実装（各インターフェースを実装）
+│   ├── *Adapter.ts                # アダプター実装（各インターフェースを実装）
+│   ├── exceptions.ts              # インフラ層例外定義
+│   └── （フラット構造）
 │
 ├── application/                    # アプリケーション層（ユースケース・ワークフロー）
-│   └── （ユースケースクラス、Constructor DI で依存性注入）
+│   ├── *UseCase.ts                # ユースケースクラス（Constructor DI で依存性注入）
+│   └── exceptions.ts              # アプリケーション層例外定義
 │
 ├── presentation/                   # プレゼンテーション層（UI制御）
 │   ├── controller/                 # コマンドハンドラ・UIコントローラ
-│   │   └── commands/               # コマンドハンドラ
+│   │   ├── commands/               # コマンドハンドラ
+│   │   └── *ViewController.ts      # ビューコントローラ
 │   └── view/                       # UI構築（TreeItem、WebView）
 │       ├── treeView/               # TreeView UI構築
 │       └── webview/                # WebView内UI
@@ -257,13 +272,97 @@ export class ExecutionRepository implements IExecutionRepository {
 }
 
 // アダプター：外部 CLI のラップ
-export class PahcerAdapter {
-	async run(configFile?: PahcerConfig): Promise<number | undefined> {
+export class PahcerAdapter implements IPahcerAdapter {
+	constructor(
+		private pahcerConfigRepository: IPahcerConfigRepository,
+		private workspaceRoot: string,
+	) {}
+
+	async run(options?: PahcerRunOptions, configFile?: PahcerConfig): Promise<number | undefined> {
 		let command = 'pahcer run';
 		if (configFile) {
 			command += ` --setting-file "${configFile.path}"`;  // path は domain model から取得
 		}
 		return this.executeTask('Pahcer Run', command);
+	}
+}
+
+// コンテキストアダプター：VSCode API のラップ
+export class ContextAdapter implements IContextAdapter {
+	async setPahcerStatus(status: PahcerStatus): Promise<void> {
+		const statusString = this.pahcerStatusToString(status);
+		await vscode.commands.executeCommand('setContext', 'pahcer.status', statusString);
+	}
+
+	private pahcerStatusToString(status: PahcerStatus): string {
+		// VSCode context に設定する値に変換
+		// ...
+	}
+}
+```
+
+#### アダプターインターフェース実装ガイド
+
+**アダプターの分類**:
+1. **データアダプター** - ファイルI/O を行うもの
+   - 例：`InOutFilesAdapter`、`PahcerConfigRepository`
+   - 特徴：ファイルパスやストレージ操作をカプセル化
+
+2. **外部ツールアダプター** - 外部コマンド実行をラップするもの
+   - 例：`PahcerAdapter`（pahcer CLI）、`GitAdapter`（git コマンド）
+   - 特徴：コマンド実行、プロセス管理をカプセル化
+
+3. **フレームワークアダプター** - VSCode API などのフレームワークAPIをラップするもの
+   - 例：`ContextAdapter`（VSCode Context API）、`GitignoreAdapter`（ファイル操作）
+   - 特徴：フレームワーク固有のAPIを抽象化
+
+**実装時のチェックリスト**:
+- ✅ ドメイン層で定義されたインターフェースを `implements` で実装
+- ✅ インフラ固有情報（`workspaceRoot` など）をコンストラクタで受け取り、内部に隠蔽
+- ✅ メソッドの戻り値はドメインモデル（型安全）
+- ✅ ファイルが見つからない場合（ENOENT）は適切に処理（undefined か空配列を返す）
+- ✅ その他のエラーは投げ直す（呼び出し側で適切に処理）
+- ✅ 副作用（ファイルI/O、コマンド実行）は async/await で適切に管理
+- ✅ インターフェースのすべてのメソッドを実装
+
+**例：新しいアダプターを追加する場合**:
+
+```typescript
+// ステップ 1: ドメイン層にインターフェースを定義
+// src/domain/interfaces/IMyAdapter.ts
+export interface IMyAdapter {
+	doSomething(param: string): Promise<Result>;
+	checkStatus(): Promise<boolean>;
+}
+
+// ステップ 2: インフラ層に実装を作成
+// src/infrastructure/myAdapter.ts
+import type { IMyAdapter } from '../domain/interfaces/IMyAdapter';
+
+export class MyAdapter implements IMyAdapter {
+	constructor(private workspaceRoot: string) {}
+
+	async doSomething(param: string): Promise<Result> {
+		// インフラ操作を実行、Result ドメインモデルで返す
+		return new Result(/* ... */);
+	}
+
+	async checkStatus(): Promise<boolean> {
+		// ...
+	}
+}
+
+// ステップ 3: domain/interfaces/index.ts に追加
+export type { IMyAdapter } from './IMyAdapter';
+
+// ステップ 4: アプリケーション層や上位層で使用
+// Constructor DI でインターフェースを注入
+export class MyUseCase {
+	constructor(private myAdapter: IMyAdapter) {}  // 実装ではなくインターフェースに依存
+
+	async execute(): Promise<void> {
+		const status = await this.myAdapter.checkStatus();
+		// ...
 	}
 }
 ```

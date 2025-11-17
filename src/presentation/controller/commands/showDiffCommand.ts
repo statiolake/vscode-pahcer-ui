@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
+import type { IGitAdapter } from '../../../domain/interfaces/IGitAdapter';
 import { getTitleWithHash } from '../../../domain/models/execution';
-import { GitAdapter } from '../../../infrastructure/gitAdapter';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -8,7 +8,7 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
  */
 export function showDiffCommand(
   treeViewController: PahcerTreeViewController,
-  workspaceRoot: string,
+  gitAdapter: IGitAdapter,
 ): () => Promise<void> {
   return async () => {
     const checkedExecutions = await treeViewController.getCheckedResultsWithCommitHash();
@@ -29,7 +29,6 @@ export function showDiffCommand(
     }
 
     try {
-      const gitAdapter = new GitAdapter(workspaceRoot);
       await gitAdapter.showDiff(
         older.commitHash,
         newer.commitHash,

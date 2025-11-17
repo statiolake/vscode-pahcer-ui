@@ -1,9 +1,12 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { ContextAdapter } from '../../infrastructure/contextAdapter';
-import type { GitignoreAdapter } from '../../infrastructure/gitignoreAdapter';
-import type { PahcerAdapter } from '../../infrastructure/pahcerAdapter';
-import { type DownloadedTester, TesterDownloader } from '../../infrastructure/testerDownloader';
+import type { IContextAdapter } from '../../domain/interfaces/IContextAdapter';
+import type { IGitignoreAdapter } from '../../domain/interfaces/IGitignoreAdapter';
+import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
+import type {
+  DownloadedTester,
+  ITesterDownloader,
+} from '../../domain/interfaces/ITesterDownloader';
 
 interface InitOptions {
   problemName: string;
@@ -20,9 +23,10 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly workspaceRoot: string,
-    private readonly pahcerAdapter: PahcerAdapter,
-    private readonly contextAdapter: ContextAdapter,
-    private readonly gitignoreAdapter: GitignoreAdapter,
+    private readonly pahcerAdapter: IPahcerAdapter,
+    private readonly contextAdapter: IContextAdapter,
+    private readonly gitignoreAdapter: IGitignoreAdapter,
+    private readonly testerDownloader: ITesterDownloader,
   ) {}
 
   resolveWebviewView(
@@ -86,8 +90,7 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
     let tester: DownloadedTester;
     try {
       vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
-      const downloader = new TesterDownloader(this.workspaceRoot);
-      tester = await downloader.downloadAndExtract(testerUrl);
+      tester = await this.testerDownloader.downloadAndExtract(testerUrl);
       vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

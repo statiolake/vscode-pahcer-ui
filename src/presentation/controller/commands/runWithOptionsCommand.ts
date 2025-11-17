@@ -1,9 +1,9 @@
-import type { ContextAdapter } from '../../../infrastructure/contextAdapter';
+import type { IContextAdapter } from '../../../domain/interfaces/IContextAdapter';
 
 /**
  * オプション付きテスト実行コマンドハンドラ
  */
-export function runWithOptionsCommand(contextAdapter: ContextAdapter): () => Promise<void> {
+export function runWithOptionsCommand(contextAdapter: IContextAdapter): () => Promise<void> {
   return async () => {
     await contextAdapter.setShowRunOptions(true);
   };

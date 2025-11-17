@@ -1,5 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
 import { TestCase, TestCaseId } from '../domain/models/testCase';
 import { exists } from '../util/fs';
 import { asErrnoException } from '../util/lang';
@@ -22,7 +23,7 @@ import {
  * 識別方法:
  * - executionId と seed の複合キーで TestCase を一意に識別
  */
-export class TestCaseRepository {
+export class TestCaseRepository implements ITestCaseRepository {
   constructor(
     private inOutFilesAdapter: InOutFilesAdapter,
     private workspaceRoot: string,

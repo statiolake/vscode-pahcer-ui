@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import { type ConfigId, PahcerConfig } from '../domain/models/configFile';
 import { asErrnoException } from '../util/lang';
 
@@ -11,7 +12,7 @@ import { asErrnoException } from '../util/lang';
  * - TOML コンテンツから start_seed, end_seed, objective をパース
  * - PahcerConfig ドメインモデルへの変換
  */
-export class PahcerConfigRepository {
+export class PahcerConfigRepository implements IPahcerConfigRepository {
   constructor(private workspaceRoot: string) {}
 
   /**

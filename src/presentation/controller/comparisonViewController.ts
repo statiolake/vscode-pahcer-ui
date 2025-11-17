@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
+import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
+import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
+import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
+import type { IUIConfigRepository } from '../../domain/interfaces/IUIConfigRepository';
 import { type Execution, getLongTitle } from '../../domain/models/execution';
 import { calculateBestScoresFromTestCases } from '../../domain/services/aggregationService';
-import { ExecutionRepository } from '../../infrastructure/executionRepository';
-import { InOutFilesAdapter } from '../../infrastructure/inOutFilesAdapter';
-import { PahcerConfigRepository } from '../../infrastructure/pahcerConfigRepository';
-import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
-import { UIConfigRepository } from '../../infrastructure/uiConfigRepository';
 
 function getNonce() {
   let text = '';
@@ -23,21 +22,13 @@ export class ComparisonViewController {
   private panel: vscode.WebviewPanel | undefined;
   private messageDisposable: vscode.Disposable | undefined;
 
-  private executionRepository: ExecutionRepository;
-  private testCaseRepository: TestCaseRepository;
-  private uiConfigRepository: UIConfigRepository;
-  private pahcerConfigRepository: PahcerConfigRepository;
-
   constructor(
     private context: vscode.ExtensionContext,
-    workspaceRoot: string,
-  ) {
-    this.executionRepository = new ExecutionRepository(workspaceRoot);
-    const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-    this.testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
-    this.uiConfigRepository = new UIConfigRepository(workspaceRoot);
-    this.pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
-  }
+    private executionRepository: IExecutionRepository,
+    private testCaseRepository: ITestCaseRepository,
+    private uiConfigRepository: IUIConfigRepository,
+    private pahcerConfigRepository: IPahcerConfigRepository,
+  ) {}
 
   /**
    * 比較ビューを表示

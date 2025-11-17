@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { IContextAdapter } from '../domain/interfaces/IContextAdapter';
 import type { GroupingMode } from '../domain/services/sortingService';
 import type { PahcerStatus } from './pahcerAdapter';
 
@@ -10,7 +11,7 @@ import type { PahcerStatus } from './pahcerAdapter';
  * - 一元管理（どの Context が存在するか把握しやすい）
  * - 変更時の影響範囲を限定
  */
-export class ContextAdapter {
+export class ContextAdapter implements IContextAdapter {
   /**
    * pahcer のステータスを設定
    * package.json の when 句で使用: `pahcer.status == 'ready'`

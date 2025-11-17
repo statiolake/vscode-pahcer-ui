@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import * as vscode from 'vscode';
+import type { IGitAdapter } from '../domain/interfaces/IGitAdapter';
 import { CommandExecutionError } from './exceptions';
 
 /**
@@ -10,7 +11,7 @@ const MAX_FILES = 3;
 /**
  * Git操作を抽象化するアダプター
  */
-export class GitAdapter {
+export class GitAdapter implements IGitAdapter {
   constructor(private workspaceRoot: string) {}
 
   /**

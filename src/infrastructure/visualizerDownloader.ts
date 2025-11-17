@@ -1,11 +1,12 @@
 import { existsSync, promises as fs } from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
+import type { IVisualizerDownloader } from '../domain/interfaces/IVisualizerDownloader';
 
 /**
  * ビジュアライザのダウンロード処理
  */
-export class VisualizerDownloader {
+export class VisualizerDownloader implements IVisualizerDownloader {
   private readonly MAX_DEPTH = 3;
 
   constructor(private visualizerDir: string) {}

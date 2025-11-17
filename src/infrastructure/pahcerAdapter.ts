@@ -1,29 +1,13 @@
 import { execSync } from 'node:child_process';
 import * as vscode from 'vscode';
+import type { IPahcerAdapter } from '../domain/interfaces/IPahcerAdapter';
+import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import type { PahcerConfig } from '../domain/models/configFile';
+import { type PahcerRunOptions, PahcerStatus } from '../domain/models/pahcerStatus';
 import { FileOperationError } from './exceptions';
-import type { PahcerConfigRepository } from './pahcerConfigRepository';
 
-/**
- * pahcerのインストール状態
- */
-export enum PahcerStatus {
-  /** pahcerがインストールされていない */
-  NotInstalled,
-  /** pahcerはインストールされているが初期化されていない */
-  NotInitialized,
-  /** pahcerがインストールされ初期化済み */
-  Ready,
-}
-
-/**
- * pahcer run のオプション
- */
-export interface PahcerRunOptions {
-  startSeed?: number;
-  endSeed?: number;
-  freezeBestScores?: boolean;
-}
+// Re-export for backward compatibility
+export { PahcerStatus, type PahcerRunOptions };
 
 /**
  * pahcer CLIツールの実行と状態をチェックするアダプター
@@ -35,9 +19,9 @@ export interface PahcerRunOptions {
  *
  * 注：ビジネスロジック（Git統合、ファイルコピー、解析）はRunPahcerUseCaseに委譲
  */
-export class PahcerAdapter {
+export class PahcerAdapter implements IPahcerAdapter {
   constructor(
-    private pahcerConfigRepository: PahcerConfigRepository,
+    private pahcerConfigRepository: IPahcerConfigRepository,
     private workspaceRoot: string,
   ) {}
 

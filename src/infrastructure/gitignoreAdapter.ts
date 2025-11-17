@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { IGitignoreAdapter } from '../domain/interfaces/IGitignoreAdapter';
 
 /**
  * .gitignoreファイルを管理するアダプター
@@ -8,7 +9,7 @@ import * as path from 'node:path';
  * - .gitignoreの読み書き
  * - エントリの追加
  */
-export class GitignoreAdapter {
+export class GitignoreAdapter implements IGitignoreAdapter {
   constructor(private workspaceRoot: string) {}
 
   /**

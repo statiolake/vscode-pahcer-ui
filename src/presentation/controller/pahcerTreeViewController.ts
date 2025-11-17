@@ -1,4 +1,9 @@
 import * as vscode from 'vscode';
+import { PahcerStatus } from '../../domain/interfaces';
+import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
+import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
+import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
+import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
 import { type Execution, getShortTitle } from '../../domain/models/execution';
 import type { TestCase } from '../../domain/models/testCase';
 import {
@@ -16,12 +21,7 @@ import type {
   SeedSortOrder,
 } from '../../domain/services/sortingService';
 import { sortExecutionsForSeed, sortTestCases } from '../../domain/services/sortingService';
-import { ExecutionRepository } from '../../infrastructure/executionRepository';
-import { InOutFilesAdapter } from '../../infrastructure/inOutFilesAdapter';
-import { PahcerAdapter, PahcerStatus } from '../../infrastructure/pahcerAdapter';
-import { PahcerConfigRepository } from '../../infrastructure/pahcerConfigRepository';
-import { TestCaseRepository } from '../../infrastructure/testCaseRepository';
-import { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
+import type { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
 /**
  * TreeItem with metadata
@@ -53,10 +53,10 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
   private checkedResults = new Set<string>();
 
-  private pahcerAdapter: PahcerAdapter;
-  private executionRepository: ExecutionRepository;
-  private testCaseRepository: TestCaseRepository;
-  private pahcerConfigRepository: PahcerConfigRepository;
+  private pahcerAdapter: IPahcerAdapter;
+  private executionRepository: IExecutionRepository;
+  private testCaseRepository: ITestCaseRepository;
+  private pahcerConfigRepository: IPahcerConfigRepository;
   private treeItemBuilder: TreeItemBuilder;
   private readonly CONFIG_SECTION = 'pahcer-ui';
 
@@ -64,14 +64,18 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   private cachedBestScores?: Map<number, number>;
   private cachedTestCases?: TestCase[];
 
-  constructor(workspaceRoot: string) {
-    const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
-    this.pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
-    this.executionRepository = new ExecutionRepository(workspaceRoot);
-    const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-    this.testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
+  constructor(
+    pahcerAdapter: IPahcerAdapter,
+    executionRepository: IExecutionRepository,
+    testCaseRepository: ITestCaseRepository,
+    pahcerConfigRepository: IPahcerConfigRepository,
+    treeItemBuilder: TreeItemBuilder,
+  ) {
+    this.pahcerAdapter = pahcerAdapter;
+    this.executionRepository = executionRepository;
+    this.testCaseRepository = testCaseRepository;
     this.pahcerConfigRepository = pahcerConfigRepository;
-    this.treeItemBuilder = new TreeItemBuilder();
+    this.treeItemBuilder = treeItemBuilder;
   }
 
   /**
