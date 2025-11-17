@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { IContextAdapter } from '../domain/interfaces/IContextAdapter';
-import type { GroupingMode } from '../domain/services/sortingService';
+import type { TestCaseSorter } from '../domain/services/testCaseSorter';
 import type { PahcerStatus } from './pahcerAdapter';
 
 /**
@@ -41,7 +41,7 @@ export class ContextAdapter implements IContextAdapter {
    * グルーピングモードを設定
    * package.json の when 句で使用: `pahcer.groupingMode == 'byExecution'`
    */
-  async setGroupingMode(mode: GroupingMode): Promise<void> {
+  async setGroupingMode(mode: TestCaseSorter.GroupingMode): Promise<void> {
     await vscode.commands.executeCommand('setContext', 'pahcer.groupingMode', mode);
   }
 

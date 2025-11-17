@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import type { IFileAnalyzer } from '../domain/interfaces/IFileAnalyzer';
-import { parseStderrVariables as domainParseStderr } from '../domain/services/stderrParser';
+import { StderrParser } from '../domain/services/stderrParser';
 
 /**
  * ファイル解析アダプター
@@ -93,10 +93,10 @@ export class FileAnalyzer implements IFileAnalyzer {
     const { head, tail } = await this.readHeadAndTail(filePath, headLines, tailLines);
 
     // Parse head first
-    const variables = domainParseStderr(head);
+    const variables = StderrParser.parseVariables(head);
 
     // Parse tail (these override earlier values)
-    const tailVars = domainParseStderr(tail);
+    const tailVars = StderrParser.parseVariables(tail);
     for (const [key, value] of Object.entries(tailVars)) {
       variables[key] = value;
     }

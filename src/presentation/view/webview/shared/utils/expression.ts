@@ -1,7 +1,7 @@
 /**
- * Validate expression syntax by parsing (without evaluating)
- * Returns true if the expression is valid (or empty), false otherwise
- * Note: variableNames parameter is kept for backward compatibility but not used
+ * 式の構文を検証（評価なし）
+ * 式が有効な場合、または空の場合は true を返す。それ以外は false を返す
+ * 注：variableNames パラメータは後方互換性のため保持されていますが使用されません
  */
 export function isValidExpression(expr: string, _variableNames?: string[]): boolean {
   if (!expr || expr.trim() === '') {
@@ -9,25 +9,25 @@ export function isValidExpression(expr: string, _variableNames?: string[]): bool
   }
 
   try {
-    // Parse without evaluation - only checks syntax
+    // 構文のみをチェック（評価なし）
     parseExpression(expr);
     return true;
   } catch (e) {
-    console.warn(`Expression '${expr}' validation error:`, e);
+    console.warn(`式 '${expr}' の検証エラー:`, e);
     return false;
   }
 }
 
 /**
- * Evaluate arithmetic expression using AST-based parser
- * Supports: +, -, *, /, ^, comparison operators, parentheses, variables
- * Comparison operators: <, <=, >, >=, ==, != (return 1 for true, 0 for false)
- * Functions:
- *   - Element-wise: log(), ceil(), floor()
- *   - Aggregation: avg(), max(), min() (array -> scalar)
- *   - Special: random() (no arguments)
- * All values are arrays internally (element-wise operations, length-1 arrays can broadcast)
- * Throws an error if the expression is invalid
+ * AST ベースのパーサーを使用して算術式を評価
+ * サポート：+, -, *, /, ^, 比較演算子、括弧、変数
+ * 比較演算子：<, <=, >, >=, ==, != （true で 1、false で 0 を返す）
+ * 関数：
+ *   - 要素ごと：log()、ceil()、floor()
+ *   - 集約：avg()、max()、min() （配列 -> スカラー）
+ *   - 特殊：random() （引数なし）
+ * すべての値は内部的に配列です（要素ごと操作、長さ1の配列はブロードキャスト可能）
+ * 式が無効な場合はエラーをスロー
  */
 export function evaluateExpression(expr: string, variables: Record<string, number[]>): number[] {
   const ast = parseExpression(expr);
@@ -35,21 +35,21 @@ export function evaluateExpression(expr: string, variables: Record<string, numbe
 }
 
 /**
- * Parse expression into AST (Abstract Syntax Tree)
- * Does NOT check if variables exist - only validates syntax
+ * 式を AST（抽象構文木）にパース
+ * 変数の存在をチェックしません。構文のみ検証します
  */
 export function parseExpression(expr: string): AstNode {
   const parser = new ExpressionParser(expr.trim());
   const result = parser.parse();
   if (parser.pos < parser.tokens.length && parser.tokens[parser.pos].type !== 'eof') {
-    throw new Error(`Unexpected token: ${parser.tokens[parser.pos].value}`);
+    throw new Error(`予期しないトークン: ${parser.tokens[parser.pos].value}`);
   }
   return result;
 }
 
 /**
- * Evaluate AST with given variables
- * Throws an error if a variable is not found or evaluation fails
+ * 与えられた変数で AST を評価
+ * 変数が見つからない、または評価に失敗した場合はエラーをスロー
  */
 export function evaluateAst(node: AstNode, variables: Record<string, number[]>): number[] {
   switch (node.type) {
@@ -100,32 +100,32 @@ export function evaluateAst(node: AstNode, variables: Record<string, number[]>):
         case '!=':
           return elementWise(left, right, (a, b) => (a !== b ? 1 : 0));
         default:
-          // TypeScript should ensure all cases are covered
-          throw new Error(`Unknown binary operator: ${(node as BinaryNode).operator}`);
+          // TypeScript が全ケースがカバーされていることを保証すべき
+          throw new Error(`未知の二項演算子: ${(node as BinaryNode).operator}`);
       }
     }
 
     case 'function': {
-      // Special case: random() takes no arguments
+      // 特殊ケース：random() は引数を取らない
       if (node.name === 'random') {
         if (node.args.length !== 0) {
-          throw new Error('random() takes no arguments');
+          throw new Error('random() は引数を取りません');
         }
         return [Math.random()];
       }
 
-      // All other functions take exactly one argument
+      // 他のすべての関数はちょうど1つの引数を取る
       if (node.args.length !== 1) {
-        throw new Error(`${node.name}() requires exactly one argument`);
+        throw new Error(`${node.name}() は正確に1つの引数が必要です`);
       }
 
       const arg = evaluateAst(node.args[0], variables);
 
-      // Element-wise functions
+      // 要素ごと関数
       if (node.name === 'log') {
         return elementWiseUnary(arg, (a) => {
           if (a <= 0) {
-            throw new Error('log() requires positive argument');
+            throw new Error('log() は正の値の引数が必要です');
           }
           return Math.log(a);
         });
@@ -139,10 +139,10 @@ export function evaluateAst(node: AstNode, variables: Record<string, number[]>):
         return elementWiseUnary(arg, Math.floor);
       }
 
-      // Aggregation functions (array -> single number, wrapped in length-1 array)
+      // 集約関数（配列 -> 単一の数値、長さ1の配列でラップ）
       if (node.name === 'avg' || node.name === 'max' || node.name === 'min') {
         if (arg.length === 0) {
-          throw new Error(`${node.name}() requires non-empty array`);
+          throw new Error(`${node.name}() は空でない配列が必要です`);
         }
 
         if (node.name === 'avg') {
@@ -159,12 +159,12 @@ export function evaluateAst(node: AstNode, variables: Record<string, number[]>):
         }
       }
 
-      throw new Error(`Unknown function: ${node.name}`);
+      throw new Error(`未知の関数: ${node.name}`);
     }
 
     default:
-      // TypeScript should ensure all cases are covered
-      throw new Error(`Unknown AST node type: ${(node as AstNode).type}`);
+      // TypeScript が全ケースがカバーされていることを保証すべき
+      throw new Error(`未知の AST ノードタイプ: ${(node as AstNode).type}`);
   }
 }
 
@@ -208,15 +208,15 @@ interface Token {
 }
 
 /**
- * Helper functions for element-wise operations
- * All values are arrays; length-1 arrays can be broadcast
+ * 要素ごと操作のヘルパー関数
+ * すべての値は配列です。長さ1の配列はブロードキャスト可能です
  */
 function elementWise(
   left: number[],
   right: number[],
   op: (a: number, b: number) => number,
 ): number[] {
-  // Broadcast: if one is length 1, broadcast to the other's length
+  // ブロードキャスト：どちらかが長さ1の場合、もう一方の長さにブロードキャスト
   if (left.length === 1 && right.length === 1) {
     return [op(left[0], right[0])];
   }
@@ -229,10 +229,10 @@ function elementWise(
     return left.map((a: number) => op(a, right[0]));
   }
 
-  // Element-wise: both arrays must have same length
+  // 要素ごと：両方の配列は同じ長さでなければならない
   if (left.length !== right.length) {
     throw new Error(
-      `Array length mismatch: ${left.length} vs ${right.length} (only length-1 arrays can be broadcast)`,
+      `配列の長さが不一致です: ${left.length} vs ${right.length} （長さ1の配列のみブロードキャスト可能）`,
     );
   }
 

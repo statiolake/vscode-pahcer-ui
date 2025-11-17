@@ -6,21 +6,14 @@ import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerCon
 import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
 import { type Execution, getShortTitle } from '../../domain/models/execution';
 import type { TestCase } from '../../domain/models/testCase';
-import {
-  calculateBestScoresFromTestCases,
-  calculateSeedStats,
-} from '../../domain/services/aggregationService';
-import {
-  aggregateByExecution,
-  type ExecutionStats,
-} from '../../domain/services/executionAggregationService';
-import { groupBySeed } from '../../domain/services/groupingService';
-import type {
-  ExecutionSortOrder,
-  GroupingMode,
-  SeedSortOrder,
-} from '../../domain/services/sortingService';
-import { sortExecutionsForSeed, sortTestCases } from '../../domain/services/sortingService';
+import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
+import { ExecutionStatsCalculator } from '../../domain/services/executionStatsAggregator';
+import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
+import { SeedExecutionSorter } from '../../domain/services/seedExecutionSorter';
+import { SeedStatsCalculator } from '../../domain/services/seedStatsCalculator';
+import { SeedStatsSorter } from '../../domain/services/seedStatsSorter';
+import { TestCaseGrouper } from '../../domain/services/testCaseGrouper';
+import { TestCaseSorter } from '../../domain/services/testCaseSorter';
 import type { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
 /**
@@ -39,7 +32,7 @@ export class PahcerTreeItem extends vscode.TreeItem {
   }
 
   executionId?: string;
-  executionStats?: ExecutionStats;
+  executionStats?: ExecutionStatsCalculator.ExecutionStats;
   seed?: number;
   comment?: string;
 }
@@ -91,7 +84,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   /**
    * グルーピングモードを設定
    */
-  async setGroupingMode(mode: GroupingMode): Promise<void> {
+  async setGroupingMode(mode: TestCaseSorter.GroupingMode): Promise<void> {
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
     await config.update('groupingMode', mode, vscode.ConfigurationTarget.Global);
     this.refresh();
@@ -100,9 +93,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   /**
    * グルーピングモードを取得
    */
-  getGroupingMode(): GroupingMode {
+  getGroupingMode(): TestCaseSorter.GroupingMode {
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    return config.get<GroupingMode>('groupingMode') || 'byExecution';
+    return config.get<TestCaseSorter.GroupingMode>('groupingMode') || 'byExecution';
   }
 
   /**
@@ -126,7 +119,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   /**
    * 実行ごとのソート順を設定
    */
-  async setExecutionSortOrder(order: ExecutionSortOrder): Promise<void> {
+  async setExecutionSortOrder(order: TestCaseSorter.ExecutionSortOrder): Promise<void> {
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
     await config.update('executionSortOrder', order, vscode.ConfigurationTarget.Global);
     this.refresh();
@@ -135,15 +128,15 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   /**
    * 実行ごとのソート順を取得
    */
-  getExecutionSortOrder(): ExecutionSortOrder {
+  getExecutionSortOrder(): TestCaseSorter.ExecutionSortOrder {
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    return config.get<ExecutionSortOrder>('executionSortOrder') || 'seedAsc';
+    return config.get<TestCaseSorter.ExecutionSortOrder>('executionSortOrder') || 'seedAsc';
   }
 
   /**
    * Seedごとのソート順を設定
    */
-  async setSeedSortOrder(order: SeedSortOrder): Promise<void> {
+  async setSeedSortOrder(order: SeedExecutionSorter.SeedSortOrder): Promise<void> {
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
     await config.update('seedSortOrder', order, vscode.ConfigurationTarget.Global);
     this.refresh();
@@ -152,9 +145,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   /**
    * Seedごとのソート順を取得
    */
-  getSeedSortOrder(): SeedSortOrder {
+  getSeedSortOrder(): SeedExecutionSorter.SeedSortOrder {
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    return config.get<SeedSortOrder>('seedSortOrder') || 'executionDesc';
+    return config.get<SeedExecutionSorter.SeedSortOrder>('seedSortOrder') || 'executionDesc';
   }
 
   /**
@@ -247,10 +240,10 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     const testCases = testCasesArray.flat();
 
     // Calculate best scores
-    const bestScores = calculateBestScoresFromTestCases(testCases, config.objective);
+    const bestScores = BestScoreCalculator.calculate(testCases, config.objective);
 
     // Aggregate by execution
-    const executionStatsList = aggregateByExecution(
+    const executionStatsList = ExecutionStatsCalculator.calculate(
       executions,
       testCases,
       bestScores,
@@ -291,7 +284,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   /**
    * 実行結果のテストケース一覧を取得
    */
-  private async getCasesForExecution(executionStats: ExecutionStats): Promise<PahcerTreeItem[]> {
+  private async getCasesForExecution(
+    executionStats: ExecutionStatsCalculator.ExecutionStats,
+  ): Promise<PahcerTreeItem[]> {
     const items: PahcerTreeItem[] = [];
 
     // Ensure bestScores are loaded
@@ -310,7 +305,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
         );
         return [item];
       }
-      this.cachedBestScores = calculateBestScoresFromTestCases(testCases, config.objective);
+      this.cachedBestScores = BestScoreCalculator.calculate(testCases, config.objective);
     }
 
     // Summary
@@ -323,7 +318,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     summaryItem.iconPath = summaryBuilt.iconPath;
     items.push(summaryItem);
 
-    // Calculate relative scores for each test case
+    // Calculate relative scores for each test case using domain service
     const relativeScores = new Map<number, number>();
     const config = await this.pahcerConfigRepository.findById('normal');
     if (!config) {
@@ -335,21 +330,18 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       return [item];
     }
     for (const testCase of executionStats.testCases) {
-      const bestScore = this.cachedBestScores.get(testCase.id.seed);
-      if (bestScore !== undefined && testCase.score > 0) {
-        if (config.objective === 'max') {
-          relativeScores.set(testCase.id.seed, (testCase.score / bestScore) * 100);
-        } else {
-          relativeScores.set(testCase.id.seed, (bestScore / testCase.score) * 100);
-        }
-      } else {
-        relativeScores.set(testCase.id.seed, 0);
-      }
+      const bestScore = this.cachedBestScores?.get(testCase.id.seed);
+      const relativeScore = RelativeScoreCalculator.calculate(
+        testCase.score,
+        bestScore,
+        config.objective,
+      );
+      relativeScores.set(testCase.id.seed, relativeScore);
     }
 
     // Sort cases
     const sortOrder = this.getExecutionSortOrder();
-    const sortedCases = sortTestCases(executionStats.testCases, sortOrder, relativeScores);
+    const sortedCases = TestCaseSorter.byOrder(executionStats.testCases, sortOrder, relativeScores);
 
     // Cases
     for (const testCase of sortedCases) {
@@ -407,8 +399,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       );
       return [item];
     }
-    const bestScores = calculateBestScoresFromTestCases(testCases, config.objective);
-    const statsMap = calculateSeedStats(testCases, bestScores);
+    const bestScores = BestScoreCalculator.calculate(testCases, config.objective);
+    const statsMap = SeedStatsCalculator.calculate(testCases, bestScores);
 
     // Cache for reuse
     this.cachedBestScores = bestScores;
@@ -416,7 +408,9 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     const items: PahcerTreeItem[] = [];
 
-    for (const stats of Array.from(statsMap.values()).sort((a, b) => a.seed - b.seed)) {
+    // Sort seed stats using domain service
+    const sortedStats = SeedStatsSorter.bySeedAscending(statsMap);
+    for (const stats of sortedStats) {
       const builtItem = this.treeItemBuilder.buildSeedItem(stats);
       const item = new PahcerTreeItem(
         builtItem.label as string,
@@ -460,14 +454,11 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     // Ensure bestScores are calculated
     if (!this.cachedBestScores) {
-      this.cachedBestScores = calculateBestScoresFromTestCases(
-        this.cachedTestCases,
-        config.objective,
-      );
+      this.cachedBestScores = BestScoreCalculator.calculate(this.cachedTestCases, config.objective);
     }
 
     // Group by seed
-    const grouped = groupBySeed(this.cachedTestCases, executions);
+    const grouped = TestCaseGrouper.bySeed(this.cachedTestCases, executions);
     const seedGroup = grouped.find((g) => g.seed === seed);
 
     if (!seedGroup) {
@@ -476,7 +467,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     // Sort executions
     const sortOrder = this.getSeedSortOrder();
-    const sortedExecutions = sortExecutionsForSeed(seedGroup.executions, sortOrder);
+    const sortedExecutions = SeedExecutionSorter.byOrder(seedGroup.executions, sortOrder);
 
     // Find latest execution
     const latestExecutionId = [...seedGroup.executions].sort((a, b) =>

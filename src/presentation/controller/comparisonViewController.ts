@@ -4,7 +4,8 @@ import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerCon
 import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
 import type { IUIConfigRepository } from '../../domain/interfaces/IUIConfigRepository';
 import { type Execution, getLongTitle } from '../../domain/models/execution';
-import { calculateBestScoresFromTestCases } from '../../domain/services/aggregationService';
+import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
+import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
 
 function getNonce() {
   let text = '';
@@ -128,7 +129,7 @@ export class ComparisonViewController {
     }
 
     // Calculate best scores
-    const bestScores = calculateBestScoresFromTestCases(testCases, pahcerConfig.objective);
+    const bestScores = BestScoreCalculator.calculate(testCases, pahcerConfig.objective);
 
     // Collect all seeds for selected executions
     const allSeeds = new Set<number>();
@@ -180,16 +181,13 @@ export class ComparisonViewController {
         cases: testCases
           .filter((tc) => tc.id.executionId === execution.id)
           .map((tc) => {
-            // Calculate relative score
+            // Calculate relative score using domain service
             const bestScore = bestScores.get(tc.id.seed);
-            let relativeScore = 0;
-            if (tc.score > 0 && bestScore !== undefined) {
-              if (pahcerConfig.objective === 'max') {
-                relativeScore = (tc.score / bestScore) * 100;
-              } else {
-                relativeScore = (bestScore / tc.score) * 100;
-              }
-            }
+            const relativeScore = RelativeScoreCalculator.calculate(
+              tc.score,
+              bestScore,
+              pahcerConfig.objective,
+            );
 
             return {
               seed: tc.id.seed,

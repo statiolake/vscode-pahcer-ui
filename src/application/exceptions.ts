@@ -1,15 +1,14 @@
 /**
- * Application layer exceptions
+ * アプリケーション層の例外
  *
- * Exceptions thrown during use case execution representing business logic
- * and workflow failures. Converted to user-facing error messages in the
- * presentation layer.
+ * ユースケース実行中に発生する例外。ビジネスロジックやワークフロー上の障害を表現します。
+ * プレゼンテーション層でユーザーに表示するメッセージに変換されます。
  *
- * Convention: UI messages are in Japanese; exception class names are in English
+ * 命名規約：UI メッセージは日本語、例外クラス名は英語
  */
 
 /**
- * Base class for application layer exceptions
+ * アプリケーション層の例外の基底クラス
  */
 export abstract class ApplicationException extends Error {
   constructor(message: string) {
@@ -19,7 +18,7 @@ export abstract class ApplicationException extends Error {
 }
 
 /**
- * Thrown when a required resource is not found
+ * 必要なリソースが見つからない場合にスロー
  */
 export class ResourceNotFoundError extends ApplicationException {
   constructor(resourceType: string, resourceId?: string) {
@@ -31,15 +30,15 @@ export class ResourceNotFoundError extends ApplicationException {
 }
 
 /**
- * Thrown when a workflow precondition is not met
+ * ワークフローの前提条件が満たされていない場合にスロー
  */
 export class PreconditionFailedError extends ApplicationException {}
 
 /**
- * Base class for use case execution errors
+ * ユースケース実行エラーの基底クラス
  *
- * Only create subclasses when error handling differs based on the exception type.
- * Simple message wrapping without semantic meaning should be avoided.
+ * 例外型ごとに異なるハンドリングが必要な場合のみサブクラスを作成してください。
+ * メッセージをラッピングするだけで意味論的な違いがない場合は避けてください。
  */
 export class UseCaseExecutionError extends ApplicationException {
   constructor(cause: string) {

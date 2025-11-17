@@ -1,5 +1,5 @@
 import type { PahcerStatus } from '../models/pahcerStatus';
-import type { GroupingMode } from '../services/sortingService';
+import type { TestCaseSorter } from '../services/testCaseSorter';
 
 /**
  * VSCode Context API を型安全に扱うアダプターインターフェース
@@ -25,7 +25,7 @@ export interface IContextAdapter {
   /**
    * グルーピングモードを設定
    */
-  setGroupingMode(mode: GroupingMode): Promise<void>;
+  setGroupingMode(mode: TestCaseSorter.GroupingMode): Promise<void>;
 
   /**
    * 差分表示コマンドの有効/無効を設定

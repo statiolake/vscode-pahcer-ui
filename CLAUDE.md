@@ -138,8 +138,6 @@ src/
 - ビジネス規則と検証ロジックを実装（コンストラクタで不変条件を検証）
 - **readonly プロパティをデフォルト**とし、必要に応じて setter を提供
   - 例：`readonly id: string`, `get startSeed()`, `set startSeed(value)`
-- ドメインサービスを **クラス** として提供（裸の関数ではなく、static メソッドを持つクラスを使用）
-  - 純粋関数：入力→出力が決定的（副作用なし）
 - 値オブジェクトで型安全性を確保（例：Dayjs を日時型として使用）
 - **リポジトリインターフェース**をドメイン層で定義（依存性逆転の原則）
   - 例：`IExecutionRepository`, `ITestCaseRepository`
@@ -154,9 +152,91 @@ src/
 - プレゼンテーション層の詳細（TreeItem、UIコンポーネント）を知る
 - `workspaceRoot: string` などインフラ固有の情報を保持
 
-**ファイル命名規則**: camelCase（例: `pahcerConfig.ts`, `sortingService.ts`）
+**ファイル命名規則**: camelCase（例: `pahcerConfig.ts`, `testCaseSorter.ts`）
 
-**例**:
+**ドメインサービスの実装方法**:
+
+ドメインサービスは**TypeScript namespace** を使用して組織化します。これにより以下を実現します：
+- 関連する操作の論理的グループ化
+- 明確な API 表面
+- 名前空間の衝突を回避
+- 純粋関数の集約
+
+ファイル名と namespace 名は一致させ、"Service" 接尾辞は避けてください。
+
+**namespace パターンの例**:
+```typescript
+// ファイル: src/domain/services/testCaseSorter.ts
+export namespace TestCaseSorter {
+	/**
+	 * テストケースをソート順に従ってソートする
+	 *
+	 * @param cases ソート対象のテストケース配列
+	 * @param order ソート順
+	 * @param relativeScores seed => 相対スコア のマップ（オプション）
+	 * @returns ソート済みテストケース配列
+	 */
+	export function sortByOrder(
+		cases: TestCase[],
+		order: ExecutionSortOrder,
+		relativeScores?: Map<number, number>,
+	): TestCase[] {
+		const sorted = [...cases];
+		// ソート実装...
+		return sorted;
+	}
+}
+
+// ファイル: src/domain/services/relativeScoreCalculator.ts
+export namespace RelativeScoreCalculator {
+	/**
+	 * 実スコアとベストスコアから相対スコアを計算する
+	 *
+	 * @param score 実スコア
+	 * @param bestScore ベストスコア
+	 * @param objective 最適化の方向（'max' | 'min'）
+	 * @returns 相対スコア（パーセンテージ、0-100+）
+	 */
+	export function calculate(
+		score: number,
+		bestScore: number | undefined,
+		objective: 'max' | 'min',
+	): number {
+		if (score <= 0 || bestScore === undefined || bestScore <= 0) {
+			return 0;
+		}
+		if (objective === 'max') {
+			return (score / bestScore) * 100;
+		} else {
+			return (bestScore / score) * 100;
+		}
+	}
+}
+```
+
+**プレゼンテーション層での使用**:
+```typescript
+import { TestCaseSorter } from '../../domain/services/testCaseSorter';
+import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
+
+// ドメインサービスを呼び出し
+const sorted = TestCaseSorter.sortByOrder(cases, sortOrder);
+const relScore = RelativeScoreCalculator.calculate(score, bestScore, objective);
+```
+
+**ドメインサービスファイル一覧**:
+- `bestScoreCalculator.ts` - `BestScoreCalculator` namespace
+- `seedStatsCalculator.ts` - `SeedStatsCalculator` namespace
+- `executionStatsAggregator.ts` - `ExecutionStatsAggregator` namespace
+- `testCaseGrouper.ts` - `TestCaseGrouper` namespace
+- `testCaseSorter.ts` - `TestCaseSorter` namespace
+- `seedExecutionSorter.ts` - `SeedExecutionSorter` namespace
+- `executionSorter.ts` - `ExecutionSorter` namespace
+- `seedStatsSorter.ts` - `SeedStatsSorter` namespace
+- `relativeScoreCalculator.ts` - `RelativeScoreCalculator` namespace
+- `stderrParser.ts` - `StderrParser` namespace
+
+**例**
 ```typescript
 // ドメインモデル（クラス、readonly デフォルト、必要に応じて setter）
 export class PahcerConfig {
@@ -189,13 +269,6 @@ export interface IExecutionRepository {
 	upsert(execution: Execution): Promise<void>;
 }
 
-// ドメインサービス（クラス、静的メソッドで純粋関数を提供）
-export class TestCaseSorter {
-	static sortByOrder(cases: TestCase[], order: ExecutionSortOrder): TestCase[] {
-		// 副作用なし、入力に対して決定的な出力を返す
-		return [...cases].sort((a, b) => a.seed - b.seed);
-	}
-}
 ```
 
 ### 2. インフラ層（Infrastructure Layer）
@@ -956,9 +1029,21 @@ export class RunPahcerUseCase {
 - **クラス名**: PascalCase
 - **関数名**: camelCase
 - **型名**: PascalCase
+- **ドメインサービス**: TypeScript namespace パターンを使用
 - **フォーマッター**: Biome（`npm run format`）
 - **Linter**: ESLint（`npm run lint`）
 - **型チェック**: `npm run check-types`
+
+**フォーマットとリント実行**:
+```bash
+# インポート順序やフォーマットの自動修正
+npm run format
+
+# コンパイル（型チェック + リント + ビルド）
+npm run compile
+```
+
+注：形式的な問題（インポート順序、行の長さ、スペーシングなど）は `npm run format` で自動修正することが推奨されます。手作業での修正は避け、Biome に任せることで一貫性を保ちます。
 
 ### テスト
 

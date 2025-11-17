@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { getShortTitle } from '../../../domain/models/execution';
 import type { TestCase } from '../../../domain/models/testCase';
-import type { SeedStats } from '../../../domain/services/aggregationService';
-import type { ExecutionStats } from '../../../domain/services/executionAggregationService';
+import type { ExecutionStatsCalculator } from '../../../domain/services/executionStatsAggregator';
+import type { SeedStatsCalculator } from '../../../domain/services/seedStatsCalculator';
 
 /**
  * TreeItem を生成するビルダー
@@ -12,7 +12,7 @@ export class TreeItemBuilder {
    * 実行結果のTreeItemを生成
    */
   buildExecutionItem(
-    executionStats: ExecutionStats,
+    executionStats: ExecutionStatsCalculator.ExecutionStats,
     comparisonMode: boolean,
     isChecked: boolean,
   ): vscode.TreeItem {
@@ -81,7 +81,7 @@ export class TreeItemBuilder {
   /**
    * サマリーのTreeItemを生成
    */
-  buildSummaryItem(executionStats: ExecutionStats): vscode.TreeItem {
+  buildSummaryItem(executionStats: ExecutionStatsCalculator.ExecutionStats): vscode.TreeItem {
     const summaryLabel = `AC: ${executionStats.acCount}/${executionStats.caseCount}, Total Score: ${executionStats.totalScore.toLocaleString()}, Max Time: ${(executionStats.maxExecutionTime * 1000).toFixed(0)}ms`;
     const summaryItem = new vscode.TreeItem(summaryLabel, vscode.TreeItemCollapsibleState.None);
     summaryItem.contextValue = 'summary';
@@ -136,7 +136,7 @@ export class TreeItemBuilder {
   /**
    * SeedのTreeItemを生成
    */
-  buildSeedItem(stats: SeedStats): vscode.TreeItem {
+  buildSeedItem(stats: SeedStatsCalculator.SeedStats): vscode.TreeItem {
     const seedStr = String(stats.seed).padStart(4, '0');
     const label = seedStr;
     const description = `${stats.count} runs - Avg: ${stats.averageScore.toFixed(2)}`;

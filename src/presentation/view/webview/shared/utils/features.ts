@@ -1,5 +1,5 @@
 /**
- * Parse features string into array
+ * Features 文字列を配列にパースする
  */
 export function parseFeatures(featuresStr: string): string[] {
   return featuresStr
