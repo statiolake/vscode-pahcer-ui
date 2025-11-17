@@ -5,12 +5,14 @@ export namespace TestCaseGrouper {
   /**
    * Seedごとにグルーピングされたデータ
    */
-  export interface SeedGroup {
-    seed: number;
-    executions: Array<{
-      execution: Execution;
-      testCase: TestCase;
-    }>;
+  export class SeedGroup {
+    constructor(
+      public seed: number,
+      public executions: Array<{
+        execution: Execution;
+        testCase: TestCase;
+      }>,
+    ) {}
   }
 
   /**
@@ -46,7 +48,7 @@ export namespace TestCaseGrouper {
 
     const groups: SeedGroup[] = [];
     for (const [seed, executionList] of seedMap.entries()) {
-      groups.push({ seed, executions: executionList });
+      groups.push(new SeedGroup(seed, executionList));
     }
 
     // Seed順にソート

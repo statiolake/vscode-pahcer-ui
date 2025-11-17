@@ -13,8 +13,16 @@ export enum PahcerStatus {
 /**
  * pahcer run のオプション
  */
-export interface PahcerRunOptions {
-  startSeed?: number;
-  endSeed?: number;
-  freezeBestScores?: boolean;
+export class PahcerRunOptions {
+  /**
+   * PahcerRunOptions を構築する
+   * @param startSeed 開始seed（オプション）
+   * @param endSeed 終了seed（オプション）
+   * @param freezeBestScores ベストスコアを固定するか（オプション）
+   */
+  constructor(
+    public startSeed?: number,
+    public endSeed?: number,
+    public freezeBestScores?: boolean,
+  ) {}
 }

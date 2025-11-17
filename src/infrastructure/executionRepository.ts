@@ -2,7 +2,7 @@ import { existsSync, promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import dayjs from 'dayjs';
 import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
-import type { Execution } from '../domain/models/execution';
+import { Execution } from '../domain/models/execution';
 import { asErrnoException } from '../util/lang';
 import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
 
@@ -24,24 +24,19 @@ export class ExecutionRepository implements IExecutionRepository {
     }
 
     const result = ResultJsonSchema.parse(JSON.parse(content));
-    const execution: Execution = {
-      id: executionId,
-      startTime: dayjs(result.start_time),
-      comment: result.comment,
-      tagName: result.tag_name ?? null,
-    };
+    let commitHash: string | undefined;
 
     // メタデータから commitHash を読み込む
     try {
       const metadataContent = await fs.readFile(this.metadataPath(executionId), 'utf-8');
       const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
-      execution.commitHash = metadata.commitHash;
+      commitHash = metadata.commitHash;
     } catch (e) {
       if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
         throw e;
       }
 
-      // メタデータがない場合は古いメタデータから読み混んでみる
+      // メタデータがない場合は古いメタデータから読み込んでみる
       // FIXME: 将来的に削除する
       try {
         const metadataContent = await fs.readFile(
@@ -55,11 +50,19 @@ export class ExecutionRepository implements IExecutionRepository {
           'utf-8',
         );
         const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
-        execution.commitHash = metadata.commitHash;
+        commitHash = metadata.commitHash;
       } catch {
         // 古いメタデータもない場合は commitHash を設定しない
       }
     }
+
+    const execution = new Execution(
+      executionId,
+      dayjs(result.start_time),
+      result.comment,
+      result.tag_name ?? null,
+      commitHash,
+    );
 
     return execution;
   }

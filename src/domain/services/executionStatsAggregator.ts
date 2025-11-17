@@ -5,16 +5,18 @@ export namespace ExecutionStatsCalculator {
   /**
    * 実行ごとの集計情報
    */
-  export interface ExecutionStats {
-    execution: Execution;
-    testCases: TestCase[];
-    caseCount: number;
-    totalScore: number;
-    maxExecutionTime: number;
-    waSeeds: number[];
-    acCount: number;
-    averageScore: number;
-    averageRelativeScore: number;
+  export class ExecutionStats {
+    constructor(
+      public execution: Execution,
+      public testCases: TestCase[],
+      public caseCount: number,
+      public totalScore: number,
+      public maxExecutionTime: number,
+      public waSeeds: number[],
+      public acCount: number,
+      public averageScore: number,
+      public averageRelativeScore: number,
+    ) {}
   }
   /**
    * テストケースを実行ごとに集計する
@@ -65,17 +67,17 @@ export namespace ExecutionStatsCalculator {
       const caseCount = executionTestCases.length;
       const acCount = caseCount - waSeeds.length;
 
-      return {
+      return new ExecutionStats(
         execution,
-        testCases: executionTestCases,
+        executionTestCases,
         caseCount,
         totalScore,
         maxExecutionTime,
         waSeeds,
         acCount,
-        averageScore: caseCount > 0 ? totalScore / caseCount : 0,
-        averageRelativeScore: caseCount > 0 ? totalRelativeScore / caseCount : 0,
-      };
+        caseCount > 0 ? totalScore / caseCount : 0,
+        caseCount > 0 ? totalRelativeScore / caseCount : 0,
+      );
     });
   }
 }

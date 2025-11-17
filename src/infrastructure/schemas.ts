@@ -48,11 +48,9 @@ export type TestCaseMetadata = z.infer<typeof TestCaseMetadataSchema>;
  * UIConfig のスキーマ
  */
 export const UIConfigSchema = z.object({
-  features: z.string().optional(),
+  featureString: z.string().optional(),
   xAxis: z.string().optional(),
   yAxis: z.string().optional(),
-  graphType: z.string().optional(),
-  skipFailures: z.boolean().optional(),
+  chartType: z.enum(['line', 'scatter']).optional(),
+  filter: z.string().optional(),
 });
-
-export type UIConfig = z.infer<typeof UIConfigSchema>;

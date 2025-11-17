@@ -4,13 +4,15 @@ export namespace SeedStatsCalculator {
   /**
    * Seed別の統計情報
    */
-  export interface SeedStats {
-    seed: number;
-    testCases: TestCase[];
-    bestScore: number | null;
-    count: number;
-    averageScore: number;
-    maxExecutionTime: number;
+  export class SeedStats {
+    constructor(
+      public seed: number,
+      public testCases: TestCase[],
+      public bestScore: number | null,
+      public count: number,
+      public averageScore: number,
+      public maxExecutionTime: number,
+    ) {}
   }
 
   /**
@@ -48,14 +50,17 @@ export namespace SeedStatsCalculator {
         }
       }
 
-      statsMap.set(seed, {
+      statsMap.set(
         seed,
-        testCases: cases,
-        bestScore,
-        count: cases.length,
-        averageScore: cases.length > 0 ? totalScore / cases.length : 0,
-        maxExecutionTime,
-      });
+        new SeedStats(
+          seed,
+          cases,
+          bestScore,
+          cases.length,
+          cases.length > 0 ? totalScore / cases.length : 0,
+          maxExecutionTime,
+        ),
+      );
     }
 
     return statsMap;

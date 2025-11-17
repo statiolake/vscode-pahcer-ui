@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { getShortTitle } from '../../../domain/models/execution';
 import type { TestCase } from '../../../domain/models/testCase';
 import type { ExecutionStatsCalculator } from '../../../domain/services/executionStatsAggregator';
 import type { SeedStatsCalculator } from '../../../domain/services/seedStatsCalculator';
@@ -16,7 +15,7 @@ export class TreeItemBuilder {
     comparisonMode: boolean,
     isChecked: boolean,
   ): vscode.TreeItem {
-    const time = getShortTitle(executionStats.execution);
+    const time = executionStats.execution.getShortTitle();
     const avgScore = executionStats.averageScore.toFixed(1);
     const avgRel = executionStats.averageRelativeScore.toFixed(2);
 

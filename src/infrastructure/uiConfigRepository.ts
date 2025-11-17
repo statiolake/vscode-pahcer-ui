@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import type { IUIConfigRepository } from '../domain/interfaces/IUIConfigRepository';
-import { DEFAULT_UI_CONFIG, type UIConfig } from '../domain/models/uiConfig';
+import { UIConfig } from '../domain/models/uiConfig';
 import { asErrnoException } from '../util/lang';
 import { UIConfigSchema } from './schemas';
 
@@ -26,16 +26,19 @@ export class UIConfigRepository implements IUIConfigRepository {
     try {
       const content = await fs.readFile(this.configPath, { encoding: 'utf-8' });
       const loaded = UIConfigSchema.parse(JSON.parse(content));
-      return {
-        ...DEFAULT_UI_CONFIG,
-        ...loaded,
-      };
+      return new UIConfig(
+        loaded.featureString,
+        loaded.xAxis,
+        loaded.yAxis,
+        loaded.chartType,
+        loaded.filter,
+      );
     } catch (error) {
       // ファイルが見つからない場合のみデフォルト設定を返す
       if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
         throw error;
       }
-      return { ...DEFAULT_UI_CONFIG };
+      return new UIConfig();
     }
   }
 

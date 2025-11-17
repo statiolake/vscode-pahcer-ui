@@ -4,41 +4,67 @@ import type { Dayjs } from 'dayjs';
  * テスト実行のエンティティ（メタデータのみ）
  * 実行ごとの集計情報は ExecutionAggregationService で計算
  */
-export interface Execution {
-  /** 実行ID（例: "20250111_123456"） */
-  id: string;
-  /** 開始時刻 */
-  startTime: Dayjs;
-  /** コメント */
-  comment: string;
-  /** タグ名 */
-  tagName: string | null;
-  /** コミットハッシュ */
-  commitHash?: string;
-}
+export class Execution {
+  private _comment: string;
 
-/**
- * 実行結果の短いタイトル（MM/DD HH:MM）
- */
-export function getShortTitle(execution: Execution): string {
-  return execution.startTime.format('MM/DD HH:mm');
-}
-
-/**
- * 実行結果の長いタイトル（YYYY/MM/DD HH:MM:SS）
- */
-export function getLongTitle(execution: Execution): string {
-  return execution.startTime.format('YYYY/MM/DD HH:mm:ss');
-}
-
-/**
- * 実行結果のコミットハッシュ付きタイトル（MM/DD HH:MM@hash）
- */
-export function getTitleWithHash(execution: Execution): string {
-  if (!execution.commitHash) {
-    return getShortTitle(execution);
+  /**
+   * Execution エンティティを構築する
+   * @param id 実行ID - 不変
+   * @param startTime 開始時刻 - 不変
+   * @param comment コメント - 可変
+   * @param tagName タグ名 - 不変
+   * @param commitHash コミットハッシュ - 可変（オプション）
+   */
+  constructor(
+    public readonly id: string,
+    public readonly startTime: Dayjs,
+    comment: string,
+    public readonly tagName: string | null,
+    public commitHash?: string,
+  ) {
+    if (!id || id.trim() === '') {
+      throw new Error('Execution id must not be empty');
+    }
+    this._comment = comment;
   }
-  const shortTitle = getShortTitle(execution);
-  const shortHash = execution.commitHash.slice(0, 7);
-  return `${shortTitle}@${shortHash}`;
+
+  /**
+   * コメントを取得する
+   */
+  get comment(): string {
+    return this._comment;
+  }
+
+  /**
+   * コメントを設定する
+   */
+  set comment(value: string) {
+    this._comment = value;
+  }
+
+  /**
+   * 実行結果の短いタイトル（MM/DD HH:MM）
+   */
+  getShortTitle(): string {
+    return this.startTime.format('MM/DD HH:mm');
+  }
+
+  /**
+   * 実行結果の長いタイトル（YYYY/MM/DD HH:MM:SS）
+   */
+  getLongTitle(): string {
+    return this.startTime.format('YYYY/MM/DD HH:mm:ss');
+  }
+
+  /**
+   * 実行結果のコミットハッシュ付きタイトル（MM/DD HH:MM@hash）
+   */
+  getTitleWithHash(): string {
+    if (!this.commitHash) {
+      return this.getShortTitle();
+    }
+    const shortTitle = this.getShortTitle();
+    const shortHash = this.commitHash.slice(0, 7);
+    return `${shortTitle}@${shortHash}`;
+  }
 }

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import type { IGitAdapter } from '../../../domain/interfaces/IGitAdapter';
-import { getTitleWithHash } from '../../../domain/models/execution';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -32,8 +31,8 @@ export function showDiffCommand(
       await gitAdapter.showDiff(
         older.commitHash,
         newer.commitHash,
-        getTitleWithHash(older),
-        getTitleWithHash(newer),
+        older.getTitleWithHash(),
+        newer.getTitleWithHash(),
       );
     } catch (error) {
       vscode.window.showErrorMessage(`差分表示に失敗しました: ${error}`);

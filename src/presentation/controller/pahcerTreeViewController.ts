@@ -4,7 +4,7 @@ import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRep
 import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
 import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
-import { type Execution, getShortTitle } from '../../domain/models/execution';
+import type { Execution } from '../../domain/models/execution';
 import type { TestCase } from '../../domain/models/testCase';
 import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
 import { ExecutionStatsCalculator } from '../../domain/services/executionStatsAggregator';
@@ -477,7 +477,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     const items: PahcerTreeItem[] = [];
 
     for (const executionData of sortedExecutions) {
-      const time = getShortTitle(executionData.execution);
+      const time = executionData.execution.getShortTitle();
       const isLatest =
         executionData.execution.id === latestExecutionId &&
         (sortOrder === 'absoluteScoreAsc' || sortOrder === 'absoluteScoreDesc');

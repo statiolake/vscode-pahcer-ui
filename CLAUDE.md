@@ -91,16 +91,6 @@ src/
 ├── domain/                         # ドメイン層（純粋なビジネスロジック）
 │   ├── models/                     # ドメインモデル定義（クラス）
 │   ├── interfaces/                 # リポジトリ・アダプターインターフェース（依存性逆転）
-│   │   ├── IExecutionRepository.ts
-│   │   ├── ITestCaseRepository.ts
-│   │   ├── IPahcerConfigRepository.ts
-│   │   ├── IUIConfigRepository.ts
-│   │   ├── IContextAdapter.ts
-│   │   ├── IGitAdapter.ts
-│   │   ├── IGitignoreAdapter.ts
-│   │   ├── IInOutFilesAdapter.ts
-│   │   ├── IPahcerAdapter.ts
-│   │   └── index.ts               # 全インターフェースのエクスポート
 │   ├── valueObjects/               # 値オブジェクト
 │   └── services/                   # ドメインサービス（純粋関数を持つクラス）
 │
@@ -136,8 +126,10 @@ src/
 **✅ すべき事（SHOULD DO）**:
 - ドメインモデルを **クラス** として定義（interface/type ではなく class を使用）
 - ビジネス規則と検証ロジックを実装（コンストラクタで不変条件を検証）
-- **readonly プロパティをデフォルト**とし、必要に応じて setter を提供
-  - 例：`readonly id: string`, `get startSeed()`, `set startSeed(value)`
+- **プロパティの可変性をビジネスロジックで決定**
+  - 識別子など変更されるべきでないプロパティ: `readonly id: string`
+  - ビジネスロジック上変更が許可されているプロパティ: `private _value`、`get value()`, `set value(v)`
+  - 例：`readonly id: string`（不変）、`private _comment`、`get comment()`, `set comment(value)`（可変）
 - 値オブジェクトで型安全性を確保（例：Dayjs を日時型として使用）
 - **リポジトリインターフェース**をドメイン層で定義（依存性逆転の原則）
   - 例：`IExecutionRepository`, `ITestCaseRepository`
@@ -707,16 +699,16 @@ Seedごとモード:
 
 ## コマンド一覧
 
-| コマンドID | タイトル | 実装 |
-|-----------|---------|------|
-| `pahcer-ui.run` | テストを実行 | [runCommand.ts](src/controller/commands/runCommand.ts) |
-| `pahcer-ui.refresh` | 結果を更新 | [refreshCommand.ts](src/controller/commands/refreshCommand.ts) |
-| `pahcer-ui.switchToSeed` | Seedごとにグルーピング | [switchModeCommand.ts](src/controller/commands/switchModeCommand.ts) |
-| `pahcer-ui.switchToExecution` | 実行ごとにグルーピング | [switchModeCommand.ts](src/controller/commands/switchModeCommand.ts) |
-| `pahcer-ui.toggleComparisonMode` | 比較モードを切り替え | [extension.ts](src/extension.ts) |
-| `pahcer-ui.addComment` | コメントを追加 | [addCommentCommand.ts](src/controller/commands/addCommentCommand.ts) |
-| `pahcer-ui.changeSortOrder` | 並び順を変更 | [changeSortOrderCommand.ts](src/controller/commands/changeSortOrderCommand.ts) |
-| `pahcer-ui.showVisualizer` | ビジュアライザを表示 | [extension.ts](src/extension.ts) |
+| コマンドID                       | タイトル               | 実装                                                                           |
+|----------------------------------|------------------------|--------------------------------------------------------------------------------|
+| `pahcer-ui.run`                  | テストを実行           | [runCommand.ts](src/controller/commands/runCommand.ts)                         |
+| `pahcer-ui.refresh`              | 結果を更新             | [refreshCommand.ts](src/controller/commands/refreshCommand.ts)                 |
+| `pahcer-ui.switchToSeed`         | Seedごとにグルーピング | [switchModeCommand.ts](src/controller/commands/switchModeCommand.ts)           |
+| `pahcer-ui.switchToExecution`    | 実行ごとにグルーピング | [switchModeCommand.ts](src/controller/commands/switchModeCommand.ts)           |
+| `pahcer-ui.toggleComparisonMode` | 比較モードを切り替え   | [extension.ts](src/extension.ts)                                               |
+| `pahcer-ui.addComment`           | コメントを追加         | [addCommentCommand.ts](src/controller/commands/addCommentCommand.ts)           |
+| `pahcer-ui.changeSortOrder`      | 並び順を変更           | [changeSortOrderCommand.ts](src/controller/commands/changeSortOrderCommand.ts) |
+| `pahcer-ui.showVisualizer`       | ビジュアライザを表示   | [extension.ts](src/extension.ts)                                               |
 
 ---
 
@@ -1054,6 +1046,12 @@ npm run compile
 3. 動作確認: VS CodeでF5を押して拡張機能を起動
 
 詳細は [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) を参照。
+
+### コミット
+
+**重要**: コミットはユーザーが行います。Claude Code は修正を実装しますが、コミット作成（`git commit`）は実行しません。
+- 修正が完了したら、ユーザーが `git add` と `git commit` を実行してください
+- コミットメッセージはユーザーが作成してください
 
 ---
 

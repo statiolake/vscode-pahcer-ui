@@ -3,7 +3,7 @@ import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRep
 import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
 import type { IUIConfigRepository } from '../../domain/interfaces/IUIConfigRepository';
-import { type Execution, getLongTitle } from '../../domain/models/execution';
+import type { Execution } from '../../domain/models/execution';
 import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
 import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
 
@@ -177,7 +177,7 @@ export class ComparisonViewController {
     return {
       results: executions.map((execution) => ({
         id: execution.id,
-        time: getLongTitle(execution),
+        time: execution.getLongTitle(),
         cases: testCases
           .filter((tc) => tc.id.executionId === execution.id)
           .map((tc) => {
