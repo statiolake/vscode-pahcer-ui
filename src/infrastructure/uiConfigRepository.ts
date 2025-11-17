@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { DEFAULT_UI_CONFIG, type UIConfig } from '../domain/models/uiConfig';
+import { asErrnoException } from '../util/lang';
 import { UIConfigSchema } from './schemas';
 
 /**
@@ -17,27 +18,30 @@ export class UIConfigRepository {
 
   /**
    * 設定を読み込む
+   * ファイルが見つからない場合はデフォルト設定を返す
+   * その他のエラーは投げ直す
    */
-  async load(): Promise<UIConfig> {
-    let content: string;
+  async find(): Promise<UIConfig> {
     try {
-      content = await fs.readFile(this.configPath, { encoding: 'utf-8' });
-    } catch {
-      // ファイルが存在しない場合
+      const content = await fs.readFile(this.configPath, { encoding: 'utf-8' });
+      const loaded = UIConfigSchema.parse(JSON.parse(content));
+      return {
+        ...DEFAULT_UI_CONFIG,
+        ...loaded,
+      };
+    } catch (error) {
+      // ファイルが見つからない場合のみデフォルト設定を返す
+      if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
+        throw error;
+      }
       return { ...DEFAULT_UI_CONFIG };
     }
-
-    const loaded = UIConfigSchema.parse(JSON.parse(content));
-    return {
-      ...DEFAULT_UI_CONFIG,
-      ...loaded,
-    };
   }
 
   /**
    * 設定を保存する
    */
-  async save(config: UIConfig): Promise<void> {
+  async upsert(config: UIConfig): Promise<void> {
     await fs.mkdir(this.configDirPath, { recursive: true });
     await fs.writeFile(this.configPath, JSON.stringify(config, null, 2));
   }

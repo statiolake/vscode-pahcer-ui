@@ -1,3 +1,5 @@
+import { DomainValidationError } from '../exceptions';
+
 export type ConfigId = 'normal' | 'temporary';
 
 /**
@@ -16,11 +18,11 @@ export class PahcerConfig {
     private _objective: 'max' | 'min',
   ) {
     if (this._startSeed < 0) {
-      throw new Error('startSeed must be non-negative');
+      throw new DomainValidationError('startSeed は非負数である必要があります');
     }
 
     if (this._endSeed < this._startSeed) {
-      throw new Error('endSeed must be greater than or equal to startSeed');
+      throw new DomainValidationError('endSeed は startSeed 以上である必要があります');
     }
   }
 

@@ -68,8 +68,13 @@ Presentation → Application → (Infrastructure + Domain)
 - Constructor DI で依存性を注入
 
 **命名規則（Repository vs Adapter/Client）**:
-- **Repository**: オブジェクトのコレクションとして CRUD 操作を提供（`findById()`, `findAll()`, `upsert()`, `delete()`）
-  - 例：`ExecutionRepository`, `TestCaseRepository`
+- **Repository**: オブジェクトのコレクションとして CRUD 操作を提供（`findById()`, `findAll()`, `find()`, `upsert()`, `delete()`）
+  - 例：`ExecutionRepository`, `TestCaseRepository`, `UIConfigRepository`
+  - **統一仕様**: `find*()` メソッドで見つからない場合は例外をスローせず、以下を返す
+    - `findById(id)` → `Promise<T | undefined>`（見つからない場合は `undefined`）
+    - `findAll()` → `Promise<T[]>`（見つからない場合は空配列 `[]`）
+    - `find()` → 要素が1つのみのリポジトリで使用。ファイルが見つからない場合はデフォルト値を返す
+  - **エラーハンドリング**: ENOENT（ファイルが見つからない）のみを許容。その他の例外は投げ直す
 - **Adapter/Client**: コレクション操作以外の外部インタラクション（コマンド実行、API 呼び出しなど）
   - 例：`GitAdapter`, `PahcerAdapter`, `VisualizerClient`
 
@@ -194,6 +199,9 @@ export class TestCaseSorter {
 - 外部フォーマット（JSON、TOML、CSV）をドメインモデルに変換
 - ドメインモデルの型でデータを返す（ドメインに型安全性を保証）
 - エラーハンドリング（ファイルがない、フォーマットが不正など）
+  - **`find*()` メソッドでファイルが見つからない場合（ENOENT）のみ `undefined` を返す**
+  - **その他の例外（パーミッションエラー、フォーマット不正など）は必ず投げ直す**
+  - 使用例：`asErrnoException(error).code !== 'ENOENT'` でチェック
 - リポジトリで複数の関連ファイルをカプセル化（例：`PahcerConfigRepository` は TOML ファイルの読み書き両方を担当）
 - アダプターで外部API（pahcer CLI、Git コマンド、VSCode Task など）をラップ
 
@@ -209,19 +217,29 @@ export class TestCaseSorter {
 
 **例**:
 ```typescript
+import { asErrnoException } from '../util/lang';
+
 // リポジトリ実装：ドメインインターフェースを実装、workspaceRoot をカプセル化
 export class ExecutionRepository implements IExecutionRepository {
 	constructor(private workspaceRoot: string) {}  // インフラ固有情報を隠蔽
 
 	async findById(executionId: string): Promise<Execution | undefined> {
-		const content = await fs.readFile(this.resultPath(executionId), 'utf-8');
-		const result = ResultJsonSchema.parse(JSON.parse(content));
-		return new Execution(
-			executionId,
-			dayjs(result.start_time),  // Dayjs を使用
-			result.comment,
-			result.tag_name ?? null,
-		);
+		try {
+			const content = await fs.readFile(this.resultPath(executionId), 'utf-8');
+			const result = ResultJsonSchema.parse(JSON.parse(content));
+			return new Execution(
+				executionId,
+				dayjs(result.start_time),  // Dayjs を使用
+				result.comment,
+				result.tag_name ?? null,
+			);
+		} catch (error) {
+			// ファイルが見つからない場合のみ undefined を返す
+			if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
+				throw error;  // その他の例外は投げ直す
+			}
+			return undefined;
+		}
 	}
 
 	async findAll(): Promise<Execution[]> {
@@ -543,6 +561,271 @@ Seedごとモード:
 
 - `.pahcer-ui/config.json`: 比較モードの設定（features, xAxis, yAxis）
 - `.pahcer-ui/results/result_${id}/meta.json`: 実行結果ごとのコメント
+
+---
+
+## 例外設計
+
+### 原則
+
+- **汎用の `Error()` は投げない** - 具体的な例外クラスを定義して投げる
+- **各レイヤーごとに例外を定義** - レイヤー固有のエラーハンドリング要件を反映
+- **例外クラスは専用ファイルに定義** - `application/exceptions.ts`, `infrastructure/exceptions.ts` など
+
+### 言語使い分け
+
+**統一した規約:**
+- **例外クラス名**: 英語 (PascalCase)
+  - `ResourceNotFoundError`, `CommandExecutionError`, `DomainValidationError` など
+  - コード側の型として使用されるため、国際的標準に統一
+
+- **例外メッセージ（UI側）**: 日本語
+  - `ファイルが見つかりません`, `コマンド実行に失敗しました` など
+  - ユーザーに表示されるメッセージなので日本語で統一
+
+- **コメント**: 英語
+  - JSDoc コメント、コード内コメントは英語で統一
+  - 開発チーム全体の可読性とメンテナンス性を確保
+
+**例**:
+```typescript
+/**
+ * Thrown when external command execution fails
+ */
+export class CommandExecutionError extends InfrastructureException {
+  constructor(command: string, message: string) {
+    super(`コマンド実行に失敗しました: ${command} - ${message}`);
+    // ↑ UI メッセージは日本語
+  }
+}
+```
+
+### レイヤーごとの例外定義
+
+#### アプリケーション層（`src/application/exceptions.ts`）
+
+ユースケース実行時に発生するエラー。主にビジネスロジックやワークフロー上の障害を表現。
+
+```typescript
+// src/application/exceptions.ts
+
+/**
+ * Base class for application layer exceptions
+ * UI messages are in Japanese; exception class names are in English
+ */
+export abstract class ApplicationException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+/**
+ * Thrown when a required resource is not found
+ */
+export class ResourceNotFoundError extends ApplicationException {
+  constructor(resourceType: string, resourceId?: string) {
+    const message = resourceId
+      ? `${resourceType} '${resourceId}' が見つかりませんでした`
+      : `${resourceType} が見つかりませんでした`;
+    super(message);
+  }
+}
+
+/**
+ * Thrown when workflow precondition is not met
+ */
+export class PreconditionFailedError extends ApplicationException {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * Base class for use case execution errors
+ * Create subclasses only when there is semantic meaning to the error handling
+ */
+export class UseCaseExecutionError extends ApplicationException {
+  constructor(cause: string) {
+    super(`ユースケース実行に失敗しました: ${cause}`);
+  }
+}
+```
+
+#### エラーハンドリングのベストプラクティス
+
+**原則**: エラーは以下のいずれかでのみ catch する。それ以外は try-catch を使わない：
+
+1. **セマンティックに異なる例外型への変換が必要**：アプリケーション層で処理分岐が変わる場合のみ
+   - 例：`ResourceNotFoundError` を throw → プレゼンテーション層で「リソースが見つかりません」と表示するか、別の動作をするか判定
+   - エラーの型ごとに異なるハンドリングが存在する場合のみ有効
+
+2. **エラーから重要な情報を抽出する必要がある**：エラーオブジェクトの詳細を加工する場合
+   - 例：スタックトレースから特定の情報だけを取得するなど
+
+```typescript
+// ❌ 悪い例1: エラー型を詰め替えるだけ（ハンドリングの余地がない）
+try {
+  await this.pahcerAdapter.run(options, tempConfig);
+} catch (error) {
+  // CommandExecutionError を別の型に詰め替えるだけ
+  // → プレゼンテーション層でもどちらを catch してもハンドリングは同じ
+  // → エラー型を変換する意味がない
+  throw new Error(
+    error instanceof Error ? error.message : String(error)
+  );
+}
+
+// ❌ 悪い例2: メッセージを変換するだけ
+try {
+  await this.pahcerAdapter.run();
+} catch (error) {
+  throw new Error(`git operation failed: ${error.message}`);
+}
+
+// ✅ 良い例1: セマンティックに異なる例外型に変換（ハンドリングの意味がある）
+try {
+  const config = await this.pahcerConfigRepository.findById('temporary');
+  if (!config) {
+    throw new ResourceNotFoundError('テンポラリ設定ファイル');
+  }
+} catch (error) {
+  // ResourceNotFoundError は特別な意味がある
+  // プレゼンテーション層で「リソースが見つかりません」と表示したり、
+  // リトライロジックを実装したりできる
+  throw error;
+}
+
+// ✅ 良い例2: try-catch を使わずにエラーをそのまま上に上げる
+// インフラ層のエラーがアプリケーション層を通り、
+// プレゼンテーション層でハンドリングされる
+await this.pahcerAdapter.run(options, tempConfig);
+
+// ✅ 良い例3: エラーから重要な情報を抽出して加工する場合
+try {
+  await this.pahcerAdapter.run(options, tempConfig);
+} catch (error) {
+  // エラーオブジェクトから詳細情報を抽出し、ログに記録
+  const details = this.extractErrorDetails(error);
+  logger.error('Pahcer execution failed', details);
+  throw error; // 元のエラーを上に上げる
+}
+```
+
+**判断基準**:
+- **try-catch が必要**: その例外型に対して異なるハンドリングロジックが存在する場合のみ
+  - 例：`ResourceNotFoundError` →「見つかりません」と表示
+  - 例：`PreconditionFailedError` → ワークフロー再開のための別の動作
+- **try-catch が不要**: 単にエラーを別の型で包み直すだけ、またはメッセージを変換するだけの場合
+  - エラーをそのまま上に上げ、呼び出し元（プレゼンテーション層）でハンドリング
+  - プレゼンテーション層で `error instanceof CommandExecutionError` でハンドリング可能
+
+#### インフラ層（`src/infrastructure/exceptions.ts`）
+
+ファイルI/O、外部API呼び出しなどで発生するエラー。
+
+```typescript
+// src/infrastructure/exceptions.ts
+
+/**
+ * Base class for infrastructure layer exceptions
+ * UI messages are in Japanese; exception class names are in English
+ */
+export abstract class InfrastructureException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+/**
+ * Thrown when a required file is not found
+ */
+export class FileNotFoundError extends InfrastructureException {
+  constructor(filePath: string) {
+    super(`ファイルが見つかりません: ${filePath}`);
+  }
+}
+
+/**
+ * Thrown when file read/write operation fails
+ */
+export class FileOperationError extends InfrastructureException {
+  constructor(operation: string, filePath: string, cause: string) {
+    super(`${operation}に失敗しました (${filePath}): ${cause}`);
+  }
+}
+
+/**
+ * Thrown when external command execution fails
+ */
+export class CommandExecutionError extends InfrastructureException {
+  constructor(command: string, message: string) {
+    super(`コマンド実行に失敗しました: ${command} - ${message}`);
+  }
+}
+```
+
+#### ドメイン層（`src/domain/exceptions.ts`）
+
+ビジネスロジックの検証エラー。コンストラクタのバリデーション失敗など。
+
+```typescript
+// src/domain/exceptions.ts
+
+/**
+ * Base class for domain layer exceptions
+ */
+export abstract class DomainException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+/**
+ * Thrown when domain model invariant is violated
+ */
+export class DomainValidationError extends DomainException {
+  constructor(message: string) {
+    super(`ドメイン検証エラー: ${message}`);
+  }
+}
+```
+
+### 使用例
+
+```typescript
+// アプリケーション層
+import {
+  ResourceNotFoundError,
+  PreconditionFailedError,
+  UseCaseExecutionError,
+} from './exceptions';
+
+export class RunPahcerUseCase {
+  async run(options?: PahcerRunOptions): Promise<void> {
+    // リソースが見つからない場合
+    const config = await this.pahcerConfigRepository.findById('normal');
+    if (!config) {
+      throw new ResourceNotFoundError('pahcer設定');
+    }
+
+    // ワークフロー上の前提条件が満たされていない
+    const allExecutions = await this.executionRepository.findAll();
+    if (allExecutions.length === 0) {
+      throw new PreconditionFailedError('実行結果が取得できませんでした');
+    }
+
+    // 外部操作が失敗した
+    try {
+      await this.gitAdapter.commitSourceBeforeExecution();
+    } catch (error) {
+      throw new UseCaseExecutionError('runPahcer', error instanceof Error ? error.message : String(error));
+    }
+  }
+}
+```
 
 ---
 

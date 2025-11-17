@@ -6,6 +6,7 @@ import type { InOutFilesAdapter } from '../infrastructure/inOutFilesAdapter';
 import type { PahcerAdapter, PahcerRunOptions } from '../infrastructure/pahcerAdapter';
 import type { PahcerConfigRepository } from '../infrastructure/pahcerConfigRepository';
 import type { TestCaseRepository } from '../infrastructure/testCaseRepository';
+import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
 
 /**
  * pahcer実行ユースケース
@@ -47,17 +48,15 @@ export class RunPahcerUseCase {
     await this.inOutFilesAdapter.removeOutputs();
 
     // Step 2: Git統合 - 実行前にソースコードをコミット
-    let commitHash: string | null;
-    try {
-      commitHash = await this.gitAdapter.commitSourceBeforeExecution();
-    } catch (error) {
-      throw new Error(`gitの操作に失敗しました: ${error}`);
-    }
+    const commitHash = await this.gitAdapter.commitSourceBeforeExecution();
 
     // Step 3: テンポラリ設定ファイルを作成（必要な場合）
     let tempConfig: PahcerConfig | undefined;
     if (options.startSeed !== undefined || options.endSeed !== undefined) {
-      tempConfig = await this.pahcerConfigRepository.get('temporary');
+      tempConfig = await this.pahcerConfigRepository.findById('temporary');
+      if (!tempConfig) {
+        throw new ResourceNotFoundError('テンポラリ設定ファイル');
+      }
 
       // Seed範囲オプションが指定されている場合、テンポラリ設定を更新
       if (options.startSeed !== undefined) {
@@ -68,7 +67,7 @@ export class RunPahcerUseCase {
       }
 
       // 更新した設定を保存
-      await this.pahcerConfigRepository.save(tempConfig);
+      await this.pahcerConfigRepository.upsert(tempConfig);
     }
 
     try {
@@ -82,9 +81,9 @@ export class RunPahcerUseCase {
     }
 
     // Step 5: 最新の実行結果を取得
-    const allExecutions = await this.executionRepository.getAll();
+    const allExecutions = await this.executionRepository.findAll();
     if (allExecutions.length === 0) {
-      throw new Error('実行結果を取得できませんでした');
+      throw new PreconditionFailedError('実行結果が取得できませんでした');
     }
     const latestExecution = allExecutions[0];
 
@@ -100,7 +99,7 @@ export class RunPahcerUseCase {
     // Step 6.5: コミットハッシュを保存
     if (commitHash) {
       latestExecution.commitHash = commitHash;
-      await this.executionRepository.save(latestExecution);
+      await this.executionRepository.upsert(latestExecution);
     }
 
     // Step 7: テストケースデータから統計情報を取得
@@ -108,12 +107,8 @@ export class RunPahcerUseCase {
     const caseCount = executionTestCases.length;
     const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
 
-    // Step 8: Git統合 - 実行後に結果をコミット
-    try {
-      await this.gitAdapter.commitResultsAfterExecution(caseCount, totalScore);
-    } catch (error) {
-      throw new Error(`結果コミットに失敗しました: ${error}`);
-    }
+    // Step 9: Git統合 - 実行後に結果をコミット
+    await this.gitAdapter.commitResultsAfterExecution(caseCount, totalScore);
   }
 
   /**

@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { type ConfigId, PahcerConfig } from '../domain/models/configFile';
+import { asErrnoException } from '../util/lang';
 
 /**
  * pahcer 設定ファイル（pahcer_config.toml）リポジトリ
@@ -16,34 +17,45 @@ export class PahcerConfigRepository {
   /**
    * 指定されたファイルを読み込み、PahcerConfig に変換
    * temporary の場合、通常ファイルから一時ファイルを作成してコピー
+   *
+   * ファイルが見つからない場合（ENOENT）は undefined を返す
+   * その他の例外は投げ直す
    */
-  async get(id: ConfigId): Promise<PahcerConfig> {
+  async findById(id: ConfigId): Promise<PahcerConfig | undefined> {
     const normalPath = this.getNormalPath();
     const configPath = this.getPath(id);
 
-    // temporary の場合、通常ファイルから一時ファイルを作成
-    if (id === 'temporary') {
-      const tempDir = path.dirname(configPath);
-      await fs.mkdir(tempDir, { recursive: true });
-      const normalContent = await fs.readFile(normalPath, 'utf-8');
-      await fs.writeFile(configPath, normalContent, 'utf-8');
+    try {
+      // temporary の場合、通常ファイルから一時ファイルを作成
+      if (id === 'temporary') {
+        const tempDir = path.dirname(configPath);
+        await fs.mkdir(tempDir, { recursive: true });
+        const normalContent = await fs.readFile(normalPath, 'utf-8');
+        await fs.writeFile(configPath, normalContent, 'utf-8');
+      }
+
+      const content = await fs.readFile(configPath, 'utf-8');
+
+      // TOML コンテンツから start_seed/end_seed/objective をパース
+      const startSeed = this.extractStartSeed(content);
+      const endSeed = this.extractEndSeed(content);
+      const objective = this.extractObjective(content);
+
+      return new PahcerConfig(id, configPath, startSeed, endSeed, objective);
+    } catch (error) {
+      // ファイルが見つからない場合のみ undefined を返す
+      if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
+        throw error;
+      }
+      return undefined;
     }
-
-    const content = await fs.readFile(configPath, 'utf-8');
-
-    // TOML コンテンツから start_seed/end_seed/objective をパース
-    const startSeed = this.extractStartSeed(content);
-    const endSeed = this.extractEndSeed(content);
-    const objective = this.extractObjective(content);
-
-    return new PahcerConfig(id, configPath, startSeed, endSeed, objective);
   }
 
   /**
    * PahcerConfig をファイルに保存
    * config.path に指定されているパスに保存
    */
-  async save(config: PahcerConfig): Promise<void> {
+  async upsert(config: PahcerConfig): Promise<void> {
     const currentContent = await fs.readFile(config.path, 'utf-8');
 
     // 現在のコンテンツに start_seed/end_seed を反映させる
@@ -60,18 +72,24 @@ export class PahcerConfigRepository {
 
   /**
    * 指定された id のファイルを削除
+   * normal ファイルは保護されており削除されない
+   * ファイルが見つからない場合（ENOENT）は無視される
+   * その他の例外は投げ直される
    */
   async delete(id: ConfigId): Promise<void> {
     if (id === 'normal') {
       // normal ファイルは削除しない
-      throw new Error('Cannot delete normal config file');
+      return;
     }
 
     const configPath = this.getPath(id);
     try {
       await fs.unlink(configPath);
-    } catch {
-      // ファイルがない場合は無視
+    } catch (error) {
+      // ファイルが見つからない場合のみ無視
+      if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
+        throw error;
+      }
     }
   }
 

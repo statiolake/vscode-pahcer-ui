@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import * as vscode from 'vscode';
+import { CommandExecutionError } from './exceptions';
 
 /**
  * 差分を開くとき、最大で開くファイルの数
@@ -137,7 +138,8 @@ export class GitAdapter {
         return hash;
       }
     } catch (error) {
-      throw new Error(`Git commit failed: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CommandExecutionError('git commit', message);
     }
   }
 
@@ -230,7 +232,8 @@ export class GitAdapter {
         );
       }
     } catch (error) {
-      throw new Error(`Git diff failed: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CommandExecutionError('git diff', message);
     }
   }
 

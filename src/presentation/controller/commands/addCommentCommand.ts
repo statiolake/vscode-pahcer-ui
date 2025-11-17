@@ -26,9 +26,13 @@ export function addCommentCommand(
 
     // Update comment in pahcer's JSON file
     try {
-      const execution = await executionRepository.get(item.executionId);
+      const execution = await executionRepository.findById(item.executionId);
+      if (!execution) {
+        vscode.window.showErrorMessage('実行結果が見つかりませんでした');
+        return;
+      }
       execution.comment = comment;
-      await executionRepository.save(execution);
+      await executionRepository.upsert(execution);
 
       // Refresh tree view
       treeViewController.refresh();

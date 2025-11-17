@@ -261,6 +261,7 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src && biome check .",
     "format": "biome check --write . && biome format --write .",
+    "format:unsafe": "biome check --write --unsafe . && biome format --write .",
     "prepare": "husky",
     "lint-staged": "lint-staged"
   },

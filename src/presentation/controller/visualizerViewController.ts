@@ -113,16 +113,20 @@ export class VisualizerViewController {
     // Get execution time from result file if resultId is provided
     let executionTime = '';
     if (resultId) {
-      const result = await this.executionRepository.get(resultId);
+      const result = await this.executionRepository.findById(resultId);
       if (result) {
         executionTime = ` (${result.startTime.toDate().toLocaleString()})`;
+      } else {
+        console.warn(`Execution ${resultId} not found`);
       }
     }
 
     // Read test case input and output from archived files
     // resultId should always be provided as execution results are archived immediately after running
     if (!resultId) {
-      throw new Error('resultId is required to load archived test case files');
+      console.error('[VisualizerViewController] resultId is required but not provided');
+      vscode.window.showErrorMessage('実行IDが指定されていません');
+      return;
     }
 
     const input = await this.inOutFilesAdapter.loadIn(seed);

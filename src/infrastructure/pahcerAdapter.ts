@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import * as vscode from 'vscode';
 import type { PahcerConfig } from '../domain/models/configFile';
+import { FileOperationError } from './exceptions';
 import type { PahcerConfigRepository } from './pahcerConfigRepository';
 
 /**
@@ -87,7 +88,7 @@ export class PahcerAdapter {
     isInteractive: boolean,
   ): Promise<number | undefined> {
     if (!this.workspaceRoot) {
-      throw new Error('workspaceRoot is required for init()');
+      throw new FileOperationError('init', '<workspace-root>', 'workspaceRoot is required');
     }
 
     let command = `pahcer init --problem "${problemName}" --objective ${objective} --lang ${language}`;
@@ -102,7 +103,7 @@ export class PahcerAdapter {
    */
   private async executeTask(name: string, command: string): Promise<number | undefined> {
     if (!this.workspaceRoot) {
-      throw new Error('workspaceRoot is required for executeTask()');
+      throw new FileOperationError('executeTask', '<workspace-root>', 'workspaceRoot is required');
     }
 
     const taskExecution = new vscode.ShellExecution(command, {
@@ -156,7 +157,7 @@ export class PahcerAdapter {
    */
   private async isInitialized(): Promise<boolean> {
     try {
-      await this.pahcerConfigRepository.get('normal');
+      await this.pahcerConfigRepository.findById('normal');
       return true;
     } catch {
       return false;

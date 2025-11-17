@@ -47,8 +47,10 @@ export class ComparisonViewController {
     const executions: Execution[] = [];
     for (const executionId of executionIds) {
       try {
-        const execution = await this.executionRepository.get(executionId);
-        executions.push(execution);
+        const execution = await this.executionRepository.findById(executionId);
+        if (execution) {
+          executions.push(execution);
+        }
       } catch (error) {
         console.error(`Failed to load execution ${executionId}:`, error);
       }
@@ -62,55 +64,61 @@ export class ComparisonViewController {
       return;
     }
 
-    const comparisonData = await this.prepareComparisonData(executions);
+    try {
+      const comparisonData = await this.prepareComparisonData(executions);
 
-    // Create or update panel
-    if (this.panel) {
-      // Panel already exists - just update data without reloading
-      this.panel.reveal(vscode.ViewColumn.One);
-      this.panel.webview.postMessage({
-        command: 'updateData',
-        data: comparisonData,
-      });
-    } else {
-      // Create new panel
-      const extensionUri = this.context.extensionUri;
+      // Create or update panel
+      if (this.panel) {
+        // Panel already exists - just update data without reloading
+        this.panel.reveal(vscode.ViewColumn.One);
+        this.panel.webview.postMessage({
+          command: 'updateData',
+          data: comparisonData,
+        });
+      } else {
+        // Create new panel
+        const extensionUri = this.context.extensionUri;
 
-      this.panel = vscode.window.createWebviewPanel(
-        'pahcerComparison',
-        '結果の比較',
-        vscode.ViewColumn.One,
-        {
-          enableScripts: true,
-          retainContextWhenHidden: true,
-          localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
-        },
-      );
+        this.panel = vscode.window.createWebviewPanel(
+          'pahcerComparison',
+          '結果の比較',
+          vscode.ViewColumn.One,
+          {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+            localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
+          },
+        );
 
-      this.panel.onDidDispose(() => {
-        this.panel = undefined;
-        if (this.messageDisposable) {
-          this.messageDisposable.dispose();
-          this.messageDisposable = undefined;
-        }
-      });
-
-      // Handle messages from webview
-      this.messageDisposable = this.panel.webview.onDidReceiveMessage(
-        async (message) => {
-          if (message.command === 'showVisualizer') {
-            const { resultId, seed } = message;
-            await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
-          } else if (message.command === 'saveComparisonConfig') {
-            await this.uiConfigRepository.save(message.config);
+        this.panel.onDidDispose(() => {
+          this.panel = undefined;
+          if (this.messageDisposable) {
+            this.messageDisposable.dispose();
+            this.messageDisposable = undefined;
           }
-        },
-        undefined,
-        this.context.subscriptions,
-      );
+        });
 
-      // Set initial HTML
-      this.panel.webview.html = this.getWebviewContent(comparisonData, this.panel.webview);
+        // Handle messages from webview
+        this.messageDisposable = this.panel.webview.onDidReceiveMessage(
+          async (message) => {
+            if (message.command === 'showVisualizer') {
+              const { resultId, seed } = message;
+              await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
+            } else if (message.command === 'saveComparisonConfig') {
+              await this.uiConfigRepository.upsert(message.config);
+            }
+          },
+          undefined,
+          this.context.subscriptions,
+        );
+
+        // Set initial HTML
+        this.panel.webview.html = this.getWebviewContent(comparisonData, this.panel.webview);
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(
+        `比較データの準備に失敗しました: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -123,7 +131,10 @@ export class ComparisonViewController {
       executions.map((exec) => this.testCaseRepository.findByExecutionId(exec.id)),
     );
     const testCases = testCasesArray.flat();
-    const pahcerConfig = await this.pahcerConfigRepository.get('normal');
+    const pahcerConfig = await this.pahcerConfigRepository.findById('normal');
+    if (!pahcerConfig) {
+      throw new Error('pahcer設定が見つかりません');
+    }
 
     // Calculate best scores
     const bestScores = calculateBestScoresFromTestCases(testCases, pahcerConfig.objective);
@@ -168,7 +179,7 @@ export class ComparisonViewController {
     }
 
     // Load config
-    const config = await this.uiConfigRepository.load();
+    const config = await this.uiConfigRepository.find();
 
     // Prepare data for React
     return {

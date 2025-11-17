@@ -5,13 +5,6 @@ import type { Execution } from '../domain/models/execution';
 import { asErrnoException } from '../util/lang';
 import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
 
-class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NotFoundError';
-  }
-}
-
 /**
  * テスト実行のリポジトリ
  * pahcer が出力する result.json と meta/execution.json を読み書きする
@@ -20,13 +13,13 @@ class NotFoundError extends Error {
 export class ExecutionRepository {
   constructor(private workspaceRoot: string) {}
 
-  async get(executionId: string): Promise<Execution> {
+  async findById(executionId: string): Promise<Execution | undefined> {
     // pahcer が出力した result.json から実行情報を読み込む
     let content: string;
     try {
       content = await fs.readFile(this.resultPath(executionId), 'utf-8');
     } catch {
-      throw new NotFoundError(`Execution result file not found: ${executionId}`);
+      return undefined;
     }
 
     const result = ResultJsonSchema.parse(JSON.parse(content));
@@ -70,7 +63,7 @@ export class ExecutionRepository {
     return execution;
   }
 
-  async getAll(): Promise<Execution[]> {
+  async findAll(): Promise<Execution[]> {
     const jsonDir = path.join(this.workspaceRoot, 'pahcer', 'json');
     if (!existsSync(jsonDir)) {
       return [];
@@ -83,10 +76,11 @@ export class ExecutionRepository {
 
     const executionIds = files.map((file) => file.replace(/^result_(.+)\.json$/, '$1'));
 
-    return await Promise.all(executionIds.map((id) => this.get(id)));
+    const results = await Promise.all(executionIds.map((id) => this.findById(id)));
+    return results.filter((execution): execution is Execution => execution !== undefined);
   }
 
-  async save(execution: Execution): Promise<void> {
+  async upsert(execution: Execution): Promise<void> {
     // result.json をまず読み混んで更新する
     const resultPath = this.resultPath(execution.id);
     const existingResult = await fs.readFile(resultPath, 'utf-8');

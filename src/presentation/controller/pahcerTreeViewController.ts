@@ -216,8 +216,16 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    */
   private async getExecutions(): Promise<PahcerTreeItem[]> {
     // Load executions
-    const executions = await this.executionRepository.getAll();
-    const config = await this.pahcerConfigRepository.get('normal');
+    const executions = await this.executionRepository.findAll();
+    const config = await this.pahcerConfigRepository.findById('normal');
+    if (!config) {
+      const item = new PahcerTreeItem(
+        'pahcer設定が見つかりません',
+        vscode.TreeItemCollapsibleState.None,
+        'info',
+      );
+      return [item];
+    }
 
     if (executions.length === 0) {
       const item = new PahcerTreeItem(
@@ -284,12 +292,20 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     // Ensure bestScores are loaded
     if (!this.cachedBestScores) {
-      const executions = await this.executionRepository.getAll();
+      const executions = await this.executionRepository.findAll();
       const testCasesArray = await Promise.all(
         executions.map((exec) => this.testCaseRepository.findByExecutionId(exec.id)),
       );
       const testCases = testCasesArray.flat();
-      const config = await this.pahcerConfigRepository.get('normal');
+      const config = await this.pahcerConfigRepository.findById('normal');
+      if (!config) {
+        const item = new PahcerTreeItem(
+          'pahcer設定が見つかりません',
+          vscode.TreeItemCollapsibleState.None,
+          'info',
+        );
+        return [item];
+      }
       this.cachedBestScores = calculateBestScoresFromTestCases(testCases, config.objective);
     }
 
@@ -305,7 +321,15 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     // Calculate relative scores for each test case
     const relativeScores = new Map<number, number>();
-    const config = await this.pahcerConfigRepository.get('normal');
+    const config = await this.pahcerConfigRepository.findById('normal');
+    if (!config) {
+      const item = new PahcerTreeItem(
+        'pahcer設定が見つかりません',
+        vscode.TreeItemCollapsibleState.None,
+        'info',
+      );
+      return [item];
+    }
     for (const testCase of executionStats.testCases) {
       const bestScore = this.cachedBestScores.get(testCase.id.seed);
       if (bestScore !== undefined && testCase.score > 0) {
@@ -354,7 +378,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    */
   private async getSeeds(): Promise<PahcerTreeItem[]> {
     // Load test cases for all executions
-    const executions = await this.executionRepository.getAll();
+    const executions = await this.executionRepository.findAll();
     const testCasesArray = await Promise.all(
       executions.map((exec) => this.testCaseRepository.findByExecutionId(exec.id)),
     );
@@ -370,7 +394,15 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     }
 
     // Calculate best scores and seed stats
-    const config = await this.pahcerConfigRepository.get('normal');
+    const config = await this.pahcerConfigRepository.findById('normal');
+    if (!config) {
+      const item = new PahcerTreeItem(
+        'pahcer設定が見つかりません',
+        vscode.TreeItemCollapsibleState.None,
+        'info',
+      );
+      return [item];
+    }
     const bestScores = calculateBestScoresFromTestCases(testCases, config.objective);
     const statsMap = calculateSeedStats(testCases, bestScores);
 
@@ -401,10 +433,18 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    * Seedの実行結果一覧を取得
    */
   private async getExecutionsForSeed(seed: number): Promise<PahcerTreeItem[]> {
-    const executions = (await this.executionRepository.getAll()).sort((a, b) =>
+    const executions = (await this.executionRepository.findAll()).sort((a, b) =>
       b.startTime.diff(a.startTime),
     );
-    const config = await this.pahcerConfigRepository.get('normal');
+    const config = await this.pahcerConfigRepository.findById('normal');
+    if (!config) {
+      const item = new PahcerTreeItem(
+        'pahcer設定が見つかりません',
+        vscode.TreeItemCollapsibleState.None,
+        'info',
+      );
+      return [item];
+    }
 
     // Load test cases and executions if not cached
     if (!this.cachedTestCases) {
@@ -494,7 +534,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   async getCheckedResultsWithCommitHash(): Promise<Execution[]> {
     const results: Execution[] = [];
     for (const executionId of this.checkedResults) {
-      const execution = await this.executionRepository.get(executionId);
+      const execution = await this.executionRepository.findById(executionId);
       if (execution?.commitHash) {
         results.push(execution);
       }
