@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { CommitResultsUseCase } from './application/commitResultsUseCase';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
 import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from './domain/interfaces/IPahcerConfigRepository';
@@ -75,6 +76,7 @@ interface Controllers {
  * ユースケース層の集合
  */
 interface UseCases {
+  commitResultsUseCase: CommitResultsUseCase;
   runPahcerUseCase: RunPahcerUseCase;
 }
 
@@ -129,9 +131,11 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
  * ユースケースを初期化
  */
 function initializeUseCases(adapters: Adapters): UseCases {
+  const commitResultsUseCase = new CommitResultsUseCase(adapters.gitAdapter);
+
   const runPahcerUseCase = new RunPahcerUseCase(
     adapters.pahcerAdapter,
-    adapters.gitAdapter,
+    commitResultsUseCase,
     adapters.inOutFilesAdapter,
     adapters.fileAnalyzer,
     adapters.executionRepository,
@@ -140,6 +144,7 @@ function initializeUseCases(adapters: Adapters): UseCases {
   );
 
   return {
+    commitResultsUseCase,
     runPahcerUseCase,
   };
 }

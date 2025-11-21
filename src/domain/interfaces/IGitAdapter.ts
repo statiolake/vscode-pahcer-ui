@@ -1,23 +1,15 @@
 /**
  * Git 操作を抽象化するアダプターインターフェース
  *
- * Git コマンドの実行と差分表示を統一的に提供
+ * 責務: 純粋な Git 操作のみ
+ * - git add/commit
+ * - git diff 表示
+ * - リポジトリ判定
+ *
+ * ユースケースロジック（設定判定、メッセージ表示）は提供しません。
+ * これらは CommitResultsUseCase で処理されます。
  */
 export interface IGitAdapter {
-  /**
-   * pahcer 実行前にソースコードをコミット
-   * @returns コミットハッシュ、またはコミット不可の場合は null
-   */
-  commitSourceBeforeExecution(): Promise<string | null>;
-
-  /**
-   * pahcer 実行後に結果ファイルをコミット
-   * @param caseCount テストケース数
-   * @param totalScore 総スコア
-   * @returns コミットハッシュ、またはコミット不可の場合は null
-   */
-  commitResultsAfterExecution(caseCount: number, totalScore: number): Promise<string | null>;
-
   /**
    * すべての変更をステージングしてコミット
    * @param message コミットメッセージ

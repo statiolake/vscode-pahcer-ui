@@ -1,12 +1,12 @@
 import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
 import type { IFileAnalyzer } from '../domain/interfaces/IFileAnalyzer';
-import type { IGitAdapter } from '../domain/interfaces/IGitAdapter';
 import type { IInOutFilesAdapter } from '../domain/interfaces/IInOutFilesAdapter';
 import type { IPahcerAdapter } from '../domain/interfaces/IPahcerAdapter';
 import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
 import type { PahcerConfig } from '../domain/models/configFile';
 import type { PahcerRunOptions } from '../domain/models/pahcerStatus';
+import type { CommitResultsUseCase } from './commitResultsUseCase';
 import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
 
 /**
@@ -20,19 +20,19 @@ import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
  *
  * フロー:
  * 1. 古い出力ファイルを削除
- * 2. Git統合：実行前にソースコードをコミット
+ * 2. Git統合：実行前にソースコードをコミット（CommitResultsUseCase）
  * 3. テンポラリ設定ファイル作成（必要な場合）
  * 4. pahcer runコマンド実行
  * 5. テンポラリファイルクリーンアップ
  * 6. 出力ファイルをコピー
  * 7. アーカイブ済みの出力ファイルを削除
  * 8. 実行結果を解析してメタデータ保存
- * 9. Git統合：実行後に結果をコミット
+ * 9. Git統合：実行後に結果をコミット（CommitResultsUseCase）
  */
 export class RunPahcerUseCase {
   constructor(
     private pahcerAdapter: IPahcerAdapter,
-    private gitAdapter: IGitAdapter,
+    private commitResultsUseCase: CommitResultsUseCase,
     private inOutFilesAdapter: IInOutFilesAdapter,
     private fileAnalyzer: IFileAnalyzer,
     private executionRepository: IExecutionRepository,
@@ -50,7 +50,7 @@ export class RunPahcerUseCase {
     await this.inOutFilesAdapter.removeOutputs();
 
     // Step 2: Git統合 - 実行前にソースコードをコミット
-    const commitHash = await this.gitAdapter.commitSourceBeforeExecution();
+    const commitHash = await this.commitResultsUseCase.commitBeforeExecution();
 
     // Step 3: テンポラリ設定ファイルを作成（必要な場合）
     let tempConfig: PahcerConfig | undefined;
@@ -110,7 +110,7 @@ export class RunPahcerUseCase {
     const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
 
     // Step 9: Git統合 - 実行後に結果をコミット
-    await this.gitAdapter.commitResultsAfterExecution(caseCount, totalScore);
+    await this.commitResultsUseCase.commitAfterExecution(caseCount, totalScore);
   }
 
   /**
