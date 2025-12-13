@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CommitResultsUseCase } from './application/commitResultsUseCase';
+import { LoadPahcerTreeDataUseCase } from './application/loadPahcerTreeDataUseCase';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
 import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from './domain/interfaces/IPahcerConfigRepository';
@@ -78,6 +79,7 @@ interface Controllers {
 interface UseCases {
   commitResultsUseCase: CommitResultsUseCase;
   runPahcerUseCase: RunPahcerUseCase;
+  loadPahcerTreeDataUseCase: LoadPahcerTreeDataUseCase;
 }
 
 /**
@@ -143,21 +145,31 @@ function initializeUseCases(adapters: Adapters): UseCases {
     adapters.pahcerConfigRepository,
   );
 
+  const loadPahcerTreeDataUseCase = new LoadPahcerTreeDataUseCase(
+    adapters.executionRepository,
+    adapters.testCaseRepository,
+    adapters.pahcerConfigRepository,
+  );
+
   return {
     commitResultsUseCase,
     runPahcerUseCase,
+    loadPahcerTreeDataUseCase,
   };
 }
 
 /**
  * コントローラーを初期化
  */
-function initializeControllers(context: vscode.ExtensionContext, adapters: Adapters): Controllers {
+function initializeControllers(
+  context: vscode.ExtensionContext,
+  adapters: Adapters,
+  useCases: UseCases,
+): Controllers {
   const treeViewController = new PahcerTreeViewController(
     adapters.pahcerAdapter,
+    useCases.loadPahcerTreeDataUseCase,
     adapters.executionRepository,
-    adapters.testCaseRepository,
-    adapters.pahcerConfigRepository,
     new TreeItemBuilder(),
   );
   const visualizerViewController = new VisualizerViewController(
@@ -355,7 +367,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const useCases = initializeUseCases(adapters);
 
   // Step 4: Initialize all controllers
-  const controllers = initializeControllers(context, adapters);
+  const controllers = initializeControllers(context, adapters, useCases);
 
   // Step 5: Register all views
   const initializationView = registerInitializationView(context, workspaceRoot, adapters);
