@@ -1,10 +1,12 @@
-import type { IContextAdapter } from '../../../domain/interfaces/IContextAdapter';
+import type { IKeybindingContextAdapter } from '../../../domain/interfaces/IKeybindingContextAdapter';
 
 /**
  * オプション付きテスト実行コマンドハンドラ
  */
-export function runWithOptionsCommand(contextAdapter: IContextAdapter): () => Promise<void> {
+export function runWithOptionsCommand(
+  keybindingContextAdapter: IKeybindingContextAdapter,
+): () => Promise<void> {
   return async () => {
-    await contextAdapter.setShowRunOptions(true);
+    await keybindingContextAdapter.setShowRunOptions(true);
   };
 }

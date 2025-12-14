@@ -6,7 +6,7 @@ import type { TestCaseSorter } from '../services/testCaseSorter';
  *
  * Context の設定・取得を集約し、型安全性と一元管理を提供
  */
-export interface IContextAdapter {
+export interface IKeybindingContextAdapter {
   /**
    * pahcer のステータスを設定
    */

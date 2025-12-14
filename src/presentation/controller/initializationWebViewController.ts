@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { IContextAdapter } from '../../domain/interfaces/IContextAdapter';
 import type { IGitignoreAdapter } from '../../domain/interfaces/IGitignoreAdapter';
+import type { IKeybindingContextAdapter } from '../../domain/interfaces/IKeybindingContextAdapter';
 import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
 import type {
   DownloadedTester,
@@ -24,7 +24,7 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
     private readonly context: vscode.ExtensionContext,
     private readonly workspaceRoot: string,
     private readonly pahcerAdapter: IPahcerAdapter,
-    private readonly contextAdapter: IContextAdapter,
+    private readonly keybindingContextAdapter: IKeybindingContextAdapter,
     private readonly gitignoreAdapter: IGitignoreAdapter,
     private readonly testerDownloader: ITesterDownloader,
   ) {}
@@ -62,7 +62,7 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
     this.updateGitignore();
 
     // Close initialization WebView and return to TreeView
-    await this.contextAdapter.setShowInitialization(false);
+    await this.keybindingContextAdapter.setShowInitialization(false);
 
     try {
       // Execute pahcer init

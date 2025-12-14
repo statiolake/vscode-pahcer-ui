@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { RunPahcerUseCase } from '../../application/runPahcerUseCase';
-import type { IContextAdapter } from '../../domain/interfaces/IContextAdapter';
+import type { IKeybindingContextAdapter } from '../../domain/interfaces/IKeybindingContextAdapter';
 
 interface RunOptions {
   startSeed: number;
@@ -12,7 +12,7 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly runPahcerUseCase: RunPahcerUseCase,
-    private readonly contextAdapter: IContextAdapter,
+    private readonly keybindingContextAdapter: IKeybindingContextAdapter,
   ) {}
 
   resolveWebviewView(
@@ -44,7 +44,7 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
   private async runWithOptions(options: RunOptions): Promise<void> {
     try {
       // Switch back to TreeView
-      await this.contextAdapter.setShowRunOptions(false);
+      await this.keybindingContextAdapter.setShowRunOptions(false);
 
       // Execute pahcer run with options
       await this.runPahcerUseCase.run({
@@ -61,7 +61,7 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
 
   async cancel(): Promise<void> {
     // Switch back to TreeView
-    await this.contextAdapter.setShowRunOptions(false);
+    await this.keybindingContextAdapter.setShowRunOptions(false);
   }
 
   private getHtmlContent(webview: vscode.Webview): string {
