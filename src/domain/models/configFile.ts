@@ -13,6 +13,7 @@ export class PahcerConfig {
   constructor(
     private readonly _id: ConfigId,
     private readonly _path: string,
+    private readonly _problemName: string,
     private _startSeed: number,
     private _endSeed: number,
     private _objective: 'max' | 'min',
@@ -32,6 +33,10 @@ export class PahcerConfig {
 
   get path(): string {
     return this._path;
+  }
+
+  get problemName(): string {
+    return this._problemName;
   }
 
   get startSeed(): number {

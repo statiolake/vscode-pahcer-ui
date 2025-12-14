@@ -1,8 +1,8 @@
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { IGitignoreAdapter } from '../../domain/interfaces/IGitignoreAdapter';
 import type { IKeybindingContextAdapter } from '../../domain/interfaces/IKeybindingContextAdapter';
 import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
+import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
 import type {
   DownloadedTester,
   ITesterDownloader,
@@ -22,24 +22,24 @@ interface InitOptions {
 export class InitializationWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly workspaceRoot: string,
+    private readonly pahcerConfigRepository: IPahcerConfigRepository,
     private readonly pahcerAdapter: IPahcerAdapter,
     private readonly keybindingContextAdapter: IKeybindingContextAdapter,
     private readonly gitignoreAdapter: IGitignoreAdapter,
     private readonly testerDownloader: ITesterDownloader,
   ) {}
 
-  resolveWebviewView(
+  async resolveWebviewView(
     webviewView: vscode.WebviewView,
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
-  ): void {
+  ): Promise<void> {
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.context.extensionUri],
     };
 
-    webviewView.webview.html = this.getHtmlContent(webviewView.webview);
+    webviewView.webview.html = await this.getHtmlContent(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
@@ -144,13 +144,13 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
     }
   }
 
-  private getHtmlContent(webview: vscode.Webview): string {
+  private async getHtmlContent(webview: vscode.Webview): Promise<string> {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'initialization.js'),
     );
 
-    // Get current directory name as default project name
-    const defaultProjectName = path.basename(this.workspaceRoot) || 'project';
+    const defaultProjectName =
+      (await this.pahcerConfigRepository.findById('normal'))?.problemName ?? 'unknown';
 
     return `<!DOCTYPE html>
 <html lang="ja">

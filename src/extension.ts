@@ -87,17 +87,14 @@ interface UseCases {
  */
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const keybindingContextAdapter = new KeybindingContextAdapter();
-  const executionRepository: IExecutionRepository = new ExecutionRepository(workspaceRoot);
+  const executionRepository = new ExecutionRepository(workspaceRoot);
   const fileAnalyzer = new FileAnalyzer();
   const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
   const pahcerConfigRepository: IPahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
   const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
   const gitAdapter = new GitAdapter(workspaceRoot);
-  const testCaseRepository: ITestCaseRepository = new TestCaseRepository(
-    inOutFilesAdapter,
-    workspaceRoot,
-  );
-  const uiConfigRepository: IUIConfigRepository = new UIConfigRepository(workspaceRoot);
+  const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
+  const uiConfigRepository = new UIConfigRepository(workspaceRoot);
   const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
   const visualizerDownloader = new VisualizerDownloader(visualizerDir);
   const visualizerCache = new VisualizerCache(visualizerDir);
@@ -199,19 +196,18 @@ function initializeControllers(
  */
 function registerInitializationView(
   context: vscode.ExtensionContext,
-  workspaceRoot: string,
   adapters: Adapters,
 ): vscode.Disposable {
-  const initializationProvider = new InitializationWebViewController(
+  const webViewController = new InitializationWebViewController(
     context,
-    workspaceRoot,
+    adapters.pahcerConfigRepository,
     adapters.pahcerAdapter,
     adapters.keybindingContextAdapter,
     adapters.gitignoreAdapter,
     adapters.testerDownloader,
   );
 
-  return vscode.window.registerWebviewViewProvider('pahcerInitialization', initializationProvider);
+  return vscode.window.registerWebviewViewProvider('pahcerInitialization', webViewController);
 }
 
 /**
@@ -370,7 +366,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const controllers = initializeControllers(context, adapters, useCases);
 
   // Step 5: Register all views
-  const initializationView = registerInitializationView(context, workspaceRoot, adapters);
+  const initializationView = registerInitializationView(context, adapters);
   const treeView = await registerTreeView(controllers, adapters);
   const runOptionsView = registerRunOptionsView(context, useCases, adapters);
 

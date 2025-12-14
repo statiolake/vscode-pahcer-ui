@@ -38,11 +38,21 @@ export class PahcerConfigRepository implements IPahcerConfigRepository {
       const content = await fs.readFile(configPath, 'utf-8');
 
       // TOML コンテンツから start_seed/end_seed/objective をパース
+      const problemName = this.extractProblemName(content);
       const startSeed = this.extractStartSeed(content);
       const endSeed = this.extractEndSeed(content);
       const objective = this.extractObjective(content);
 
-      return new PahcerConfig(id, configPath, startSeed, endSeed, objective);
+      if (
+        problemName === undefined ||
+        startSeed === undefined ||
+        endSeed === undefined ||
+        objective === undefined
+      ) {
+        throw new Error(`Invalid pahcer config file: missing required fields in ${configPath}`);
+      }
+
+      return new PahcerConfig(id, configPath, problemName, startSeed, endSeed, objective);
     } catch (error) {
       // ファイルが見つからない場合のみ undefined を返す
       if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
@@ -94,26 +104,31 @@ export class PahcerConfigRepository implements IPahcerConfigRepository {
     }
   }
 
+  private extractProblemName(content: string): string | undefined {
+    const match = content.match(/^problem_name\s*=\s*['"](.+)['"]/m);
+    return match ? match[1] : undefined;
+  }
+
   /**
    * TOML コンテンツから start_seed の値をパース
    */
-  private extractStartSeed(content: string): number {
+  private extractStartSeed(content: string): number | undefined {
     const match = content.match(/^start_seed\s*=\s*(\d+)/m);
-    return match ? parseInt(match[1], 10) : 0;
+    return match ? parseInt(match[1], 10) : undefined;
   }
 
   /**
    * TOML コンテンツから end_seed の値をパース
    */
-  private extractEndSeed(content: string): number {
+  private extractEndSeed(content: string): number | undefined {
     const match = content.match(/^end_seed\s*=\s*(\d+)/m);
-    return match ? parseInt(match[1], 10) : 0;
+    return match ? parseInt(match[1], 10) : undefined;
   }
 
   /**
    * TOML コンテンツから objective の値をパース
    */
-  private extractObjective(content: string): 'max' | 'min' {
+  private extractObjective(content: string): 'max' | 'min' | undefined {
     const match = content.match(/objective\s*=\s*['"](max|min)['"]/i);
 
     if (match && (match[1].toLowerCase() === 'max' || match[1].toLowerCase() === 'min')) {
@@ -121,7 +136,7 @@ export class PahcerConfigRepository implements IPahcerConfigRepository {
     }
 
     // objective が見つからない場合はデフォルト値を返す
-    return 'max';
+    return undefined;
   }
 
   /**
