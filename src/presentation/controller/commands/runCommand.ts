@@ -11,7 +11,7 @@ export function runCommand(
 ): () => Promise<void> {
   return async () => {
     try {
-      await runPahcerUseCase.run();
+      await runPahcerUseCase.handle({ options: {} });
       treeViewController.refresh();
     } catch (error) {
       console.error(error);

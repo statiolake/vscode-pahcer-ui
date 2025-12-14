@@ -9,6 +9,10 @@ import type { PahcerRunOptions } from '../domain/models/pahcerStatus';
 import type { CommitResultsUseCase } from './commitResultsUseCase';
 import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
 
+export interface RunUseCaseRequest {
+  options: PahcerRunOptions;
+}
+
 /**
  * pahcer実行ユースケース
  *
@@ -43,8 +47,8 @@ export class RunPahcerUseCase {
   /**
    * pahcer run を実行（全オーケストレーション含む）
    */
-  async run(options?: PahcerRunOptions): Promise<void> {
-    options = options ?? {};
+  async handle(request: RunUseCaseRequest): Promise<void> {
+    const options = request.options;
 
     // Step 1: 古い出力ファイルを削除（前回の実行結果のクリーンアップ）
     await this.inOutFilesAdapter.removeOutputs();
@@ -53,31 +57,14 @@ export class RunPahcerUseCase {
     const commitHash = await this.commitResultsUseCase.commitBeforeExecution();
 
     // Step 3: テンポラリ設定ファイルを作成（必要な場合）
-    let tempConfig: PahcerConfig | undefined;
-    if (options.startSeed !== undefined || options.endSeed !== undefined) {
-      tempConfig = await this.pahcerConfigRepository.findById('temporary');
-      if (!tempConfig) {
-        throw new ResourceNotFoundError('テンポラリ設定ファイル');
-      }
+    const tempConfig = await this.prepareTemporaryConfig(options);
 
-      // Seed範囲オプションが指定されている場合、テンポラリ設定を更新
-      if (options.startSeed !== undefined) {
-        tempConfig.startSeed = options.startSeed;
-      }
-      if (options.endSeed !== undefined) {
-        tempConfig.endSeed = options.endSeed;
-      }
-
-      // 更新した設定を保存
-      await this.pahcerConfigRepository.upsert(tempConfig);
-    }
-
+    // Step 4: pahcer runコマンドを実行
     try {
-      // Step 4: pahcer runコマンドを実行
       await this.pahcerAdapter.run(options, tempConfig);
     } finally {
-      // テンポラリ設定ファイルをクリーンアップ
       if (tempConfig) {
+        // テンポラリ設定ファイルをクリーンアップ
         await this.pahcerConfigRepository.delete('temporary');
       }
     }
@@ -98,19 +85,49 @@ export class RunPahcerUseCase {
     // Step 8: 実行結果を解析してメタデータを保存
     await this.analyzeExecution(latestExecution.id);
 
-    // Step 6.5: コミットハッシュを保存
+    // Step 9: コミットハッシュを保存
     if (commitHash) {
       latestExecution.commitHash = commitHash;
       await this.executionRepository.upsert(latestExecution);
     }
 
-    // Step 7: テストケースデータから統計情報を取得
+    // Step 10: テストケースデータから統計情報を取得
     const executionTestCases = await this.testCaseRepository.findByExecutionId(latestExecution.id);
     const caseCount = executionTestCases.length;
     const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
 
-    // Step 9: Git統合 - 実行後に結果をコミット
+    // Step 11: Git統合 - 実行後に結果をコミット
     await this.commitResultsUseCase.commitAfterExecution(caseCount, totalScore);
+  }
+
+  /**
+   * テンポラリ設定ファイルを準備 (必要な場合)
+   */
+  private async prepareTemporaryConfig(
+    options: PahcerRunOptions,
+  ): Promise<PahcerConfig | undefined> {
+    if (options.startSeed === undefined && options.endSeed === undefined) {
+      // テンポラリ設定ファイルは不要
+      return undefined;
+    }
+
+    const tempConfig = await this.pahcerConfigRepository.findById('temporary');
+    if (!tempConfig) {
+      throw new ResourceNotFoundError('テンポラリ設定ファイル');
+    }
+
+    // Seed範囲オプションが指定されている場合、テンポラリ設定を更新
+    if (options.startSeed !== undefined) {
+      tempConfig.startSeed = options.startSeed;
+    }
+    if (options.endSeed !== undefined) {
+      tempConfig.endSeed = options.endSeed;
+    }
+
+    // 更新した設定を保存
+    await this.pahcerConfigRepository.upsert(tempConfig);
+
+    return tempConfig;
   }
 
   /**

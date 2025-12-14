@@ -47,10 +47,12 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
       await this.keybindingContextAdapter.setShowRunOptions(false);
 
       // Execute pahcer run with options
-      await this.runPahcerUseCase.run({
-        startSeed: options.startSeed,
-        endSeed: options.endSeed,
-        freezeBestScores: options.freezeBestScores,
+      await this.runPahcerUseCase.handle({
+        options: {
+          startSeed: options.startSeed,
+          endSeed: options.endSeed,
+          freezeBestScores: options.freezeBestScores,
+        },
       });
     } catch (error) {
       console.error(error);
