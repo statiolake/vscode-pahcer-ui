@@ -401,7 +401,7 @@ export class VisualizerViewController {
                 window.addEventListener('wheel', (e) => {
                     if (e.ctrlKey || e.metaKey) {
                         e.preventDefault();
-                        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+                        const delta = e.deltaY > 0 ? -ZOOM_ZOOM_STEP;
                         zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
                         applyZoom();
                     }

@@ -74,7 +74,7 @@ export class InitializeUseCase {
   async handle(request: InitializeUseCaseRequest): Promise<void> {
     let finalIsInteractive = request.isInteractive;
 
-    // Step 1: テスターダウンロード（オプション）
+    // テスターダウンロード（オプション）
     try {
       const result = await this.prepareTester(
         request.testerUrl,
@@ -86,10 +86,10 @@ export class InitializeUseCase {
       throw new DownloadTesterError(`テスターのダウンロードに失敗しました: ${error}`);
     }
 
-    // Step 2: .gitignore 更新
+    // .gitignore 更新
     this.updateGitignore();
 
-    // Step 3: pahcer init 実行
+    // pahcer init 実行
     try {
       await this.pahcerAdapter.init(
         request.problemName,

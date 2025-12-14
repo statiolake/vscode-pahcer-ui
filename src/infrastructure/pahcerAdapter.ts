@@ -49,7 +49,7 @@ export class PahcerAdapter implements IPahcerAdapter {
    * @returns 終了コード
    */
   async run(options?: PahcerRunOptions, configFile?: PahcerConfig): Promise<number | undefined> {
-    // Step 1: コマンドラインを組み立てる
+    // コマンドラインを組み立てる
     let command = 'pahcer run';
     if (configFile) {
       command += ` --setting-file "${configFile.path}"`;
@@ -58,7 +58,7 @@ export class PahcerAdapter implements IPahcerAdapter {
       command += ' --freeze-best-scores';
     }
 
-    // Step 2: タスクを作成して実行
+    // タスクを作成して実行
     return this.executeTask('Pahcer Run', command);
   }
 

@@ -36,25 +36,25 @@ export class LoadPahcerTreeDataUseCase {
    * @throws ResourceNotFoundError - pahcer設定が見つからない場合
    */
   async load(): Promise<TreeData> {
-    // Step 1: 実行結果を全件取得
+    // 実行結果を全件取得
     const executions = await this.executionRepository.findAll();
 
-    // Step 2: pahcer設定を取得
+    // pahcer設定を取得
     const config = await this.pahcerConfigRepository.findById('normal');
     if (!config) {
       throw new ResourceNotFoundError('pahcer設定');
     }
 
-    // Step 3: 各実行のテストケースを並列取得
+    // 各実行のテストケースを並列取得
     const testCasesByExecution = await Promise.all(
       executions.map((execution) => this.testCaseRepository.findByExecutionId(execution.id)),
     );
     const allTestCases = testCasesByExecution.flat();
 
-    // Step 4: ベストスコアを計算
+    // ベストスコアを計算
     const bestScores = BestScoreCalculator.calculate(allTestCases, config.objective);
 
-    // Step 5: 実行統計を計算
+    // 実行統計を計算
     const executionStatsList = ExecutionStatsCalculator.calculate(
       executions,
       allTestCases,
@@ -62,7 +62,7 @@ export class LoadPahcerTreeDataUseCase {
       config.objective,
     );
 
-    // Step 6: TreeData として返す
+    // TreeData として返す
     return new TreeData(executions, allTestCases, config, bestScores, executionStatsList);
   }
 }

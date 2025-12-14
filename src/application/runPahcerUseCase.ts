@@ -50,16 +50,16 @@ export class RunPahcerUseCase {
   async handle(request: RunUseCaseRequest): Promise<void> {
     const options = request.options;
 
-    // Step 1: 古い出力ファイルを削除（前回の実行結果のクリーンアップ）
+    // 古い出力ファイルを削除（前回の実行結果のクリーンアップ）
     await this.inOutFilesAdapter.removeOutputs();
 
-    // Step 2: Git統合 - 実行前にソースコードをコミット
+    // Git統合 - 実行前にソースコードをコミット
     const commitHash = await this.commitResultsUseCase.commitBeforeExecution();
 
-    // Step 3: テンポラリ設定ファイルを作成（必要な場合）
+    // テンポラリ設定ファイルを作成（必要な場合）
     const tempConfig = await this.prepareTemporaryConfig(options);
 
-    // Step 4: pahcer runコマンドを実行
+    // pahcer runコマンドを実行
     try {
       await this.pahcerAdapter.run(options, tempConfig);
     } finally {
@@ -69,34 +69,34 @@ export class RunPahcerUseCase {
       }
     }
 
-    // Step 5: 最新の実行結果を取得
+    // 最新の実行結果を取得
     const allExecutions = await this.executionRepository.findAll();
     if (allExecutions.length === 0) {
       throw new PreconditionFailedError('実行結果が取得できませんでした');
     }
     const latestExecution = allExecutions[0];
 
-    // Step 6: 出力ファイルをコピー
+    // 出力ファイルをコピー
     await this.inOutFilesAdapter.archiveOutputs(latestExecution.id);
 
-    // Step 7: アーカイブ済みの出力ファイルを削除
+    // アーカイブ済みの出力ファイルを削除
     await this.inOutFilesAdapter.removeOutputs();
 
-    // Step 8: 実行結果を解析してメタデータを保存
+    // 実行結果を解析してメタデータを保存
     await this.analyzeExecution(latestExecution.id);
 
-    // Step 9: コミットハッシュを保存
+    // コミットハッシュを保存
     if (commitHash) {
       latestExecution.commitHash = commitHash;
       await this.executionRepository.upsert(latestExecution);
     }
 
-    // Step 10: テストケースデータから統計情報を取得
+    // テストケースデータから統計情報を取得
     const executionTestCases = await this.testCaseRepository.findByExecutionId(latestExecution.id);
     const caseCount = executionTestCases.length;
     const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
 
-    // Step 11: Git統合 - 実行後に結果をコミット
+    // Git統合 - 実行後に結果をコミット
     await this.commitResultsUseCase.commitAfterExecution(caseCount, totalScore);
   }
 

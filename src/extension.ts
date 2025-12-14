@@ -345,14 +345,14 @@ function registerCommands(
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-  // Step 1: Get workspace root
+  // Get workspace root
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
   if (!workspaceRoot) {
     return;
   }
 
-  // Step 2: Initialize all adapters
+  // Initialize all adapters
   const adapters = await initializeAdapters(workspaceRoot);
 
   // UI を初期化する
@@ -360,21 +360,21 @@ export async function activate(context: vscode.ExtensionContext) {
   await vscodeUIContext.setPahcerStatus(await adapters.pahcerAdapter.checkStatus());
   await vscodeUIContext.setShowInitialization(false);
 
-  // Step 3: Initialize all use cases
+  // Initialize all use cases
   const useCases = initializeUseCases(adapters);
 
-  // Step 4: Initialize all controllers
+  // Initialize all controllers
   const controllers = initializeControllers(context, adapters, useCases);
 
-  // Step 5: Register all views
+  // Register all views
   const initializationView = registerInitializationView(context, vscodeUIContext, useCases);
   const treeView = await registerTreeView(vscodeUIContext, controllers, adapters);
   const runOptionsView = registerRunOptionsView(context, vscodeUIContext, useCases);
 
-  // Step 6: Register all commands
+  // Register all commands
   const commands = registerCommands(vscodeUIContext, adapters, controllers, useCases);
 
-  // Step 7: Add all disposables to context
+  // Add all disposables to context
   context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);
 }
 
