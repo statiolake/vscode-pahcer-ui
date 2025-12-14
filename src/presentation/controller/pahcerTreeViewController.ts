@@ -12,6 +12,7 @@ import { SeedStatsCalculator } from '../../domain/services/seedStatsCalculator';
 import { SeedStatsSorter } from '../../domain/services/seedStatsSorter';
 import { TestCaseGrouper } from '../../domain/services/testCaseGrouper';
 import { TestCaseSorter } from '../../domain/services/testCaseSorter';
+import type { AppUIConfig } from '../appUIConfig';
 import type { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
 /**
@@ -44,26 +45,16 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
   private checkedResults = new Set<string>();
 
-  private pahcerAdapter: IPahcerAdapter;
-  private loadTreeDataUseCase: LoadPahcerTreeDataUseCase;
-  private executionRepository: IExecutionRepository;
-  private treeItemBuilder: TreeItemBuilder;
-  private readonly CONFIG_SECTION = 'pahcer-ui';
-
   // Cache for reuse across method calls
   private cachedTreeData?: TreeData;
 
   constructor(
-    pahcerAdapter: IPahcerAdapter,
-    loadTreeDataUseCase: LoadPahcerTreeDataUseCase,
-    executionRepository: IExecutionRepository,
-    treeItemBuilder: TreeItemBuilder,
-  ) {
-    this.pahcerAdapter = pahcerAdapter;
-    this.loadTreeDataUseCase = loadTreeDataUseCase;
-    this.executionRepository = executionRepository;
-    this.treeItemBuilder = treeItemBuilder;
-  }
+    private readonly appConfig: AppUIConfig,
+    private readonly pahcerAdapter: IPahcerAdapter,
+    private readonly loadTreeDataUseCase: LoadPahcerTreeDataUseCase,
+    private readonly executionRepository: IExecutionRepository,
+    private readonly treeItemBuilder: TreeItemBuilder,
+  ) {}
 
   /**
    * TreeViewをリフレッシュ
@@ -72,23 +63,6 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     // Clear cache on refresh
     this.cachedTreeData = undefined;
     this._onDidChangeTreeData.fire(undefined);
-  }
-
-  /**
-   * グルーピングモードを設定
-   */
-  async setGroupingMode(mode: TestCaseSorter.GroupingMode): Promise<void> {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    await config.update('groupingMode', mode, vscode.ConfigurationTarget.Global);
-    this.refresh();
-  }
-
-  /**
-   * グルーピングモードを取得
-   */
-  getGroupingMode(): TestCaseSorter.GroupingMode {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    return config.get<TestCaseSorter.GroupingMode>('groupingMode') || 'byExecution';
   }
 
   /**
@@ -110,40 +84,6 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   }
 
   /**
-   * 実行ごとのソート順を設定
-   */
-  async setExecutionSortOrder(order: TestCaseSorter.ExecutionSortOrder): Promise<void> {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    await config.update('executionSortOrder', order, vscode.ConfigurationTarget.Global);
-    this.refresh();
-  }
-
-  /**
-   * 実行ごとのソート順を取得
-   */
-  getExecutionSortOrder(): TestCaseSorter.ExecutionSortOrder {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    return config.get<TestCaseSorter.ExecutionSortOrder>('executionSortOrder') || 'seedAsc';
-  }
-
-  /**
-   * Seedごとのソート順を設定
-   */
-  async setSeedSortOrder(order: SeedExecutionSorter.SeedSortOrder): Promise<void> {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    await config.update('seedSortOrder', order, vscode.ConfigurationTarget.Global);
-    this.refresh();
-  }
-
-  /**
-   * Seedごとのソート順を取得
-   */
-  getSeedSortOrder(): SeedExecutionSorter.SeedSortOrder {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    return config.get<SeedExecutionSorter.SeedSortOrder>('seedSortOrder') || 'executionDesc';
-  }
-
-  /**
    * TreeItemを取得
    */
   getTreeItem(element: PahcerTreeItem): vscode.TreeItem {
@@ -162,12 +102,13 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       return [];
     }
 
-    const groupingMode = this.getGroupingMode();
+    const groupingMode = await this.appConfig.groupingMode();
 
-    if (groupingMode === 'byExecution') {
-      return this.getChildrenByExecution(element);
-    } else {
-      return this.getChildrenBySeed(element);
+    switch (groupingMode) {
+      case 'byExecution':
+        return this.getChildrenByExecution(element);
+      case 'bySeed':
+        return this.getChildrenBySeed(element);
     }
   }
 
@@ -303,7 +244,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     }
 
     // Sort cases
-    const sortOrder = this.getExecutionSortOrder();
+    const sortOrder = await this.appConfig.executionSortOrder();
     const sortedCases = TestCaseSorter.byOrder(executionStats.testCases, sortOrder, relativeScores);
 
     // Cases
@@ -405,7 +346,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       }
 
       // Sort executions
-      const sortOrder = this.getSeedSortOrder();
+      const sortOrder = await this.appConfig.seedSortOrder();
       const sortedExecutions = SeedExecutionSorter.byOrder(seedGroup.executions, sortOrder);
 
       // Find latest execution

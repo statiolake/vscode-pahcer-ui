@@ -12,13 +12,14 @@ import { FileAnalyzer } from './infrastructure/fileAnalyzer';
 import { GitAdapter } from './infrastructure/gitAdapter';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutFilesAdapter } from './infrastructure/inOutFilesAdapter';
-import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
+import { PahcerAdapter } from './infrastructure/pahcerAdapter';
 import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
 import { TesterDownloader } from './infrastructure/testerDownloader';
 import { UIConfigRepository } from './infrastructure/uiConfigRepository';
 import { VisualizerCache } from './infrastructure/visualizerCache';
 import { VisualizerDownloader } from './infrastructure/visualizerDownloader';
+import { AppUIConfig } from './presentation/appUIConfig';
 import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './presentation/controller/commands/changeSortOrderCommand';
 import { initializeCommand } from './presentation/controller/commands/initializeCommand';
@@ -159,10 +160,12 @@ function initializeUseCases(adapters: Adapters): UseCases {
  */
 function initializeControllers(
   context: vscode.ExtensionContext,
+  appUIConfig: AppUIConfig,
   adapters: Adapters,
   useCases: UseCases,
 ): Controllers {
   const treeViewController = new PahcerTreeViewController(
+    appUIConfig,
     adapters.pahcerAdapter,
     useCases.loadPahcerTreeDataUseCase,
     adapters.executionRepository,
@@ -211,24 +214,19 @@ function registerInitializationView(
  * TreeViewを登録
  */
 async function registerTreeView(
+  appUIConfig: AppUIConfig,
   vscodeUIContext: VSCodeUIContext,
   controllers: Controllers,
-  adapters: Adapters,
 ): Promise<vscode.TreeView<unknown>> {
-  const pahcerStatus = await adapters.pahcerAdapter.checkStatus();
-
   const treeView = vscode.window.createTreeView('pahcerResults', {
     treeDataProvider: controllers.treeViewController,
-    showCollapseAll: pahcerStatus === PahcerStatus.Ready,
+    showCollapseAll: true,
     canSelectMany: false,
   });
 
-  // Initialize grouping context
-  const updateGroupingContext = async () => {
-    const mode = controllers.treeViewController.getGroupingMode();
-    await vscodeUIContext.setGroupingMode(mode);
-  };
-  await updateGroupingContext();
+  // グループモードを初期化する
+  const mode = await appUIConfig.groupingMode();
+  await vscodeUIContext.setGroupingMode(mode);
 
   // Handle checkbox state changes
   treeView.onDidChangeCheckboxState(async (e) => {
@@ -275,6 +273,7 @@ function registerRunOptionsView(
  * すべてのコマンドを登録
  */
 function registerCommands(
+  appUIConfig: AppUIConfig,
   vscodeUIContext: VSCodeUIContext,
   adapters: Adapters,
   controllers: Controllers,
@@ -282,7 +281,7 @@ function registerCommands(
 ): vscode.Disposable[] {
   // Initialize grouping context update function
   const updateGroupingContext = async () => {
-    const mode = controllers.treeViewController.getGroupingMode();
+    const mode = await appUIConfig.groupingMode();
     await vscodeUIContext.setGroupingMode(mode);
   };
 
@@ -303,15 +302,15 @@ function registerCommands(
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.changeSortOrder',
-      changeSortOrderCommand(controllers.treeViewController),
+      changeSortOrderCommand(appUIConfig, controllers.treeViewController),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.switchToSeed',
-      switchToSeedCommand(controllers.treeViewController, updateGroupingContext),
+      switchToSeedCommand(appUIConfig, controllers.treeViewController, updateGroupingContext),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.switchToExecution',
-      switchToExecutionCommand(controllers.treeViewController, updateGroupingContext),
+      switchToExecutionCommand(appUIConfig, controllers.treeViewController, updateGroupingContext),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.showVisualizer',
@@ -356,6 +355,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const adapters = await initializeAdapters(workspaceRoot);
 
   // UI を初期化する
+  const appUIConfig = new AppUIConfig();
   const vscodeUIContext = new VSCodeUIContext();
   await vscodeUIContext.setPahcerStatus(await adapters.pahcerAdapter.checkStatus());
   await vscodeUIContext.setShowInitialization(false);
@@ -364,15 +364,15 @@ export async function activate(context: vscode.ExtensionContext) {
   const useCases = initializeUseCases(adapters);
 
   // Initialize all controllers
-  const controllers = initializeControllers(context, adapters, useCases);
+  const controllers = initializeControllers(context, appUIConfig, adapters, useCases);
 
   // Register all views
   const initializationView = registerInitializationView(context, vscodeUIContext, useCases);
-  const treeView = await registerTreeView(vscodeUIContext, controllers, adapters);
+  const treeView = await registerTreeView(appUIConfig, vscodeUIContext, controllers);
   const runOptionsView = registerRunOptionsView(context, vscodeUIContext, useCases);
 
   // Register all commands
-  const commands = registerCommands(vscodeUIContext, adapters, controllers, useCases);
+  const commands = registerCommands(appUIConfig, vscodeUIContext, adapters, controllers, useCases);
 
   // Add all disposables to context
   context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);

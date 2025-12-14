@@ -1,22 +1,22 @@
 import type { TestCase } from '../models/testCase';
 
+/**
+ * グルーピングモード
+ */
+export type GroupingMode = 'byExecution' | 'bySeed';
+
+/**
+ * ソート順の型定義
+ */
+export type ExecutionSortOrder =
+  | 'seedAsc'
+  | 'seedDesc'
+  | 'relativeScoreAsc'
+  | 'relativeScoreDesc'
+  | 'absoluteScoreAsc'
+  | 'absoluteScoreDesc';
+
 export namespace TestCaseSorter {
-  /**
-   * グルーピングモード
-   */
-  export type GroupingMode = 'byExecution' | 'bySeed';
-
-  /**
-   * ソート順の型定義
-   */
-  export type ExecutionSortOrder =
-    | 'seedAsc'
-    | 'seedDesc'
-    | 'relativeScoreAsc'
-    | 'relativeScoreDesc'
-    | 'absoluteScoreAsc'
-    | 'absoluteScoreDesc';
-
   /**
    * テストケースをソートする（純粋関数）
    *

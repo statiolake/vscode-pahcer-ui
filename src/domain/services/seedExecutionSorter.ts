@@ -1,15 +1,16 @@
 import type { Execution } from '../models/execution';
 import type { TestCase } from '../models/testCase';
 
+/**
+ * ソート順の型定義
+ */
+export type SeedSortOrder =
+  | 'executionAsc'
+  | 'executionDesc'
+  | 'absoluteScoreAsc'
+  | 'absoluteScoreDesc';
+
 export namespace SeedExecutionSorter {
-  /**
-   * ソート順の型定義
-   */
-  export type SeedSortOrder =
-    | 'executionAsc'
-    | 'executionDesc'
-    | 'absoluteScoreAsc'
-    | 'absoluteScoreDesc';
   /**
    * Seed別の実行結果をソートする（純粋関数）
    *
