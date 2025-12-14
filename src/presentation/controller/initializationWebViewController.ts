@@ -1,12 +1,5 @@
 import * as vscode from 'vscode';
-import type { IGitignoreAdapter } from '../../domain/interfaces/IGitignoreAdapter';
-import type { IKeybindingContextAdapter } from '../../domain/interfaces/IKeybindingContextAdapter';
-import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
-import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
-import type {
-  DownloadedTester,
-  ITesterDownloader,
-} from '../../domain/interfaces/ITesterDownloader';
+import type { InitializeUseCase } from '../../application/initializeUseCase';
 
 interface InitOptions {
   problemName: string;
@@ -22,11 +15,7 @@ interface InitOptions {
 export class InitializationWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
-    private readonly pahcerConfigRepository: IPahcerConfigRepository,
-    private readonly pahcerAdapter: IPahcerAdapter,
-    private readonly keybindingContextAdapter: IKeybindingContextAdapter,
-    private readonly gitignoreAdapter: IGitignoreAdapter,
-    private readonly testerDownloader: ITesterDownloader,
+    private readonly initializeUseCase: InitializeUseCase,
   ) {}
 
   async resolveWebviewView(
@@ -50,97 +39,65 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
     });
   }
 
-  private async handleInitialize(options: InitOptions): Promise<void> {
-    let finalIsInteractive = options.isInteractive;
-
-    if (options.testerUrl) {
-      const result = await this.downloadTester(options.testerUrl, options.isInteractive);
-      finalIsInteractive = result.isInteractive;
-    }
-
-    // Update .gitignore to add tools/target
-    this.updateGitignore();
-
-    // Close initialization WebView and return to TreeView
-    await this.keybindingContextAdapter.setShowInitialization(false);
-
-    try {
-      // Execute pahcer init
-      await this.pahcerAdapter.init(
-        options.problemName,
-        options.objective,
-        options.language,
-        finalIsInteractive,
-      );
-
-      // Wait a moment for the command to execute, then refresh TreeView
-      setTimeout(async () => {
-        await vscode.commands.executeCommand('pahcer-ui.refresh');
-      }, 2000);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`初期化に失敗しました: ${errorMessage}`);
-    }
-  }
-
-  private async downloadTester(
-    testerUrl: string,
-    isInteractive: boolean,
-  ): Promise<{ isInteractive: boolean }> {
-    let tester: DownloadedTester;
-    try {
-      vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
-      tester = await this.testerDownloader.downloadAndExtract(testerUrl);
-      vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(
-        `ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
-      );
-      return { isInteractive };
-    }
-
-    // もし推測されているタイプとテスターのタイプが異なるのであれば、ここで確認する
-    if (tester.seemsInteractive !== isInteractive) {
-      const detectedType = tester.seemsInteractive
-        ? 'インタラクティブ問題'
-        : '非インタラクティブ問題';
-      const userSelectedType = isInteractive ? 'インタラクティブ' : '非インタラクティブ';
-
-      const answer = await vscode.window.showWarningMessage(
-        '検出されたインタラクティブ設定に変更しますか？',
-        {
-          modal: true,
-          detail:
-            `ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
-            `指定された問題タイプ: ${userSelectedType}\n` +
-            `検出された問題タイプ: ${detectedType}\n\n` +
-            `検出された問題タイプで続けますか？`,
-        },
-        {
-          title: tester.seemsInteractive ? 'インタラクティブに変更' : '非インタラクティブに変更',
-        },
-        { title: 'このまま続行', isCloseAffordance: true },
-      );
-
-      if (answer !== undefined && answer.title !== 'このまま続行') {
-        // これは「〜に変更」の選択肢を選んだということなので、推測されたタイプに変更
-        isInteractive = tester.seemsInteractive;
-      }
-    }
-
-    return { isInteractive };
-  }
-
   /**
-   * .gitignore に tools/target を追加
+   * ITesterConfirmationHandler の実装
    */
-  private updateGitignore(): void {
+
+  private async handleInitialize(options: InitOptions): Promise<void> {
     try {
-      this.gitignoreAdapter.addEntry('tools/target');
+      if (options.testerUrl) {
+        vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
+      }
+
+      await this.initializeUseCase.handle({
+        problemName: options.problemName,
+        objective: options.objective,
+        language: options.language,
+        isInteractive: options.isInteractive,
+        testerUrl: options.testerUrl,
+        confirmToUseDetected: async (userSelectedInteractive, testerSeemsInteractive) => {
+          const detectedType = testerSeemsInteractive
+            ? 'インタラクティブ問題'
+            : '非インタラクティブ問題';
+          const userSelectedType = userSelectedInteractive
+            ? 'インタラクティブ'
+            : '非インタラクティブ';
+
+          const answer = await vscode.window.showWarningMessage(
+            '検出されたインタラクティブ設定に変更しますか？',
+            {
+              modal: true,
+              detail:
+                `ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
+                `指定された問題タイプ: ${userSelectedType}\n` +
+                `検出された問題タイプ: ${detectedType}\n\n` +
+                `検出された問題タイプで続けますか？`,
+            },
+            {
+              title: testerSeemsInteractive ? 'インタラクティブに変更' : '非インタラクティブに変更',
+            },
+            { title: 'このまま続行', isCloseAffordance: true },
+          );
+
+          // 「〜に変更」の選択肢を選んだ場合は true を返す
+          return answer !== undefined && answer.title !== 'このまま続行';
+        },
+      });
+
+      if (options.testerUrl) {
+        vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
+      }
+
+      await vscode.commands.executeCommand('pahcer-ui.refresh');
     } catch (error) {
-      // Silently ignore errors - not critical
-      console.error('Failed to update .gitignore:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (options.testerUrl) {
+        vscode.window.showErrorMessage(
+          `ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
+        );
+      } else {
+        vscode.window.showErrorMessage(`初期化に失敗しました: ${errorMessage}`);
+      }
     }
   }
 
@@ -149,8 +106,7 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'initialization.js'),
     );
 
-    const defaultProjectName =
-      (await this.pahcerConfigRepository.findById('normal'))?.problemName ?? 'unknown';
+    const defaultProjectName = await this.initializeUseCase.getDefaultProjectName();
 
     return `<!DOCTYPE html>
 <html lang="ja">

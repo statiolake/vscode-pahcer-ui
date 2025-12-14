@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CommitResultsUseCase } from './application/commitResultsUseCase';
+import { InitializeUseCase } from './application/initializeUseCase';
 import { LoadPahcerTreeDataUseCase } from './application/loadPahcerTreeDataUseCase';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
 import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
@@ -80,6 +81,7 @@ interface UseCases {
   commitResultsUseCase: CommitResultsUseCase;
   runPahcerUseCase: RunPahcerUseCase;
   loadPahcerTreeDataUseCase: LoadPahcerTreeDataUseCase;
+  initializeUseCase: InitializeUseCase;
 }
 
 /**
@@ -148,10 +150,19 @@ function initializeUseCases(adapters: Adapters): UseCases {
     adapters.pahcerConfigRepository,
   );
 
+  const initializeUseCase = new InitializeUseCase(
+    adapters.testerDownloader,
+    adapters.gitignoreAdapter,
+    adapters.keybindingContextAdapter,
+    adapters.pahcerAdapter,
+    adapters.pahcerConfigRepository,
+  );
+
   return {
     commitResultsUseCase,
     runPahcerUseCase,
     loadPahcerTreeDataUseCase,
+    initializeUseCase,
   };
 }
 
@@ -196,15 +207,11 @@ function initializeControllers(
  */
 function registerInitializationView(
   context: vscode.ExtensionContext,
-  adapters: Adapters,
+  useCases: UseCases,
 ): vscode.Disposable {
   const webViewController = new InitializationWebViewController(
     context,
-    adapters.pahcerConfigRepository,
-    adapters.pahcerAdapter,
-    adapters.keybindingContextAdapter,
-    adapters.gitignoreAdapter,
-    adapters.testerDownloader,
+    useCases.initializeUseCase,
   );
 
   return vscode.window.registerWebviewViewProvider('pahcerInitialization', webViewController);
@@ -366,7 +373,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const controllers = initializeControllers(context, adapters, useCases);
 
   // Step 5: Register all views
-  const initializationView = registerInitializationView(context, adapters);
+  const initializationView = registerInitializationView(context, useCases);
   const treeView = await registerTreeView(controllers, adapters);
   const runOptionsView = registerRunOptionsView(context, useCases, adapters);
 
