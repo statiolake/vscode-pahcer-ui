@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import type { IKeybindingContextAdapter } from '../domain/interfaces/IKeybindingContextAdapter';
 import type { TestCaseSorter } from '../domain/services/testCaseSorter';
-import type { PahcerStatus } from './pahcerAdapter';
+import { PahcerStatus } from '../infrastructure/pahcerAdapter';
 
 /**
  * VSCode Context API を型安全に扱うアダプター
@@ -11,7 +10,7 @@ import type { PahcerStatus } from './pahcerAdapter';
  * - 一元管理（どの Context が存在するか把握しやすい）
  * - 変更時の影響範囲を限定
  */
-export class KeybindingContextAdapter implements IKeybindingContextAdapter {
+export class VSCodeUIContext {
   /**
    * pahcer のステータスを設定
    * package.json の when 句で使用: `pahcer.status == 'ready'`
@@ -58,11 +57,11 @@ export class KeybindingContextAdapter implements IKeybindingContextAdapter {
    */
   private pahcerStatusToString(status: PahcerStatus): string {
     switch (status) {
-      case 0: // PahcerStatus.NotInstalled
+      case PahcerStatus.NotInstalled:
         return 'notInstalled';
-      case 1: // PahcerStatus.NotInitialized
+      case PahcerStatus.NotInitialized:
         return 'notInitialized';
-      case 2: // PahcerStatus.Ready
+      case PahcerStatus.Ready:
         return 'ready';
       default:
         return 'unknown';

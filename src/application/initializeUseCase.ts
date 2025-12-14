@@ -1,8 +1,8 @@
 import type { IGitignoreAdapter } from '../domain/interfaces/IGitignoreAdapter';
-import type { IKeybindingContextAdapter } from '../domain/interfaces/IKeybindingContextAdapter';
 import type { IPahcerAdapter } from '../domain/interfaces/IPahcerAdapter';
 import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import type { DownloadedTester, ITesterDownloader } from '../domain/interfaces/ITesterDownloader';
+import { ApplicationError } from './exceptions';
 
 /**
  * テスター設定の確認を UI 層で確認するためのコールバック
@@ -33,10 +33,14 @@ export interface InitializeUseCaseRequest {
   confirmToUseDetected: ConfirmToUseDetected;
 }
 
-interface TesterValidationResult {
+/** テスターのダウンロードに失敗した場合のエラー */
+export class DownloadTesterError extends ApplicationError {}
+
+/** 初期化処理に失敗した場合のエラー */
+export class InitializeError extends ApplicationError {}
+
+interface TesterPreparationResult {
   isInteractive: boolean;
-  needsConfirmation: boolean;
-  detectedInteractive?: boolean;
 }
 
 /**
@@ -60,7 +64,6 @@ export class InitializeUseCase {
   constructor(
     private testerDownloader: ITesterDownloader,
     private gitignoreAdapter: IGitignoreAdapter,
-    private keybindingContextAdapter: IKeybindingContextAdapter,
     private pahcerAdapter: IPahcerAdapter,
     private pahcerConfigRepository: IPahcerConfigRepository,
   ) {}
@@ -72,38 +75,45 @@ export class InitializeUseCase {
     let finalIsInteractive = request.isInteractive;
 
     // Step 1: テスターダウンロード（オプション）
-    if (request.testerUrl) {
-      const result = await this.validateTesterConfiguration(
+    try {
+      const result = await this.prepareTester(
         request.testerUrl,
         request.isInteractive,
         request.confirmToUseDetected,
       );
       finalIsInteractive = result.isInteractive;
+    } catch (error) {
+      throw new DownloadTesterError(`テスターのダウンロードに失敗しました: ${error}`);
     }
 
     // Step 2: .gitignore 更新
     this.updateGitignore();
 
-    // Step 3: keybindingContext から初期化画面を非表示
-    await this.keybindingContextAdapter.setShowInitialization(false);
-
-    // Step 4: pahcer init 実行
-    await this.pahcerAdapter.init(
-      request.problemName,
-      request.objective,
-      request.language,
-      finalIsInteractive,
-    );
+    // Step 3: pahcer init 実行
+    try {
+      await this.pahcerAdapter.init(
+        request.problemName,
+        request.objective,
+        request.language,
+        finalIsInteractive,
+      );
+    } catch (error) {
+      throw new InitializeError(`初期化処理に失敗しました: ${error}`);
+    }
   }
 
   /**
    * テスター設定の検証とダウンロード
    */
-  private async validateTesterConfiguration(
-    testerUrl: string,
+  private async prepareTester(
+    testerUrl: string | undefined,
     userSelectedInteractive: boolean,
     confirmToUseDetected: ConfirmToUseDetected,
-  ): Promise<TesterValidationResult> {
+  ): Promise<TesterPreparationResult> {
+    if (!testerUrl) {
+      return { isInteractive: userSelectedInteractive };
+    }
+
     const tester = await this.downloadTester(testerUrl);
 
     // ユーザー選択と検出されたタイプが異なる場合は確認
@@ -115,12 +125,10 @@ export class InitializeUseCase {
 
       return {
         isInteractive: shouldUseDetected ? tester.seemsInteractive : userSelectedInteractive,
-        needsConfirmation: true,
-        detectedInteractive: tester.seemsInteractive,
       };
     }
 
-    return { isInteractive: userSelectedInteractive, needsConfirmation: false };
+    return { isInteractive: userSelectedInteractive };
   }
 
   /**

@@ -1,14 +1,12 @@
-import type { IKeybindingContextAdapter } from '../../../domain/interfaces/IKeybindingContextAdapter';
+import type { VSCodeUIContext } from '../../vscodeUIContext';
 
 /**
  * 初期化コマンドハンドラ
  * 初期化WebViewを表示する
  */
-export function initializeCommand(
-  keybindingContextAdapter: IKeybindingContextAdapter,
-): () => Promise<void> {
+export function initializeCommand(vscodeUIContext: VSCodeUIContext): () => Promise<void> {
   return async () => {
     // Show initialization WebView by switching context
-    await keybindingContextAdapter.setShowInitialization(true);
+    await vscodeUIContext.setShowInitialization(true);
   };
 }

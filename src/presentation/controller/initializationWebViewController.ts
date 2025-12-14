@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import type { InitializeUseCase } from '../../application/initializeUseCase';
+import { DownloadTesterError, type InitializeUseCase } from '../../application/initializeUseCase';
+import type { VSCodeUIContext } from '../vscodeUIContext';
 
 interface InitOptions {
   problemName: string;
@@ -15,6 +16,7 @@ interface InitOptions {
 export class InitializationWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
+    private readonly vscodeUIContext: VSCodeUIContext,
     private readonly initializeUseCase: InitializeUseCase,
   ) {}
 
@@ -38,10 +40,6 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
       }
     });
   }
-
-  /**
-   * ITesterConfirmationHandler の実装
-   */
 
   private async handleInitialize(options: InitOptions): Promise<void> {
     try {
@@ -84,18 +82,20 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
         },
       });
 
+      await this.vscodeUIContext.setShowInitialization(false);
+
       if (options.testerUrl) {
-        vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
+        void vscode.window.showInformationMessage('ローカルテスターのダウンロードが完了しました。');
       }
 
       await vscode.commands.executeCommand('pahcer-ui.refresh');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (options.testerUrl) {
+      if (error instanceof DownloadTesterError) {
         vscode.window.showErrorMessage(
-          `ローカルテスターのダウンロードに失敗しました: ${errorMessage}`,
+          `ローカルテスターのダウンロードに失敗しました: ${error.message}`,
         );
       } else {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         vscode.window.showErrorMessage(`初期化に失敗しました: ${errorMessage}`);
       }
     }

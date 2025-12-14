@@ -12,7 +12,6 @@ import { FileAnalyzer } from './infrastructure/fileAnalyzer';
 import { GitAdapter } from './infrastructure/gitAdapter';
 import { GitignoreAdapter } from './infrastructure/gitignoreAdapter';
 import { InOutFilesAdapter } from './infrastructure/inOutFilesAdapter';
-import { KeybindingContextAdapter } from './infrastructure/keybindingContextAdapter';
 import { PahcerAdapter, PahcerStatus } from './infrastructure/pahcerAdapter';
 import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
@@ -45,12 +44,12 @@ import { PahcerTreeViewController } from './presentation/controller/pahcerTreeVi
 import { RunOptionsWebViewController } from './presentation/controller/runOptionsWebViewController';
 import { VisualizerViewController } from './presentation/controller/visualizerViewController';
 import { TreeItemBuilder } from './presentation/view/treeView/treeItemBuilder';
+import { VSCodeUIContext } from './presentation/vscodeUIContext';
 
 /**
  * アダプター（インフラ層コンポーネント）の集合
  */
 interface Adapters {
-  keybindingContextAdapter: KeybindingContextAdapter;
   pahcerAdapter: PahcerAdapter;
   executionRepository: IExecutionRepository;
   fileAnalyzer: FileAnalyzer;
@@ -88,7 +87,6 @@ interface UseCases {
  * すべてのアダプターを初期化
  */
 async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
-  const keybindingContextAdapter = new KeybindingContextAdapter();
   const executionRepository = new ExecutionRepository(workspaceRoot);
   const fileAnalyzer = new FileAnalyzer();
   const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
@@ -101,18 +99,9 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const visualizerDownloader = new VisualizerDownloader(visualizerDir);
   const visualizerCache = new VisualizerCache(visualizerDir);
   const testerDownloader = new TesterDownloader(workspaceRoot);
-
-  // Create slim PahcerAdapter (infrastructure-only)
   const pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
 
-  const pahcerStatus = await pahcerAdapter.checkStatus();
-
-  // Set context for viewsWelcome
-  await keybindingContextAdapter.setPahcerStatus(pahcerStatus);
-  await keybindingContextAdapter.setShowInitialization(false);
-
   return {
-    keybindingContextAdapter,
     pahcerAdapter,
     executionRepository,
     fileAnalyzer,
@@ -153,7 +142,6 @@ function initializeUseCases(adapters: Adapters): UseCases {
   const initializeUseCase = new InitializeUseCase(
     adapters.testerDownloader,
     adapters.gitignoreAdapter,
-    adapters.keybindingContextAdapter,
     adapters.pahcerAdapter,
     adapters.pahcerConfigRepository,
   );
@@ -207,10 +195,12 @@ function initializeControllers(
  */
 function registerInitializationView(
   context: vscode.ExtensionContext,
+  vscodeUIContext: VSCodeUIContext,
   useCases: UseCases,
 ): vscode.Disposable {
   const webViewController = new InitializationWebViewController(
     context,
+    vscodeUIContext,
     useCases.initializeUseCase,
   );
 
@@ -221,6 +211,7 @@ function registerInitializationView(
  * TreeViewを登録
  */
 async function registerTreeView(
+  vscodeUIContext: VSCodeUIContext,
   controllers: Controllers,
   adapters: Adapters,
 ): Promise<vscode.TreeView<unknown>> {
@@ -235,7 +226,7 @@ async function registerTreeView(
   // Initialize grouping context
   const updateGroupingContext = async () => {
     const mode = controllers.treeViewController.getGroupingMode();
-    await adapters.keybindingContextAdapter.setGroupingMode(mode);
+    await vscodeUIContext.setGroupingMode(mode);
   };
   await updateGroupingContext();
 
@@ -254,7 +245,7 @@ async function registerTreeView(
     // Update context for diff button visibility
     const resultsWithCommitHash =
       await controllers.treeViewController.getCheckedResultsWithCommitHash();
-    await adapters.keybindingContextAdapter.setCanShowDiff(resultsWithCommitHash.length === 2);
+    await vscodeUIContext.setCanShowDiff(resultsWithCommitHash.length === 2);
   });
 
   return treeView;
@@ -265,17 +256,17 @@ async function registerTreeView(
  */
 function registerRunOptionsView(
   context: vscode.ExtensionContext,
+  vscodeUIContext: VSCodeUIContext,
   useCases: UseCases,
-  adapters: Adapters,
 ): vscode.Disposable {
   const runOptionsWebViewProvider = new RunOptionsWebViewController(
     context,
+    vscodeUIContext,
     useCases.runPahcerUseCase,
-    adapters.keybindingContextAdapter,
   );
 
   // Initialize context (show TreeView by default)
-  adapters.keybindingContextAdapter.setShowRunOptions(false);
+  vscodeUIContext.setShowRunOptions(false);
 
   return vscode.window.registerWebviewViewProvider('pahcerRunOptions', runOptionsWebViewProvider);
 }
@@ -284,6 +275,7 @@ function registerRunOptionsView(
  * すべてのコマンドを登録
  */
 function registerCommands(
+  vscodeUIContext: VSCodeUIContext,
   adapters: Adapters,
   controllers: Controllers,
   useCases: UseCases,
@@ -291,15 +283,12 @@ function registerCommands(
   // Initialize grouping context update function
   const updateGroupingContext = async () => {
     const mode = controllers.treeViewController.getGroupingMode();
-    await adapters.keybindingContextAdapter.setGroupingMode(mode);
+    await vscodeUIContext.setGroupingMode(mode);
   };
 
   return [
     vscode.commands.registerCommand('pahcer-ui.openGitHub', openGitHubCommand()),
-    vscode.commands.registerCommand(
-      'pahcer-ui.initialize',
-      initializeCommand(adapters.keybindingContextAdapter),
-    ),
+    vscode.commands.registerCommand('pahcer-ui.initialize', initializeCommand(vscodeUIContext)),
     vscode.commands.registerCommand(
       'pahcer-ui.refresh',
       refreshCommand(controllers.treeViewController),
@@ -310,7 +299,7 @@ function registerCommands(
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.runWithOptions',
-      runWithOptionsCommand(adapters.keybindingContextAdapter),
+      runWithOptionsCommand(vscodeUIContext),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.changeSortOrder',
@@ -366,6 +355,11 @@ export async function activate(context: vscode.ExtensionContext) {
   // Step 2: Initialize all adapters
   const adapters = await initializeAdapters(workspaceRoot);
 
+  // UI を初期化する
+  const vscodeUIContext = new VSCodeUIContext();
+  await vscodeUIContext.setPahcerStatus(await adapters.pahcerAdapter.checkStatus());
+  await vscodeUIContext.setShowInitialization(false);
+
   // Step 3: Initialize all use cases
   const useCases = initializeUseCases(adapters);
 
@@ -373,12 +367,12 @@ export async function activate(context: vscode.ExtensionContext) {
   const controllers = initializeControllers(context, adapters, useCases);
 
   // Step 5: Register all views
-  const initializationView = registerInitializationView(context, useCases);
-  const treeView = await registerTreeView(controllers, adapters);
-  const runOptionsView = registerRunOptionsView(context, useCases, adapters);
+  const initializationView = registerInitializationView(context, vscodeUIContext, useCases);
+  const treeView = await registerTreeView(vscodeUIContext, controllers, adapters);
+  const runOptionsView = registerRunOptionsView(context, vscodeUIContext, useCases);
 
   // Step 6: Register all commands
-  const commands = registerCommands(adapters, controllers, useCases);
+  const commands = registerCommands(vscodeUIContext, adapters, controllers, useCases);
 
   // Step 7: Add all disposables to context
   context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);

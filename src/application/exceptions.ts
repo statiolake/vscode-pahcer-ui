@@ -10,7 +10,7 @@
 /**
  * アプリケーション層の例外の基底クラス
  */
-export abstract class ApplicationException extends Error {
+export abstract class ApplicationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = this.constructor.name;
@@ -20,7 +20,7 @@ export abstract class ApplicationException extends Error {
 /**
  * 必要なリソースが見つからない場合にスロー
  */
-export class ResourceNotFoundError extends ApplicationException {
+export class ResourceNotFoundError extends ApplicationError {
   constructor(resourceType: string, resourceId?: string) {
     const message = resourceId
       ? `${resourceType} '${resourceId}' が見つかりませんでした`
@@ -32,7 +32,7 @@ export class ResourceNotFoundError extends ApplicationException {
 /**
  * ワークフローの前提条件が満たされていない場合にスロー
  */
-export class PreconditionFailedError extends ApplicationException {}
+export class PreconditionFailedError extends ApplicationError {}
 
 /**
  * ユースケース実行エラーの基底クラス
@@ -40,7 +40,7 @@ export class PreconditionFailedError extends ApplicationException {}
  * 例外型ごとに異なるハンドリングが必要な場合のみサブクラスを作成してください。
  * メッセージをラッピングするだけで意味論的な違いがない場合は避けてください。
  */
-export class UseCaseExecutionError extends ApplicationException {
+export class UseCaseExecutionError extends ApplicationError {
   constructor(cause: string) {
     super(`ユースケース実行に失敗しました: ${cause}`);
   }

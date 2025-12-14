@@ -1,12 +1,10 @@
-import type { IKeybindingContextAdapter } from '../../../domain/interfaces/IKeybindingContextAdapter';
+import type { VSCodeUIContext } from '../../vscodeUIContext';
 
 /**
  * オプション付きテスト実行コマンドハンドラ
  */
-export function runWithOptionsCommand(
-  keybindingContextAdapter: IKeybindingContextAdapter,
-): () => Promise<void> {
+export function runWithOptionsCommand(vscodeUIContext: VSCodeUIContext): () => Promise<void> {
   return async () => {
-    await keybindingContextAdapter.setShowRunOptions(true);
+    await vscodeUIContext.setShowRunOptions(true);
   };
 }
