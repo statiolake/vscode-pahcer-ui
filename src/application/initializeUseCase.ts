@@ -66,6 +66,7 @@ export class InitializeUseCase {
     private gitignoreAdapter: IGitignoreAdapter,
     private pahcerAdapter: IPahcerAdapter,
     private pahcerConfigRepository: IPahcerConfigRepository,
+    private workspaceName: string,
   ) {}
 
   /**
@@ -152,9 +153,12 @@ export class InitializeUseCase {
 
   /**
    * デフォルトのプロジェクト名を取得
+   *
+   * 既に初期化済みの場合は設定ファイルから取得し、
+   * 未初期化の場合はワークスペース名をデフォルトとして返す
    */
   async getDefaultProjectName(): Promise<string> {
     const config = await this.pahcerConfigRepository.findById('normal');
-    return config?.problemName ?? 'unknown';
+    return config?.problemName ?? this.workspaceName;
   }
 }

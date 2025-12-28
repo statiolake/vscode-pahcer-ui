@@ -121,7 +121,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
 /**
  * ユースケースを初期化
  */
-function initializeUseCases(adapters: Adapters): UseCases {
+function initializeUseCases(adapters: Adapters, workspaceName: string): UseCases {
   const commitResultsUseCase = new CommitResultsUseCase(adapters.gitAdapter);
 
   const runPahcerUseCase = new RunPahcerUseCase(
@@ -145,6 +145,7 @@ function initializeUseCases(adapters: Adapters): UseCases {
     adapters.gitignoreAdapter,
     adapters.pahcerAdapter,
     adapters.pahcerConfigRepository,
+    workspaceName,
   );
 
   return {
@@ -361,7 +362,8 @@ export async function activate(context: vscode.ExtensionContext) {
   await vscodeUIContext.setShowInitialization(false);
 
   // Initialize all use cases
-  const useCases = initializeUseCases(adapters);
+  const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name ?? '';
+  const useCases = initializeUseCases(adapters, workspaceName);
 
   // Initialize all controllers
   const controllers = initializeControllers(context, appUIConfig, adapters, useCases);
