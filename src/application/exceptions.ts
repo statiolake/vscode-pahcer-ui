@@ -21,7 +21,10 @@ export abstract class ApplicationError extends Error {
  * 必要なリソースが見つからない場合にスロー
  */
 export class ResourceNotFoundError extends ApplicationError {
-  constructor(resourceType: string, resourceId?: string) {
+  constructor(
+    public readonly resourceType: 'pahcer 設定' | 'テンポラリ設定ファイル',
+    public readonly resourceId?: string,
+  ) {
     const message = resourceId
       ? `${resourceType} '${resourceId}' が見つかりませんでした`
       : `${resourceType} が見つかりませんでした`;

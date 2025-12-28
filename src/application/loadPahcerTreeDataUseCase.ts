@@ -42,7 +42,7 @@ export class LoadPahcerTreeDataUseCase {
     // pahcer設定を取得
     const config = await this.pahcerConfigRepository.findById('normal');
     if (!config) {
-      throw new ResourceNotFoundError('pahcer設定');
+      throw new ResourceNotFoundError('pahcer 設定');
     }
 
     // 各実行のテストケースを並列取得

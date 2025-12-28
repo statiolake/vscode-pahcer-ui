@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { ResourceNotFoundError } from '../../application/exceptions';
 import type { LoadPahcerTreeDataUseCase } from '../../application/loadPahcerTreeDataUseCase';
 import { PahcerStatus } from '../../domain/interfaces';
 import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
@@ -146,10 +147,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    * 実行結果一覧を取得
    */
   private async getExecutions(): Promise<PahcerTreeItem[]> {
-    // TreeData をユースケースから取得
     try {
       const treeData = await this.loadTreeDataUseCase.load();
-
       // キャッシュに保存（他のメソッドから再利用）
       this.cachedTreeData = treeData;
 
@@ -188,10 +187,12 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
       return items;
     } catch (error) {
-      const message =
-        error instanceof Error && error.message.includes('pahcer設定')
-          ? 'pahcer設定が見つかりません'
-          : 'データの読み込みに失敗しました';
+      if (error instanceof ResourceNotFoundError && error.resourceType === 'pahcer 設定') {
+        // 未初期化状態なだけであれば、Welcome View を表示するために空配列を返す
+        return [];
+      }
+
+      const message = `データの読み込みに失敗しました: ${error}`;
       const item = new PahcerTreeItem(message, vscode.TreeItemCollapsibleState.None, 'info');
       return [item];
     }

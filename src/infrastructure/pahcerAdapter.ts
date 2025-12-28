@@ -141,8 +141,9 @@ export class PahcerAdapter implements IPahcerAdapter {
    */
   private async isInitialized(): Promise<boolean> {
     try {
-      await this.pahcerConfigRepository.findById('normal');
-      return true;
+      const config = await this.pahcerConfigRepository.findById('normal');
+      // Repository は見つからない場合 undefined を返す
+      return config !== undefined;
     } catch {
       return false;
     }
