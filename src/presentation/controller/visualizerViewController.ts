@@ -283,14 +283,17 @@ export class VisualizerViewController {
 
                     if (seedInput && seed !== undefined) {
                         seedInput.value = seed;
+                        seedInput.dispatchEvent(new Event('input', { bubbles: true }));
                     }
 
                     if (inputTextarea) {
                         inputTextarea.value = input || '';
+                        inputTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                     }
 
                     if (outputTextarea) {
                         outputTextarea.value = output || '';
+                        outputTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                     }
                 }
 
