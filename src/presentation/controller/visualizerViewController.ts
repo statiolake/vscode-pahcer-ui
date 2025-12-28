@@ -285,16 +285,12 @@ export class VisualizerViewController {
                         seedInput.value = seed;
                     }
 
-                    if (inputTextarea && input) {
-                        inputTextarea.value = input;
+                    if (inputTextarea) {
+                        inputTextarea.value = input || '';
                     }
 
-                    if (outputTextarea && output) {
-                        outputTextarea.value = output;
-                    }
-
-                    if (typeof updateOutput === 'function') {
-                        updateOutput();
+                    if (outputTextarea) {
+                        outputTextarea.value = output || '';
                     }
                 }
 
@@ -401,7 +397,7 @@ export class VisualizerViewController {
                 window.addEventListener('wheel', (e) => {
                     if (e.ctrlKey || e.metaKey) {
                         e.preventDefault();
-                        const delta = e.deltaY > 0 ? -ZOOM_ZOOM_STEP;
+                        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
                         zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
                         applyZoom();
                     }
