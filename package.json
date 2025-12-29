@@ -125,6 +125,10 @@
       {
         "command": "pahcer-ui.showResultsNotFoundError",
         "title": "Pahcer: 結果が見つかりません"
+      },
+      {
+        "command": "pahcer-ui.copySource",
+        "title": "Pahcer: この時点のソースコードをコピー"
       }
     ],
     "menus": {
@@ -168,6 +172,10 @@
       "view/item/context": [
         {
           "command": "pahcer-ui.addComment",
+          "when": "view == pahcerResults && viewItem == execution"
+        },
+        {
+          "command": "pahcer-ui.copySource",
           "when": "view == pahcerResults && viewItem == execution"
         },
         {

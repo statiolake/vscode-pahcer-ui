@@ -35,4 +35,20 @@ export interface IGitAdapter {
    * Git リポジトリが存在するかチェック
    */
   isGitRepository(): boolean;
+
+  /**
+   * 指定したコミットでのソースファイル一覧を取得
+   * （tools/ や dotfile ディレクトリ、.txt/.json/.html ファイルは除外）
+   * @param commitHash コミットハッシュ
+   * @returns ソースファイルのパス一覧
+   */
+  getSourceFilesAtCommit(commitHash: string): Promise<string[]>;
+
+  /**
+   * 指定したコミット時点でのファイル内容を取得
+   * @param commitHash コミットハッシュ
+   * @param filePath ファイルパス（リポジトリルートからの相対パス）
+   * @returns ファイル内容
+   */
+  getFileContentAtCommit(commitHash: string, filePath: string): Promise<string>;
 }

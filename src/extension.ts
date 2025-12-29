@@ -21,6 +21,7 @@ import { VisualizerAdapter } from './infrastructure/visualizerAdapter';
 import { AppUIConfig } from './presentation/appUIConfig';
 import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './presentation/controller/commands/changeSortOrderCommand';
+import { copySourceCommand } from './presentation/controller/commands/copySourceCommand';
 import { initializeCommand } from './presentation/controller/commands/initializeCommand';
 import {
   openErrorFileCommand,
@@ -338,6 +339,10 @@ function registerCommands(
     vscode.commands.registerCommand(
       'pahcer-ui.showDiff',
       showDiffCommand(controllers.treeViewController, adapters.gitAdapter),
+    ),
+    vscode.commands.registerCommand(
+      'pahcer-ui.copySource',
+      copySourceCommand(adapters.executionRepository, adapters.gitAdapter),
     ),
   ];
 }

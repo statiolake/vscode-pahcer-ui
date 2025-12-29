@@ -156,4 +156,62 @@ export class GitAdapter implements IGitAdapter {
       return false;
     }
   }
+
+  /**
+   * 指定したコミットでのソースファイル一覧を取得
+   * showDiff と同じフィルタリングを適用
+   */
+  async getSourceFilesAtCommit(commitHash: string): Promise<string[]> {
+    try {
+      // Get list of files at the commit
+      const output = execSync(`git ls-tree -r --name-only ${commitHash}`, {
+        cwd: this.workspaceRoot,
+      })
+        .toString()
+        .trim();
+
+      if (!output) {
+        return [];
+      }
+
+      return output
+        .split('\n')
+        .filter((line) => line.trim())
+        .filter((f) => {
+          // Filter out files in tools/ directory
+          if (f.startsWith('tools/')) {
+            return false;
+          }
+          // Filter out files in directories starting with . (like .vscode/, .pahcer-ui/)
+          const pathParts = f.split('/');
+          for (const part of pathParts) {
+            if (part.startsWith('.')) {
+              return false;
+            }
+          }
+          // Filter out .txt, .json, and .html files
+          const ext = f.toLowerCase().split('.').pop();
+          return ext !== 'txt' && ext !== 'json' && ext !== 'html';
+        });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CommandExecutionError('git ls-tree', message);
+    }
+  }
+
+  /**
+   * 指定したコミット時点でのファイル内容を取得
+   */
+  async getFileContentAtCommit(commitHash: string, filePath: string): Promise<string> {
+    try {
+      const content = execSync(`git show ${commitHash}:${filePath}`, {
+        cwd: this.workspaceRoot,
+        encoding: 'utf-8',
+      });
+      return content;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CommandExecutionError('git show', message);
+    }
+  }
 }
