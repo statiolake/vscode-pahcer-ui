@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import { type ConfigId, PahcerConfig } from '../domain/models/configFile';
+import { ensureDirForFile } from '../util/fs';
 import { asErrnoException } from '../util/lang';
 
 /**
@@ -29,8 +30,7 @@ export class PahcerConfigRepository implements IPahcerConfigRepository {
     try {
       // temporary の場合、通常ファイルから一時ファイルを作成
       if (id === 'temporary') {
-        const tempDir = path.dirname(configPath);
-        await fs.mkdir(tempDir, { recursive: true });
+        await ensureDirForFile(configPath);
         const normalContent = await fs.readFile(normalPath, 'utf-8');
         await fs.writeFile(configPath, normalContent, 'utf-8');
       }
@@ -75,8 +75,7 @@ export class PahcerConfigRepository implements IPahcerConfigRepository {
     newContent = this.replaceEndSeed(newContent, config.endSeed);
 
     // 必要なディレクトリを作成
-    const dir = path.dirname(config.path);
-    await fs.mkdir(dir, { recursive: true });
+    await ensureDirForFile(config.path);
 
     await fs.writeFile(config.path, newContent, 'utf-8');
   }

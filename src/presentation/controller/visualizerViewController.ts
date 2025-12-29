@@ -9,6 +9,7 @@ import type { IVisualizerDownloader } from '../../domain/interfaces/IVisualizerD
  */
 export class VisualizerViewController {
   private static currentPanel: vscode.WebviewPanel | undefined;
+  private static panelDisposables: vscode.Disposable[] = [];
   private readonly CONFIG_SECTION = 'pahcer-ui';
 
   constructor(
@@ -92,14 +93,14 @@ export class VisualizerViewController {
       return;
     }
 
-    // Open visualizer with test case data
-    await this.openVisualizer(seed, resultId, htmlFileName);
+    // Show visualizer with test case data
+    await this.showVisualizer(seed, resultId, htmlFileName);
   }
 
   /**
-   * ビジュアライザを開く
+   * ビジュアライザを表示
    */
-  private async openVisualizer(
+  private async showVisualizer(
     seed: number,
     resultId: string | undefined,
     htmlFileName: string,
@@ -164,7 +165,7 @@ export class VisualizerViewController {
       VisualizerViewController.currentPanel = panel;
 
       // Listen for messages from the webview
-      panel.webview.onDidReceiveMessage(async (message) => {
+      const messageDisposable = panel.webview.onDidReceiveMessage(async (message) => {
         if (message.type === 'saveZoomLevel') {
           const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
           await config.update(
@@ -174,11 +175,18 @@ export class VisualizerViewController {
           );
         }
       });
+      VisualizerViewController.panelDisposables.push(messageDisposable);
 
       // Reset currentPanel when the panel is disposed
-      panel.onDidDispose(() => {
+      const disposeDisposable = panel.onDidDispose(() => {
+        // Dispose all panel-related disposables
+        for (const disposable of VisualizerViewController.panelDisposables) {
+          disposable.dispose();
+        }
+        VisualizerViewController.panelDisposables = [];
         VisualizerViewController.currentPanel = undefined;
       });
+      VisualizerViewController.panelDisposables.push(disposeDisposable);
 
       // Read HTML content
       let htmlContent = this.visualizerCache.readHtml(htmlFileName);
@@ -441,6 +449,10 @@ export class VisualizerViewController {
    * リセット（テスト用）
    */
   static reset(): void {
+    for (const disposable of VisualizerViewController.panelDisposables) {
+      disposable.dispose();
+    }
+    VisualizerViewController.panelDisposables = [];
     VisualizerViewController.currentPanel = undefined;
   }
 }

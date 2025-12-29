@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
 import { TestCase, TestCaseId } from '../domain/models/testCase';
-import { exists } from '../util/fs';
+import { ensureDirForFile, exists } from '../util/fs';
 import { asErrnoException } from '../util/lang';
 import type { InOutFilesAdapter } from './inOutFilesAdapter';
 import {
@@ -46,11 +46,10 @@ export class TestCaseRepository implements ITestCaseRepository {
 
       return this.buildTestCase(id.executionId, caseData);
     } catch (e) {
-      if (e instanceof Error && asErrnoException(e).code === 'ENOENT') {
-        return undefined;
+      if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+        throw e;
       }
-      console.error(`Failed to load execution JSON for ${id.executionId}:`, e);
-      throw e;
+      return undefined;
     }
   }
 
@@ -90,7 +89,7 @@ export class TestCaseRepository implements ITestCaseRepository {
 
   private async upsertMetadata(testCase: TestCase): Promise<void> {
     const metaPath = this.getMetaPath(testCase.id);
-    await fs.mkdir(path.dirname(metaPath), { recursive: true });
+    await ensureDirForFile(metaPath);
     const metadata: TestCaseMetadata = {
       firstInputLine: testCase.firstInputLine,
       stderrVars: testCase.stderrVars,

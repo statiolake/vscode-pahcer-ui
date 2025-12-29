@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import type { IVisualizerCache } from '../domain/interfaces/IVisualizerCache';
 
@@ -7,8 +7,10 @@ import type { IVisualizerCache } from '../domain/interfaces/IVisualizerCache';
  */
 export class VisualizerCache implements IVisualizerCache {
   constructor(private visualizerDir: string) {
-    if (!fs.existsSync(visualizerDir)) {
-      fs.mkdirSync(visualizerDir, { recursive: true });
+    // Ensure directory exists synchronously on construction
+    // This is acceptable as it's called once during extension activation
+    if (!existsSync(visualizerDir)) {
+      mkdirSync(visualizerDir, { recursive: true });
     }
   }
 
@@ -16,12 +18,12 @@ export class VisualizerCache implements IVisualizerCache {
    * キャッシュされたHTMLファイル名を取得
    */
   getCachedHtmlFileName(): string | null {
-    if (!fs.existsSync(this.visualizerDir)) {
+    if (!existsSync(this.visualizerDir)) {
       console.log(`[VisualizerCache] Cache directory does not exist: ${this.visualizerDir}`);
       return null;
     }
 
-    const files = fs.readdirSync(this.visualizerDir);
+    const files = readdirSync(this.visualizerDir);
     console.log(`[VisualizerCache] Files in cache directory:`, files);
 
     const htmlFile = files.find((f) => f.endsWith('.html'));
@@ -44,14 +46,14 @@ export class VisualizerCache implements IVisualizerCache {
    * HTMLファイルが存在するかチェック
    */
   exists(fileName: string): boolean {
-    return fs.existsSync(this.getHtmlPath(fileName));
+    return existsSync(this.getHtmlPath(fileName));
   }
 
   /**
    * HTMLファイルを読み込む
    */
   readHtml(fileName: string): string {
-    return fs.readFileSync(this.getHtmlPath(fileName), 'utf-8');
+    return readFileSync(this.getHtmlPath(fileName), 'utf-8');
   }
 
   /**
@@ -65,7 +67,7 @@ export class VisualizerCache implements IVisualizerCache {
    * リソースファイルが存在するかチェック
    */
   resourceExists(fileName: string): boolean {
-    return fs.existsSync(this.getResourcePath(fileName));
+    return existsSync(this.getResourcePath(fileName));
   }
 
   /**

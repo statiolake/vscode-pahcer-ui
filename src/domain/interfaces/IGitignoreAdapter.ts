@@ -11,5 +11,5 @@ export interface IGitignoreAdapter {
    * .gitignore にエントリを追加（重複チェック付き）
    * @param entry 追加するエントリ（例: ".pahcer-ui/"）
    */
-  addEntry(entry: string): void;
+  addEntry(entry: string): Promise<void>;
 }

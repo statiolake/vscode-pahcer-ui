@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import dayjs from 'dayjs';
 import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
 import { Execution } from '../domain/models/execution';
+import { ensureDirForFile } from '../util/fs';
 import { asErrnoException } from '../util/lang';
 import { ExecutionMetadataSchema, ResultJsonSchema } from './schemas';
 
@@ -99,7 +100,7 @@ export class ExecutionRepository implements IExecutionRepository {
     const metadata = {
       commitHash: execution.commitHash,
     };
-    await fs.mkdir(path.dirname(metadataPath), { recursive: true });
+    await ensureDirForFile(metadataPath);
     await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
   }
 

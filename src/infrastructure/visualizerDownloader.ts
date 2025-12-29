@@ -2,6 +2,7 @@ import { existsSync, promises as fs } from 'node:fs';
 import * as https from 'node:https';
 import * as path from 'node:path';
 import type { IVisualizerDownloader } from '../domain/interfaces/IVisualizerDownloader';
+import { ensureDir } from '../util/fs';
 
 /**
  * ビジュアライザのダウンロード処理
@@ -16,7 +17,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
    */
   async download(url: string): Promise<string> {
     // Ensure visualizer directory exists
-    await fs.mkdir(this.visualizerDir, { recursive: true });
+    await ensureDir(this.visualizerDir);
     console.log(`[VisualizerDownloader] Created directory: ${this.visualizerDir}`);
 
     // Remove query parameters for file operations

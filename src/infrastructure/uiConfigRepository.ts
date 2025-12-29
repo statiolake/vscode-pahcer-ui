@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import type { IUIConfigRepository } from '../domain/interfaces/IUIConfigRepository';
 import { UIConfig } from '../domain/models/uiConfig';
+import { ensureDir } from '../util/fs';
 import { asErrnoException } from '../util/lang';
 import { UIConfigSchema } from './schemas';
 
@@ -46,7 +47,7 @@ export class UIConfigRepository implements IUIConfigRepository {
    * 設定を保存する
    */
   async upsert(config: UIConfig): Promise<void> {
-    await fs.mkdir(this.configDirPath, { recursive: true });
+    await ensureDir(this.configDirPath);
     await fs.writeFile(this.configPath, JSON.stringify(config, null, 2));
   }
 }

@@ -88,7 +88,7 @@ export class InitializeUseCase {
     }
 
     // .gitignore 更新
-    this.updateGitignore();
+    await this.updateGitignore();
 
     // pahcer init 実行
     try {
@@ -142,9 +142,9 @@ export class InitializeUseCase {
   /**
    * .gitignore に tools/target を追加
    */
-  private updateGitignore(): void {
+  private async updateGitignore(): Promise<void> {
     try {
-      this.gitignoreAdapter.addEntry('tools/target');
+      await this.gitignoreAdapter.addEntry('tools/target');
     } catch (error) {
       // Silently ignore errors - not critical
       console.error('Failed to update .gitignore:', error);

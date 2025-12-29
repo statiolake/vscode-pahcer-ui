@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { IInOutFilesAdapter } from '../domain/interfaces/IInOutFilesAdapter';
 import type { TestCaseId } from '../domain/models/testCase';
+import { ensureDir } from '../util/fs';
 import { asErrnoException } from '../util/lang';
 
 /**
@@ -55,10 +56,10 @@ export class InOutFilesAdapter implements IInOutFilesAdapter {
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (e) {
-      if (e instanceof Error && asErrnoException(e).code === 'ENOENT') {
-        return '';
+      if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+        throw e;
       }
-      throw e;
+      return '';
     }
   }
 
@@ -72,10 +73,10 @@ export class InOutFilesAdapter implements IInOutFilesAdapter {
     try {
       return await fs.readFile(filePath, 'utf-8');
     } catch (e) {
-      if (e instanceof Error && asErrnoException(e).code === 'ENOENT') {
-        return '';
+      if (!(e instanceof Error) || asErrnoException(e).code !== 'ENOENT') {
+        throw e;
       }
-      throw e;
+      return '';
     }
   }
 
@@ -114,7 +115,7 @@ export class InOutFilesAdapter implements IInOutFilesAdapter {
   async archiveOutputs(executionId: string): Promise<void> {
     const destDir = path.join(this.workspaceRoot, '.pahcer-ui', 'results', `result_${executionId}`);
 
-    await fs.mkdir(destDir, { recursive: true });
+    await ensureDir(destDir);
 
     // Copy tools/out directory
     const toolsOutDir = path.join(this.workspaceRoot, 'tools', 'out');

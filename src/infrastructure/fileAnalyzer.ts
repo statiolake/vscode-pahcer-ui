@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import { promises as fs } from 'node:fs';
 import type { IFileAnalyzer } from '../domain/interfaces/IFileAnalyzer';
 import { StderrParser } from '../domain/services/stderrParser';
 
@@ -12,7 +12,7 @@ export class FileAnalyzer implements IFileAnalyzer {
    */
   async readFirstLine(filePath: string): Promise<string> {
     try {
-      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.split('\n');
       return lines[0]?.trim() || '';
     } catch (error) {
@@ -30,7 +30,7 @@ export class FileAnalyzer implements IFileAnalyzer {
     tailLines = 100,
   ): Promise<{ head: string; tail: string }> {
     try {
-      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const content = await fs.readFile(filePath, 'utf-8');
       const lines = content.split('\n');
       const head = lines.slice(0, headLines).join('\n');
       const tail = lines.length > headLines ? lines.slice(-tailLines).join('\n') : '';
