@@ -6,11 +6,16 @@ import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfig
 import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
 import type { PahcerConfig } from '../domain/models/configFile';
 import type { PahcerRunOptions } from '../domain/models/pahcerStatus';
-import type { CommitResultsUseCase } from './commitResultsUseCase';
+import type { CommitResultsUseCase, ConfirmGitIntegration } from './commitResultsUseCase';
 import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
 
 export interface RunUseCaseRequest {
   options: PahcerRunOptions;
+  confirmGitIntegration: ConfirmGitIntegration;
+}
+
+export interface RunUseCaseResult {
+  messages: string[];
 }
 
 /**
@@ -47,14 +52,19 @@ export class RunPahcerUseCase {
   /**
    * pahcer run を実行（全オーケストレーション含む）
    */
-  async handle(request: RunUseCaseRequest): Promise<void> {
-    const options = request.options;
+  async handle(request: RunUseCaseRequest): Promise<RunUseCaseResult> {
+    const { options, confirmGitIntegration } = request;
+    const messages: string[] = [];
 
     // 古い出力ファイルを削除（前回の実行結果のクリーンアップ）
     await this.inOutFilesAdapter.removeOutputs();
 
     // Git統合 - 実行前にソースコードをコミット
-    const commitHash = await this.commitResultsUseCase.commitBeforeExecution();
+    const beforeResult =
+      await this.commitResultsUseCase.commitBeforeExecution(confirmGitIntegration);
+    if (beforeResult.message) {
+      messages.push(beforeResult.message);
+    }
 
     // テンポラリ設定ファイルを作成（必要な場合）
     const tempConfig = await this.prepareTemporaryConfig(options);
@@ -86,8 +96,8 @@ export class RunPahcerUseCase {
     await this.analyzeExecution(latestExecution.id);
 
     // コミットハッシュを保存
-    if (commitHash) {
-      latestExecution.commitHash = commitHash;
+    if (beforeResult.commitHash) {
+      latestExecution.commitHash = beforeResult.commitHash;
       await this.executionRepository.upsert(latestExecution);
     }
 
@@ -97,7 +107,12 @@ export class RunPahcerUseCase {
     const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
 
     // Git統合 - 実行後に結果をコミット
-    await this.commitResultsUseCase.commitAfterExecution(caseCount, totalScore);
+    const afterResult = await this.commitResultsUseCase.commitAfterExecution(caseCount, totalScore);
+    if (afterResult.message) {
+      messages.push(afterResult.message);
+    }
+
+    return { messages };
   }
 
   /**

@@ -8,6 +8,26 @@ interface RunOptions {
   freezeBestScores: boolean;
 }
 
+/**
+ * Git統合を有効にするか確認するダイアログを表示
+ */
+async function confirmGitIntegration(): Promise<boolean> {
+  const result = await vscode.window.showWarningMessage(
+    'Pahcer UIでGit統合を有効にしますか？',
+    {
+      modal: true,
+      detail:
+        '有効にすると、テスト実行前に自動的にコミットを作成し、後でバージョン間の差分を確認できます。\n\n' +
+        '⚠️ 注意: ワークスペース内のすべての変更ファイルが自動的にコミットされます。' +
+        '.gitignoreを注意深く確認し、コミットしたくないファイルが除外されていることを確認してください。',
+    },
+    { title: '有効にする' },
+    { title: '無効にする', isCloseAffordance: true },
+  );
+
+  return result !== undefined && result.title === '有効にする';
+}
+
 export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -47,13 +67,19 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
       await this.vscodeUIContext.setShowRunOptions(false);
 
       // Execute pahcer run with options
-      await this.runPahcerUseCase.handle({
+      const result = await this.runPahcerUseCase.handle({
         options: {
           startSeed: options.startSeed,
           endSeed: options.endSeed,
           freezeBestScores: options.freezeBestScores,
         },
+        confirmGitIntegration,
       });
+
+      // ユースケースからのメッセージを表示
+      for (const message of result.messages) {
+        vscode.window.showInformationMessage(message);
+      }
     } catch (error) {
       console.error(error);
       const errorMessage = error instanceof Error ? error.message : String(error);
