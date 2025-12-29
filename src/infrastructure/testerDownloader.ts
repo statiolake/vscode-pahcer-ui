@@ -1,5 +1,6 @@
 import { exec } from 'node:child_process';
-import * as fs from 'node:fs';
+import { createWriteStream } from 'node:fs';
+import { access, unlink } from 'node:fs/promises';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import * as path from 'node:path';
@@ -10,6 +11,15 @@ import type { DownloadedTester, ITesterDownloader } from '../domain/interfaces/I
 export type { DownloadedTester };
 
 const execAsync = promisify(exec);
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * ローカルテスターのダウンロードと展開を行うアダプター
@@ -31,12 +41,12 @@ export class TesterDownloader implements ITesterDownloader {
       await this.extractZip(zipPath, this.workspaceRoot);
 
       return {
-        seemsInteractive: this.estimateIsInteractive(),
+        seemsInteractive: await this.estimateIsInteractive(),
       };
     } finally {
       // エラーでもそうじゃなくても zip ファイルは削除する
-      if (fs.existsSync(zipPath)) {
-        await fs.unlinkSync(zipPath);
+      if (await fileExists(zipPath)) {
+        await unlink(zipPath);
       }
     }
   }
@@ -64,7 +74,7 @@ export class TesterDownloader implements ITesterDownloader {
             return;
           }
 
-          const fileStream = fs.createWriteStream(destPath);
+          const fileStream = createWriteStream(destPath);
           response.pipe(fileStream);
 
           fileStream.on('finish', () => {
@@ -73,7 +83,7 @@ export class TesterDownloader implements ITesterDownloader {
           });
 
           fileStream.on('error', (err) => {
-            fs.unlinkSync(destPath);
+            unlink(destPath).catch(() => {});
             reject(err);
           });
         })
@@ -104,8 +114,8 @@ export class TesterDownloader implements ITesterDownloader {
   /**
    * インタラクティブなダウンローダーかどうかを推測する
    */
-  private estimateIsInteractive(): boolean {
+  private async estimateIsInteractive(): Promise<boolean> {
     // tester がある場合おそらくインタラクティブ
-    return fs.existsSync(path.join(this.workspaceRoot, 'tools', 'src', 'bin', 'tester.rs'));
+    return await fileExists(path.join(this.workspaceRoot, 'tools', 'src', 'bin', 'tester.rs'));
   }
 }
