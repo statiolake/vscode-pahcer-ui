@@ -91,7 +91,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const executionRepository = new ExecutionRepository(workspaceRoot);
   const fileAnalyzer = new FileAnalyzer();
   const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-  const pahcerConfigRepository: IPahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
+  const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
   const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
   const gitAdapter = new GitAdapter(workspaceRoot);
   const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
