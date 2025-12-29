@@ -17,8 +17,7 @@ import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository'
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
 import { TesterDownloader } from './infrastructure/testerDownloader';
 import { UIConfigRepository } from './infrastructure/uiConfigRepository';
-import { VisualizerCache } from './infrastructure/visualizerCache';
-import { VisualizerDownloader } from './infrastructure/visualizerDownloader';
+import { VisualizerAdapter } from './infrastructure/visualizerAdapter';
 import { AppUIConfig } from './presentation/appUIConfig';
 import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
 import { changeSortOrderCommand } from './presentation/controller/commands/changeSortOrderCommand';
@@ -61,8 +60,7 @@ interface Adapters {
   testCaseRepository: ITestCaseRepository;
   testerDownloader: TesterDownloader;
   uiConfigRepository: IUIConfigRepository;
-  visualizerCache: VisualizerCache;
-  visualizerDownloader: VisualizerDownloader;
+  visualizerAdapter: VisualizerAdapter;
 }
 
 /**
@@ -96,9 +94,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const gitAdapter = new GitAdapter(workspaceRoot);
   const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
   const uiConfigRepository = new UIConfigRepository(workspaceRoot);
-  const visualizerDir = `${workspaceRoot}/.pahcer-ui/visualizer`;
-  const visualizerDownloader = new VisualizerDownloader(visualizerDir);
-  const visualizerCache = new VisualizerCache(visualizerDir);
+  const visualizerAdapter = new VisualizerAdapter(workspaceRoot);
   const testerDownloader = new TesterDownloader(workspaceRoot);
   const pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
 
@@ -113,8 +109,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
     testCaseRepository,
     testerDownloader,
     uiConfigRepository,
-    visualizerCache,
-    visualizerDownloader,
+    visualizerAdapter,
   };
 }
 
@@ -180,8 +175,7 @@ function initializeControllers(
     context,
     adapters.inOutFilesAdapter,
     adapters.executionRepository,
-    adapters.visualizerDownloader,
-    adapters.visualizerCache,
+    adapters.visualizerAdapter,
   );
   const comparisonViewController = new ComparisonViewController(
     context,

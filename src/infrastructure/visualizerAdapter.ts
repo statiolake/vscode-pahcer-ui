@@ -1,16 +1,45 @@
-import { existsSync, promises as fs } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as https from 'node:https';
 import * as path from 'node:path';
-import type { IVisualizerDownloader } from '../domain/interfaces/IVisualizerDownloader';
-import { ensureDir } from '../util/fs';
+import type { IVisualizerAdapter } from '../domain/interfaces/IVisualizerAdapter';
+import { ensureDir, exists } from '../util/fs';
 
 /**
- * ビジュアライザのダウンロード処理
+ * ビジュアライザのキャッシュ管理とダウンロードを行うアダプター
+ *
+ * 責務:
+ * - ビジュアライザファイルのダウンロード（HTML、JS、CSS、WASM などの依存ファイル含む）
+ * - キャッシュされたファイルの読み込み・存在確認
+ * - リソースパスの管理
  */
-export class VisualizerDownloader implements IVisualizerDownloader {
+export class VisualizerAdapter implements IVisualizerAdapter {
   private readonly MAX_DEPTH = 3;
+  private readonly visualizerDir: string;
 
-  constructor(private visualizerDir: string) {}
+  constructor(workspaceRoot: string) {
+    this.visualizerDir = path.join(workspaceRoot, '.pahcer-ui', 'visualizer');
+  }
+
+  /**
+   * キャッシュされたHTMLファイル名を取得
+   */
+  async getCachedHtmlFileName(): Promise<string | null> {
+    if (!(await exists(this.visualizerDir))) {
+      console.log(`[VisualizerAdapter] Cache directory does not exist: ${this.visualizerDir}`);
+      return null;
+    }
+
+    const files = await fs.readdir(this.visualizerDir);
+    console.log(`[VisualizerAdapter] Files in cache directory:`, files);
+
+    const htmlFile = files.find((f) => f.endsWith('.html'));
+    if (htmlFile) {
+      console.log(`[VisualizerAdapter] Found cached HTML file: ${htmlFile}`);
+    } else {
+      console.log(`[VisualizerAdapter] No HTML file found in cache`);
+    }
+    return htmlFile || null;
+  }
 
   /**
    * ビジュアライザをダウンロード
@@ -18,20 +47,55 @@ export class VisualizerDownloader implements IVisualizerDownloader {
   async download(url: string): Promise<string> {
     // Ensure visualizer directory exists
     await ensureDir(this.visualizerDir);
-    console.log(`[VisualizerDownloader] Created directory: ${this.visualizerDir}`);
+    console.log(`[VisualizerAdapter] Created directory: ${this.visualizerDir}`);
 
     // Remove query parameters for file operations
     const urlObj = new URL(url);
     const cleanUrl = `${urlObj.origin}${urlObj.pathname}`;
 
-    console.log(`[VisualizerDownloader] Starting download from: ${cleanUrl}`);
+    console.log(`[VisualizerAdapter] Starting download from: ${cleanUrl}`);
 
     // Download main HTML with recursion
     const htmlFileName = path.basename(urlObj.pathname);
     await this.downloadResourceRecursive(cleanUrl, 0);
 
-    console.log(`[VisualizerDownloader] Download completed`);
+    console.log(`[VisualizerAdapter] Download completed`);
     return htmlFileName;
+  }
+
+  /**
+   * HTMLファイルのパスを取得
+   */
+  getHtmlPath(fileName: string): string {
+    return path.join(this.visualizerDir, fileName);
+  }
+
+  /**
+   * HTMLファイルを読み込む
+   */
+  async readHtml(fileName: string): Promise<string> {
+    return fs.readFile(this.getHtmlPath(fileName), 'utf-8');
+  }
+
+  /**
+   * リソースファイルのパスを取得
+   */
+  getResourcePath(fileName: string): string {
+    return path.join(this.visualizerDir, fileName);
+  }
+
+  /**
+   * リソースファイルが存在するかチェック
+   */
+  async resourceExists(fileName: string): Promise<boolean> {
+    return exists(this.getResourcePath(fileName));
+  }
+
+  /**
+   * ビジュアライザディレクトリのパスを取得
+   */
+  getVisualizerDir(): string {
+    return this.visualizerDir;
   }
 
   /**
@@ -43,7 +107,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
     // 深さチェック
     if (depth > this.MAX_DEPTH) {
       console.log(
-        `[VisualizerDownloader] Max recursion depth (${this.MAX_DEPTH}) reached, stopping recursion`,
+        `[VisualizerAdapter] Max recursion depth (${this.MAX_DEPTH}) reached, stopping recursion`,
       );
       return;
     }
@@ -54,16 +118,16 @@ export class VisualizerDownloader implements IVisualizerDownloader {
     const filePath = path.join(this.visualizerDir, fileName);
 
     // すでにダウンロード済みならスキップ
-    if (existsSync(filePath)) {
-      console.log(`[VisualizerDownloader] File already exists, skipping: ${fileName}`);
+    if (await exists(filePath)) {
+      console.log(`[VisualizerAdapter] File already exists, skipping: ${fileName}`);
       return;
     }
 
     // ファイルをダウンロード
-    console.log(`[VisualizerDownloader] Downloading: ${url} (depth: ${depth})`);
+    console.log(`[VisualizerAdapter] Downloading: ${url} (depth: ${depth})`);
     const content = await this.fetchUrl(url);
     await fs.writeFile(filePath, content);
-    console.log(`[VisualizerDownloader] Saved: ${fileName} (size: ${content.length} bytes)`);
+    console.log(`[VisualizerAdapter] Saved: ${fileName} (size: ${content.length} bytes)`);
 
     if (fileName.endsWith('.html')) {
       // HTMLファイルの場合：依存ファイルを抽出して再帰ダウンロード
@@ -116,12 +180,12 @@ export class VisualizerDownloader implements IVisualizerDownloader {
     }
 
     if (dependencies.size === 0) {
-      console.log(`[VisualizerDownloader] No dependencies found in HTML`);
+      console.log(`[VisualizerAdapter] No dependencies found in HTML`);
       return;
     }
 
     console.log(
-      `[VisualizerDownloader] Found ${dependencies.size} dependencies in HTML:`,
+      `[VisualizerAdapter] Found ${dependencies.size} dependencies in HTML:`,
       Array.from(dependencies),
     );
 
@@ -134,7 +198,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
         }
       } catch (e) {
         console.error(
-          `[VisualizerDownloader] Failed to download dependency ${dep}:`,
+          `[VisualizerAdapter] Failed to download dependency ${dep}:`,
           e instanceof Error ? e.message : String(e),
         );
       }
@@ -162,12 +226,12 @@ export class VisualizerDownloader implements IVisualizerDownloader {
     }
 
     if (dependencies.size === 0) {
-      console.log(`[VisualizerDownloader] No imports found in JS file`);
+      console.log(`[VisualizerAdapter] No imports found in JS file`);
       return;
     }
 
     console.log(
-      `[VisualizerDownloader] Found ${dependencies.size} imports in JS file:`,
+      `[VisualizerAdapter] Found ${dependencies.size} imports in JS file:`,
       Array.from(dependencies),
     );
 
@@ -180,7 +244,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
         }
       } catch (e) {
         console.error(
-          `[VisualizerDownloader] Failed to download import ${dep}:`,
+          `[VisualizerAdapter] Failed to download import ${dep}:`,
           e instanceof Error ? e.message : String(e),
         );
       }
@@ -194,18 +258,18 @@ export class VisualizerDownloader implements IVisualizerDownloader {
   ): Promise<void> {
     const wasmFileName = fileName.replace('.js', '_bg.wasm');
     const wasmUrl = `${baseUrlObj.origin}${baseDir}/${wasmFileName}`;
-    console.log(`[VisualizerDownloader] Checking for WASM file: ${wasmFileName}`);
+    console.log(`[VisualizerAdapter] Checking for WASM file: ${wasmFileName}`);
 
     try {
       const wasmPath = path.join(this.visualizerDir, wasmFileName);
       const wasmContent = await this.fetchUrlBinary(wasmUrl);
       await fs.writeFile(wasmPath, wasmContent);
       console.log(
-        `[VisualizerDownloader] WASM file downloaded: ${wasmFileName} (size: ${wasmContent.length} bytes)`,
+        `[VisualizerAdapter] WASM file downloaded: ${wasmFileName} (size: ${wasmContent.length} bytes)`,
       );
     } catch (e) {
       console.warn(
-        `[VisualizerDownloader] WASM file not found: ${wasmFileName}`,
+        `[VisualizerAdapter] WASM file not found: ${wasmFileName}`,
         e instanceof Error ? e.message : String(e),
       );
     }
@@ -222,7 +286,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
 
     // 外部URLはスキップ
     if (dep.startsWith('//') || dep.startsWith('http://') || dep.startsWith('https://')) {
-      console.log(`[VisualizerDownloader] Skipping external URL: ${dep}`);
+      console.log(`[VisualizerAdapter] Skipping external URL: ${dep}`);
       return null;
     }
 
@@ -239,11 +303,11 @@ export class VisualizerDownloader implements IVisualizerDownloader {
     return new Promise((resolve, reject) => {
       https
         .get(url, (res) => {
-          console.log(`[VisualizerDownloader] HTTP response for ${url}: ${res.statusCode}`);
+          console.log(`[VisualizerAdapter] HTTP response for ${url}: ${res.statusCode}`);
 
           if (res.statusCode === 301 || res.statusCode === 302) {
             if (res.headers.location) {
-              console.log(`[VisualizerDownloader] Redirecting to: ${res.headers.location}`);
+              console.log(`[VisualizerAdapter] Redirecting to: ${res.headers.location}`);
               return this.fetchUrl(res.headers.location).then(resolve).catch(reject);
             }
           }
@@ -262,7 +326,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
         })
         .on('error', (e) => {
           console.error(
-            `[VisualizerDownloader] Network error for ${url}:`,
+            `[VisualizerAdapter] Network error for ${url}:`,
             e instanceof Error ? e.message : String(e),
           );
           reject(e);
@@ -277,11 +341,11 @@ export class VisualizerDownloader implements IVisualizerDownloader {
     return new Promise((resolve, reject) => {
       https
         .get(url, (res) => {
-          console.log(`[VisualizerDownloader] HTTP response for ${url}: ${res.statusCode}`);
+          console.log(`[VisualizerAdapter] HTTP response for ${url}: ${res.statusCode}`);
 
           if (res.statusCode === 301 || res.statusCode === 302) {
             if (res.headers.location) {
-              console.log(`[VisualizerDownloader] Redirecting to: ${res.headers.location}`);
+              console.log(`[VisualizerAdapter] Redirecting to: ${res.headers.location}`);
               return this.fetchUrlBinary(res.headers.location).then(resolve).catch(reject);
             }
           }
@@ -298,7 +362,7 @@ export class VisualizerDownloader implements IVisualizerDownloader {
         })
         .on('error', (e) => {
           console.error(
-            `[VisualizerDownloader] Network error for ${url}:`,
+            `[VisualizerAdapter] Network error for ${url}:`,
             e instanceof Error ? e.message : String(e),
           );
           reject(e);

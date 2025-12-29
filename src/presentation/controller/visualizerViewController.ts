@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
 import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
 import type { IInOutFilesAdapter } from '../../domain/interfaces/IInOutFilesAdapter';
-import type { IVisualizerCache } from '../../domain/interfaces/IVisualizerCache';
-import type { IVisualizerDownloader } from '../../domain/interfaces/IVisualizerDownloader';
+import type { IVisualizerAdapter } from '../../domain/interfaces/IVisualizerAdapter';
 
 /**
  * ビジュアライザのWebViewコントローラ
@@ -16,8 +15,7 @@ export class VisualizerViewController {
     _context: vscode.ExtensionContext,
     private inOutFilesAdapter: IInOutFilesAdapter,
     private executionRepository: IExecutionRepository,
-    private visualizerDownloader: IVisualizerDownloader,
-    private visualizerCache: IVisualizerCache,
+    private visualizerAdapter: IVisualizerAdapter,
   ) {}
 
   /**
@@ -29,7 +27,7 @@ export class VisualizerViewController {
     );
 
     // Check if visualizer is already downloaded
-    let htmlFileName = this.visualizerCache.getCachedHtmlFileName();
+    let htmlFileName = await this.visualizerAdapter.getCachedHtmlFileName();
 
     // Get visualizer URL if HTML file not found
     if (!htmlFileName) {
@@ -72,7 +70,7 @@ export class VisualizerViewController {
         async () => {
           try {
             console.log(`[VisualizerViewController] Starting download`);
-            htmlFileName = await this.visualizerDownloader.download(url);
+            htmlFileName = await this.visualizerAdapter.download(url);
             console.log(`[VisualizerViewController] Download completed: ${htmlFileName}`);
           } catch (e) {
             console.error(
@@ -158,7 +156,7 @@ export class VisualizerViewController {
         {
           enableScripts: true,
           retainContextWhenHidden: true,
-          localResourceRoots: [vscode.Uri.file(this.visualizerCache.getVisualizerDir())],
+          localResourceRoots: [vscode.Uri.file(this.visualizerAdapter.getVisualizerDir())],
         },
       );
 
@@ -189,10 +187,10 @@ export class VisualizerViewController {
       VisualizerViewController.panelDisposables.push(disposeDisposable);
 
       // Read HTML content
-      let htmlContent = this.visualizerCache.readHtml(htmlFileName);
+      let htmlContent = await this.visualizerAdapter.readHtml(htmlFileName);
 
       // Convert local paths to webview URIs
-      htmlContent = this.convertResourcePaths(htmlContent, panel.webview);
+      htmlContent = await this.convertResourcePaths(htmlContent, panel.webview);
 
       // Inject input/output data and message listener
       htmlContent = this.injectTestCaseData(htmlContent, seed, input, output, savedZoomLevel);
@@ -204,59 +202,74 @@ export class VisualizerViewController {
   /**
    * リソースパスをWebView URIに変換
    */
-  private convertResourcePaths(html: string, webview: vscode.Webview): string {
+  private async convertResourcePaths(html: string, webview: vscode.Webview): Promise<string> {
     console.log(`[VisualizerViewController] Converting resource paths in HTML`);
 
+    // Collect all matches first, then process asynchronously
+    const replacements: Array<{ match: string; replacement: string }> = [];
+
     // Convert relative paths to webview URIs
-    html = html.replace(/src=["']\.\/([^"']+)["']/g, (match, fileName) => {
-      if (this.visualizerCache.resourceExists(fileName)) {
+    const srcRelativeRegex = /src=["']\.\/([^"']+)["']/g;
+    let match: RegExpExecArray | null;
+    match = srcRelativeRegex.exec(html);
+    while (match !== null) {
+      const fileName = match[1];
+      if (await this.visualizerAdapter.resourceExists(fileName)) {
         const resourceUri = webview.asWebviewUri(
-          vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+          vscode.Uri.file(this.visualizerAdapter.getResourcePath(fileName)),
         );
         console.log(
           `[VisualizerViewController] Converted relative path: ./${fileName} -> ${resourceUri}`,
         );
-        return `src="${resourceUri}"`;
+        replacements.push({ match: match[0], replacement: `src="${resourceUri}"` });
       } else {
         console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
       }
-      return match;
-    });
+      match = srcRelativeRegex.exec(html);
+    }
 
     // Also handle protocol-relative URLs that we downloaded
-    html = html.replace(
-      /src=["']\/\/img\.atcoder\.jp\/[^"']*\/([^"'/]+)["']/g,
-      (match, fileName) => {
-        if (this.visualizerCache.resourceExists(fileName)) {
-          const resourceUri = webview.asWebviewUri(
-            vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
-          );
-          console.log(
-            `[VisualizerViewController] Converted protocol-relative URL: ${fileName} -> ${resourceUri}`,
-          );
-          return `src="${resourceUri}"`;
-        } else {
-          console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
-        }
-        return match;
-      },
-    );
+    const srcProtocolRegex = /src=["']\/\/img\.atcoder\.jp\/[^"']*\/([^"'/]+)["']/g;
+    match = srcProtocolRegex.exec(html);
+    while (match !== null) {
+      const fileName = match[1];
+      if (await this.visualizerAdapter.resourceExists(fileName)) {
+        const resourceUri = webview.asWebviewUri(
+          vscode.Uri.file(this.visualizerAdapter.getResourcePath(fileName)),
+        );
+        console.log(
+          `[VisualizerViewController] Converted protocol-relative URL: ${fileName} -> ${resourceUri}`,
+        );
+        replacements.push({ match: match[0], replacement: `src="${resourceUri}"` });
+      } else {
+        console.warn(`[VisualizerViewController] Resource not found: ${fileName}`);
+      }
+      match = srcProtocolRegex.exec(html);
+    }
 
     // Handle imports from ES modules
-    html = html.replace(/from\s+["']\.\/([^"']+\.js)["']/g, (match, fileName) => {
-      if (this.visualizerCache.resourceExists(fileName)) {
+    const importRegex = /from\s+["']\.\/([^"']+\.js)["']/g;
+    match = importRegex.exec(html);
+    while (match !== null) {
+      const fileName = match[1];
+      if (await this.visualizerAdapter.resourceExists(fileName)) {
         const resourceUri = webview.asWebviewUri(
-          vscode.Uri.file(this.visualizerCache.getResourcePath(fileName)),
+          vscode.Uri.file(this.visualizerAdapter.getResourcePath(fileName)),
         );
         console.log(
           `[VisualizerViewController] Converted module import: ./${fileName} -> ${resourceUri}`,
         );
-        return `from "${resourceUri}"`;
+        replacements.push({ match: match[0], replacement: `from "${resourceUri}"` });
       } else {
         console.warn(`[VisualizerViewController] Module not found: ${fileName}`);
       }
-      return match;
-    });
+      match = importRegex.exec(html);
+    }
+
+    // Apply all replacements
+    for (const { match, replacement } of replacements) {
+      html = html.replace(match, replacement);
+    }
 
     console.log(`[VisualizerViewController] Resource path conversion completed`);
     return html;
