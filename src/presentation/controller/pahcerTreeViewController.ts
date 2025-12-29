@@ -363,16 +363,13 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
           executionData.execution.id === latestExecutionId &&
           (sortOrder === 'absoluteScoreAsc' || sortOrder === 'absoluteScoreDesc');
 
-        // Calculate relative score
+        // Calculate relative score using domain service
         const bestScore = treeData.bestScores.get(seed);
-        let relativeScore = 0;
-        if (bestScore !== undefined && executionData.testCase.score > 0) {
-          if (treeData.config.objective === 'max') {
-            relativeScore = (executionData.testCase.score / bestScore) * 100;
-          } else {
-            relativeScore = (bestScore / executionData.testCase.score) * 100;
-          }
-        }
+        const relativeScore = RelativeScoreCalculator.calculate(
+          executionData.testCase.score,
+          bestScore,
+          treeData.config.objective,
+        );
 
         const builtItem = this.treeItemBuilder.buildSeedExecutionItem(
           time,
