@@ -6,7 +6,7 @@
   "publisher": "statiolake",
   "author": "statiolake",
   "license": "MIT",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "engines": {
     "vscode": "^1.104.0"
   },
