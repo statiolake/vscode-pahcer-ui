@@ -40,7 +40,7 @@ export class ExecutionRepository implements IExecutionRepository {
       // メタデータがない場合は古いメタデータから読み込んでみる
       // FIXME: 将来的に削除する
       try {
-        const metadataContent = await fs.readFile(
+        const oldMetaContent = await fs.readFile(
           path.join(
             this.workspaceRoot,
             '.pahcer-ui',
@@ -50,7 +50,7 @@ export class ExecutionRepository implements IExecutionRepository {
           ),
           'utf-8',
         );
-        const metadata = ExecutionMetadataSchema.parse(JSON.parse(metadataContent));
+        const metadata = ExecutionMetadataSchema.parse(JSON.parse(oldMetaContent));
         commitHash = metadata.commitHash;
       } catch {
         // 古いメタデータもない場合は commitHash を設定しない

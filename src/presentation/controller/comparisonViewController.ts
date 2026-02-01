@@ -174,29 +174,31 @@ export class ComparisonViewController {
     const config = await this.uiConfigRepository.find();
 
     // Prepare data for React
-    return {
-      results: executions.map((execution) => ({
-        id: execution.id,
-        time: execution.getLongTitle(),
-        cases: testCases
-          .filter((tc) => tc.id.executionId === execution.id)
-          .map((tc) => {
-            // Calculate relative score using domain service
-            const bestScore = bestScores.get(tc.id.seed);
-            const relativeScore = RelativeScoreCalculator.calculate(
-              tc.score,
-              bestScore,
-              pahcerConfig.objective,
-            );
+    const results = executions.map((execution) => ({
+      id: execution.id,
+      time: execution.getLongTitle(),
+      cases: testCases
+        .filter((tc) => tc.id.executionId === execution.id)
+        .map((tc) => {
+          // Calculate relative score using domain service
+          const bestScore = bestScores.get(tc.id.seed);
+          const relativeScore = RelativeScoreCalculator.calculate(
+            tc.score,
+            bestScore,
+            pahcerConfig.objective,
+          );
 
-            return {
-              seed: tc.id.seed,
-              score: tc.score,
-              relativeScore,
-              executionTime: tc.executionTime,
-            };
-          }),
-      })),
+          return {
+            seed: tc.id.seed,
+            score: tc.score,
+            relativeScore,
+            executionTime: tc.executionTime,
+          };
+        }),
+    }));
+
+    return {
+      results,
       seeds,
       inputData: inputDataObj,
       stderrData,

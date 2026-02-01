@@ -37,7 +37,9 @@ export class UIConfigRepository implements IUIConfigRepository {
     } catch (error) {
       // ファイルが見つからない場合のみデフォルト設定を返す
       if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
-        throw error;
+        throw new Error(
+          `設定の読み込みに失敗しました (${this.configPath}): ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
       return new UIConfig();
     }
