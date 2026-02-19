@@ -12,6 +12,7 @@ export type { FileType, IInOutFilesAdapter } from './IInOutFilesAdapter';
 export type { IPahcerAdapter } from './IPahcerAdapter';
 export type { IPahcerConfigRepository } from './IPahcerConfigRepository';
 export type { ITestCaseRepository } from './ITestCaseRepository';
+export type { ITestCaseSummaryQueryService } from './ITestCaseSummaryQueryService';
 export type { DownloadedTester, ITesterDownloader } from './ITesterDownloader';
 export type { IUIConfigRepository } from './IUIConfigRepository';
 export type { IVisualizerAdapter } from './IVisualizerAdapter';

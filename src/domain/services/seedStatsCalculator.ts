@@ -1,13 +1,17 @@
-import type { TestCase } from '../models/testCase';
-
 export namespace SeedStatsCalculator {
+  export type CaseLike = {
+    id: { seed: number };
+    score: number;
+    executionTime: number;
+  };
+
   /**
    * Seed別の統計情報
    */
-  export class SeedStats {
+  export class SeedStats<T extends CaseLike = CaseLike> {
     constructor(
       public seed: number,
-      public testCases: TestCase[],
+      public testCases: T[],
       public bestScore: number | null,
       public count: number,
       public averageScore: number,
@@ -23,10 +27,10 @@ export namespace SeedStatsCalculator {
    * @returns seed => 統計情報（ベストスコア含む）のマップ
    */
   export function calculate(
-    testCases: TestCase[],
+    testCases: CaseLike[],
     bestScores: Map<number, number>,
-  ): Map<number, SeedStats> {
-    const seedMap = new Map<number, TestCase[]>();
+  ): Map<number, SeedStats<CaseLike>> {
+    const seedMap = new Map<number, CaseLike[]>();
 
     // seed ごとにテストケースをグループ化
     for (const testCase of testCases) {

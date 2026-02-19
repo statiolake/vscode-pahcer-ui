@@ -1,14 +1,19 @@
 import type { Execution } from '../models/execution';
-import type { TestCase } from '../models/testCase';
 
 export namespace ExecutionStatsCalculator {
+  export type CaseLike = {
+    id: { executionId: string; seed: number };
+    score: number;
+    executionTime: number;
+  };
+
   /**
    * 実行ごとの集計情報
    */
-  export class ExecutionStats {
+  export class ExecutionStats<T extends CaseLike = CaseLike> {
     constructor(
       public execution: Execution,
-      public testCases: TestCase[],
+      public testCases: T[],
       public caseCount: number,
       public totalScore: number,
       public maxExecutionTime: number,
@@ -29,10 +34,10 @@ export namespace ExecutionStatsCalculator {
    */
   export function calculate(
     executions: Execution[],
-    testCases: TestCase[],
+    testCases: CaseLike[],
     bestScores: Map<number, number>,
     objective: 'max' | 'min',
-  ): ExecutionStats[] {
+  ): ExecutionStats<CaseLike>[] {
     return executions.map((execution) => {
       // この実行に属するテストケースを取得
       const executionTestCases = testCases.filter((tc) => tc.id.executionId === execution.id);

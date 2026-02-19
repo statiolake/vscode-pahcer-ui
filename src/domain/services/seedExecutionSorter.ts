@@ -1,5 +1,4 @@
 import type { Execution } from '../models/execution';
-import type { TestCase } from '../models/testCase';
 
 /**
  * ソート順の型定義
@@ -18,7 +17,7 @@ export namespace SeedExecutionSorter {
    * @param order ソート順
    * @returns ソート済み実行結果配列
    */
-  export function byOrder<T extends { execution: Execution; testCase: TestCase }>(
+  export function byOrder<T extends { execution: Execution; testCase: { score: number } }>(
     executions: T[],
     order: SeedSortOrder,
   ): T[] {

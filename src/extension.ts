@@ -6,6 +6,7 @@ import { RunPahcerUseCase } from './application/runPahcerUseCase';
 import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from './domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from './domain/interfaces/ITestCaseRepository';
+import type { ITestCaseSummaryQueryService } from './domain/interfaces/ITestCaseSummaryQueryService';
 import type { IUIConfigRepository } from './domain/interfaces/IUIConfigRepository';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { FileAnalyzer } from './infrastructure/fileAnalyzer';
@@ -15,6 +16,7 @@ import { InOutFilesAdapter } from './infrastructure/inOutFilesAdapter';
 import { PahcerAdapter } from './infrastructure/pahcerAdapter';
 import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository';
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
+import { TestCaseSummaryQueryService } from './infrastructure/testCaseSummaryQueryService';
 import { TesterDownloader } from './infrastructure/testerDownloader';
 import { UIConfigRepository } from './infrastructure/uiConfigRepository';
 import { VisualizerAdapter } from './infrastructure/visualizerAdapter';
@@ -59,6 +61,7 @@ interface Adapters {
   gitignoreAdapter: GitignoreAdapter;
   gitAdapter: GitAdapter;
   testCaseRepository: ITestCaseRepository;
+  testCaseSummaryQueryService: ITestCaseSummaryQueryService;
   testerDownloader: TesterDownloader;
   uiConfigRepository: IUIConfigRepository;
   visualizerAdapter: VisualizerAdapter;
@@ -94,6 +97,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const gitignoreAdapter = new GitignoreAdapter(workspaceRoot);
   const gitAdapter = new GitAdapter(workspaceRoot);
   const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
+  const testCaseSummaryQueryService = new TestCaseSummaryQueryService(workspaceRoot);
   const uiConfigRepository = new UIConfigRepository(workspaceRoot);
   const visualizerAdapter = new VisualizerAdapter(workspaceRoot);
   const testerDownloader = new TesterDownloader(workspaceRoot);
@@ -108,6 +112,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
     gitignoreAdapter,
     gitAdapter,
     testCaseRepository,
+    testCaseSummaryQueryService,
     testerDownloader,
     uiConfigRepository,
     visualizerAdapter,
@@ -137,6 +142,7 @@ function initializeUseCases(
   const loadPahcerTreeDataUseCase = new LoadPahcerTreeDataUseCase(
     adapters.executionRepository,
     adapters.testCaseRepository,
+    adapters.testCaseSummaryQueryService,
     adapters.pahcerConfigRepository,
   );
 

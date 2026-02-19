@@ -605,7 +605,7 @@ Presentation → Application → Infrastructure + Domain
 
 ### 1. テスト実行結果の表示
 
-- `pahcer/json/result_*.json` から最新 10 件の実行結果を読み込み
+- `pahcer/json/result_*.json` から実行結果を読み込み
 - TreeView でテスト結果を表示
 - AC/WA の状態、スコア、相対スコア、実行時間などを表示
 - ファイル監視により、新しい実行結果が作成されると自動的にリフレッシュ

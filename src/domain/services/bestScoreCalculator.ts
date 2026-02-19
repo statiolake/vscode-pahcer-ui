@@ -1,6 +1,9 @@
-import type { TestCase } from '../models/testCase';
-
 export namespace BestScoreCalculator {
+  export type CaseLike = {
+    id: { seed: number };
+    score: number;
+  };
+
   /**
    * テストケースから seed ごとのベストスコアを計算する
    *
@@ -8,11 +11,14 @@ export namespace BestScoreCalculator {
    * @param objective 最適化の方向（'max'=最大化, 'min'=最小化）
    * @returns seed => ベストスコア のマップ
    */
-  export function calculate(testCases: TestCase[], objective: 'max' | 'min'): Map<number, number> {
+  export function calculate<T extends CaseLike>(
+    testCases: T[],
+    objective: 'max' | 'min',
+  ): Map<number, number> {
     const bestScores = new Map<number, number>();
 
     // seed ごとにグループ化
-    const seedMap = new Map<number, TestCase[]>();
+    const seedMap = new Map<number, T[]>();
     for (const tc of testCases) {
       const existing = seedMap.get(tc.id.seed) || [];
       seedMap.set(tc.id.seed, [...existing, tc]);

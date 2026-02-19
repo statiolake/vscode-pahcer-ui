@@ -5,6 +5,7 @@ import { PahcerStatus } from '../../domain/interfaces';
 import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
 import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
 import type { Execution } from '../../domain/models/execution';
+import type { TestCase } from '../../domain/models/testCase';
 import type { TreeData } from '../../domain/models/treeData';
 import type { ExecutionStatsCalculator } from '../../domain/services/executionStatsAggregator';
 import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
@@ -222,6 +223,18 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       }
     }
 
+    const detailedCases = await this.loadTreeDataUseCase
+      .loadExecutionTestCasesForTree(executionStats.execution.id)
+      .catch(() => undefined);
+    if (!detailedCases) {
+      const item = new PahcerTreeItem(
+        'データの読み込みに失敗しました',
+        vscode.TreeItemCollapsibleState.None,
+        'info',
+      );
+      return [item];
+    }
+
     // Summary
     const summaryBuilt = this.treeItemBuilder.buildSummaryItem(executionStats);
     const summaryItem = new PahcerTreeItem(
@@ -234,7 +247,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     // Calculate relative scores for each test case using domain service
     const relativeScores = new Map<number, number>();
-    for (const testCase of executionStats.testCases) {
+    for (const testCase of detailedCases) {
       const bestScore = treeData.bestScores.get(testCase.id.seed);
       const relativeScore = RelativeScoreCalculator.calculate(
         testCase.score,
@@ -246,7 +259,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
     // Sort cases
     const sortOrder = await this.appConfig.executionSortOrder();
-    const sortedCases = TestCaseSorter.byOrder(executionStats.testCases, sortOrder, relativeScores);
+    const sortedCases = TestCaseSorter.byOrder(detailedCases, sortOrder, relativeScores);
 
     // Cases
     for (const testCase of sortedCases) {
@@ -346,12 +359,32 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
         return [];
       }
 
+      const executionDataWithOutput = (
+        await Promise.all(
+          seedGroup.executions.map(async (executionData) => {
+            const detailedTestCase = await this.loadTreeDataUseCase.loadTestCaseForTree(
+              executionData.execution.id,
+              seed,
+            );
+            if (!detailedTestCase) {
+              return undefined;
+            }
+            return {
+              execution: executionData.execution,
+              testCase: detailedTestCase,
+            };
+          }),
+        )
+      ).filter(
+        (value): value is { execution: Execution; testCase: TestCase } => value !== undefined,
+      );
+
       // Sort executions
       const sortOrder = await this.appConfig.seedSortOrder();
-      const sortedExecutions = SeedExecutionSorter.byOrder(seedGroup.executions, sortOrder);
+      const sortedExecutions = SeedExecutionSorter.byOrder(executionDataWithOutput, sortOrder);
 
       // Find latest execution
-      const latestExecutionId = [...seedGroup.executions].sort((a, b) =>
+      const latestExecutionId = [...executionDataWithOutput].sort((a, b) =>
         b.execution.id.localeCompare(a.execution.id),
       )[0]?.execution.id;
 

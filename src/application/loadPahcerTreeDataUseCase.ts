@@ -1,6 +1,8 @@
 import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
+import type { ITestCaseSummaryQueryService } from '../domain/interfaces/ITestCaseSummaryQueryService';
+import { type TestCase, TestCaseId } from '../domain/models/testCase';
 import { TreeData } from '../domain/models/treeData';
 import { BestScoreCalculator } from '../domain/services/bestScoreCalculator';
 import { ExecutionStatsCalculator } from '../domain/services/executionStatsAggregator';
@@ -10,14 +12,14 @@ import { ResourceNotFoundError } from './exceptions';
  * TreeView表示用データを準備するユースケース
  *
  * 責務:
- * - 実行結果、テストケース、設定をリポジトリから読み込み
+ * - 実行結果、設定、軽量テストケースを読み込み
  * - ドメインサービスでベストスコアと実行統計を計算
  * - TreeView表示に必要なデータを集約して返す
  *
  * フロー:
  * 1. 実行結果（Execution）を全件取得
  * 2. pahcer設定を取得
- * 3. 各実行のテストケースを並列取得
+ * 3. 各実行のテストケースを軽量読み込み（メタデータや出力存在確認は行わない）
  * 4. ベストスコアを計算（ドメインサービス）
  * 5. 実行統計を計算（ドメインサービス）
  * 6. TreeData として返す
@@ -26,6 +28,7 @@ export class LoadPahcerTreeDataUseCase {
   constructor(
     private executionRepository: IExecutionRepository,
     private testCaseRepository: ITestCaseRepository,
+    private testCaseSummaryQueryService: ITestCaseSummaryQueryService,
     private pahcerConfigRepository: IPahcerConfigRepository,
   ) {}
 
@@ -45,9 +48,11 @@ export class LoadPahcerTreeDataUseCase {
       throw new ResourceNotFoundError('pahcer 設定');
     }
 
-    // 各実行のテストケースを並列取得
+    // Root表示用に軽量テストケースを読み込む
     const testCasesByExecution = await Promise.all(
-      executions.map((execution) => this.testCaseRepository.findByExecutionId(execution.id)),
+      executions.map((execution) =>
+        this.testCaseSummaryQueryService.findByExecutionId(execution.id),
+      ),
     );
     const allTestCases = testCasesByExecution.flat();
 
@@ -64,5 +69,19 @@ export class LoadPahcerTreeDataUseCase {
 
     // TreeData として返す
     return new TreeData(executions, allTestCases, config, bestScores, executionStatsList);
+  }
+
+  /**
+   * 実行ノード展開時に必要なテストケースを取得する（Tree表示用）
+   */
+  async loadExecutionTestCasesForTree(executionId: string): Promise<TestCase[]> {
+    return this.testCaseRepository.findByExecutionId(executionId);
+  }
+
+  /**
+   * Seedノード展開時に必要なテストケースを1件取得する（Tree表示用）
+   */
+  async loadTestCaseForTree(executionId: string, seed: number): Promise<TestCase | undefined> {
+    return this.testCaseRepository.findById(new TestCaseId(executionId, seed));
   }
 }

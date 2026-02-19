@@ -1,7 +1,7 @@
 import type { ExecutionStatsCalculator } from '../services/executionStatsAggregator';
 import type { PahcerConfig } from './configFile';
 import type { Execution } from './execution';
-import type { TestCase } from './testCase';
+import type { SummaryTestCase } from './summaryTestCase';
 
 /**
  * TreeView 表示用のデータを保持するドメインモデル
@@ -17,7 +17,7 @@ export class TreeData {
     /**
      * すべてのテストケース
      */
-    public readonly testCases: TestCase[],
+    public readonly testCases: SummaryTestCase[],
 
     /**
      * pahcer 設定
