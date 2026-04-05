@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { RunPahcerUseCase } from '../../application/runPahcerUseCase';
+import type { ExecuteRunUseCase, PrepareRunUseCase } from '../../application/runPahcerUseCase';
 import type { VSCodeUIContext } from '../vscodeUIContext';
 
 interface RunOptions {
@@ -32,7 +32,8 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly vscodeUIContext: VSCodeUIContext,
-    private readonly runPahcerUseCase: RunPahcerUseCase,
+    private readonly prepareRunUseCase: PrepareRunUseCase,
+    private readonly executeRunUseCase: ExecuteRunUseCase,
   ) {}
 
   resolveWebviewView(
@@ -66,18 +67,24 @@ export class RunOptionsWebViewController implements vscode.WebviewViewProvider {
       // Switch back to TreeView
       await this.vscodeUIContext.setShowRunOptions(false);
 
-      // Execute pahcer run with options
-      const result = await this.runPahcerUseCase.handle({
+      const preparation = await this.prepareRunUseCase.execute();
+      let enableGitIntegration: boolean | undefined;
+      if (preparation.type === 'requires-confirmation') {
+        enableGitIntegration = await confirmGitIntegration();
+      }
+
+      const result = await this.executeRunUseCase.execute({
         options: {
           startSeed: options.startSeed,
           endSeed: options.endSeed,
           freezeBestScores: options.freezeBestScores,
         },
-        confirmGitIntegration,
+        enableGitIntegration,
       });
+      const completion = await result.completion;
 
       // ユースケースからのメッセージを表示
-      for (const message of result.messages) {
+      for (const message of completion.messages) {
         vscode.window.showInformationMessage(message);
       }
     } catch (error) {

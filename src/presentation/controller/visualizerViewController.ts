@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
-import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
-import type { IInOutFilesAdapter } from '../../domain/interfaces/IInOutFilesAdapter';
+import type {
+  PrepareVisualizerSessionUseCase,
+  RegisterVisualizerSourceUseCase,
+} from '../../application/prepareVisualizerSessionUseCase';
 import type { IVisualizerAdapter } from '../../domain/interfaces/IVisualizerAdapter';
 
 /**
@@ -13,8 +15,8 @@ export class VisualizerViewController {
 
   constructor(
     _context: vscode.ExtensionContext,
-    private inOutFilesAdapter: IInOutFilesAdapter,
-    private executionRepository: IExecutionRepository,
+    private prepareVisualizerSessionUseCase: PrepareVisualizerSessionUseCase,
+    private registerVisualizerSourceUseCase: RegisterVisualizerSourceUseCase,
     private visualizerAdapter: IVisualizerAdapter,
   ) {}
 
@@ -26,11 +28,9 @@ export class VisualizerViewController {
       `[VisualizerViewController] Showing visualizer for seed: ${seed}, resultId: ${resultId}`,
     );
 
-    // Check if visualizer is already downloaded
-    let htmlFileName = await this.visualizerAdapter.getCachedHtmlFileName();
+    let session = await this.prepareVisualizerSessionUseCase.execute(seed, resultId);
 
-    // Get visualizer URL if HTML file not found
-    if (!htmlFileName) {
+    if (session.type === 'requires-visualizer-url') {
       console.log(
         `[VisualizerViewController] No cached visualizer found, requesting URL from user`,
       );
@@ -70,8 +70,8 @@ export class VisualizerViewController {
         async () => {
           try {
             console.log(`[VisualizerViewController] Starting download`);
-            htmlFileName = await this.visualizerAdapter.download(url);
-            console.log(`[VisualizerViewController] Download completed: ${htmlFileName}`);
+            await this.registerVisualizerSourceUseCase.execute(url);
+            console.log('[VisualizerViewController] Download completed');
           } catch (e) {
             console.error(
               `[VisualizerViewController] Download failed:`,
@@ -81,18 +81,18 @@ export class VisualizerViewController {
           }
         },
       );
-    } else {
-      console.log(`[VisualizerViewController] Using cached visualizer: ${htmlFileName}`);
+
+      session = await this.prepareVisualizerSessionUseCase.execute(seed, resultId);
     }
 
-    if (!htmlFileName) {
+    if (session.type !== 'ready') {
       console.error(`[VisualizerViewController] HTML file name is empty`);
       vscode.window.showErrorMessage('ビジュアライザファイルが見つかりません');
       return;
     }
 
-    // Show visualizer with test case data
-    await this.showVisualizer(seed, resultId, htmlFileName);
+    console.log(`[VisualizerViewController] Using cached visualizer: ${session.htmlFileName}`);
+    await this.showVisualizer(seed, session);
   }
 
   /**
@@ -100,34 +100,11 @@ export class VisualizerViewController {
    */
   private async showVisualizer(
     seed: number,
-    resultId: string | undefined,
-    htmlFileName: string,
+    session: Extract<
+      Awaited<ReturnType<PrepareVisualizerSessionUseCase['execute']>>,
+      { type: 'ready' }
+    >,
   ): Promise<void> {
-    // Get execution time from result file if resultId is provided
-    let executionTime = '';
-    if (resultId) {
-      const result = await this.executionRepository.findById(resultId);
-      if (result) {
-        executionTime = ` (${result.startTime.toDate().toLocaleString()})`;
-      } else {
-        console.warn(`Execution ${resultId} not found`);
-      }
-    }
-
-    // Read test case input and output from archived files
-    // resultId should always be provided as execution results are archived immediately after running
-    if (!resultId) {
-      console.error('[VisualizerViewController] resultId is required but not provided');
-      vscode.window.showErrorMessage('実行IDが指定されていません');
-      return;
-    }
-
-    const input = await this.inOutFilesAdapter.loadIn(seed);
-    const output = await this.inOutFilesAdapter.loadArchived('out', {
-      executionId: resultId,
-      seed,
-    });
-
     // Get current zoom level from settings
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
     const savedZoomLevel = config.get<number>('visualizerZoomLevel') || 1.0;
@@ -135,7 +112,7 @@ export class VisualizerViewController {
     // Reuse existing panel if available, otherwise create new one
     if (VisualizerViewController.currentPanel) {
       // Update title
-      VisualizerViewController.currentPanel.title = `Seed ${seed}${executionTime}`;
+      VisualizerViewController.currentPanel.title = `Seed ${seed}${session.executionTime}`;
 
       // Reveal panel if hidden
       VisualizerViewController.currentPanel.reveal(vscode.ViewColumn.Active);
@@ -144,14 +121,14 @@ export class VisualizerViewController {
       VisualizerViewController.currentPanel.webview.postMessage({
         type: 'updateTestCase',
         seed,
-        input,
-        output,
+        input: session.input,
+        output: session.output,
       });
     } else {
       // Create a new webview panel
       const panel = vscode.window.createWebviewPanel(
         'pahcerVisualizer',
-        `Seed ${seed}${executionTime}`,
+        `Seed ${seed}${session.executionTime}`,
         vscode.ViewColumn.Active,
         {
           enableScripts: true,
@@ -187,13 +164,19 @@ export class VisualizerViewController {
       VisualizerViewController.panelDisposables.push(disposeDisposable);
 
       // Read HTML content
-      let htmlContent = await this.visualizerAdapter.readHtml(htmlFileName);
+      let htmlContent = await this.visualizerAdapter.readHtml(session.htmlFileName);
 
       // Convert local paths to webview URIs
       htmlContent = await this.convertResourcePaths(htmlContent, panel.webview);
 
       // Inject input/output data and message listener
-      htmlContent = this.injectTestCaseData(htmlContent, seed, input, output, savedZoomLevel);
+      htmlContent = this.injectTestCaseData(
+        htmlContent,
+        seed,
+        session.input,
+        session.output,
+        savedZoomLevel,
+      );
 
       panel.webview.html = htmlContent;
     }

@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { ResourceNotFoundError } from '../../application/exceptions';
 import type { LoadPahcerTreeDataUseCase } from '../../application/loadPahcerTreeDataUseCase';
-import { PahcerStatus } from '../../domain/interfaces';
 import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
 import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
 import type { Execution } from '../../domain/models/execution';
@@ -100,7 +99,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
     const status = await this.pahcerAdapter.checkStatus();
 
     // If not ready, return empty array to show welcome view
-    if (status !== PahcerStatus.Ready) {
+    if (status !== 'ready') {
       return [];
     }
 

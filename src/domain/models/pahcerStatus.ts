@@ -1,14 +1,7 @@
 /**
  * pahcerのインストール状態
  */
-export enum PahcerStatus {
-  /** pahcerがインストールされていない */
-  NotInstalled,
-  /** pahcerはインストールされているが初期化されていない */
-  NotInitialized,
-  /** pahcerがインストールされ初期化済み */
-  Ready,
-}
+export type PahcerStatus = 'notInstalled' | 'notInitialized' | 'ready';
 
 /**
  * pahcer run のオプション

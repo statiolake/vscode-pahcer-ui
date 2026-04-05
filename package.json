@@ -264,6 +264,7 @@
     "vscode:prepublish": "npm run build",
     "compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js",
     "build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
+    "serve:http": "node dist/http-server.js",
     "package": "vsce package --no-dependencies",
     "publish": "vsce publish",
     "check-types": "tsc --noEmit",

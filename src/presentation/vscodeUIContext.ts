@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
+import type { PahcerStatus } from '../domain/models/pahcerStatus';
 import type { GroupingMode } from '../domain/services/testCaseSorter';
-import { PahcerStatus } from '../infrastructure/pahcerAdapter';
 
 /**
  * VSCode Context API を型安全に扱うアダプター
@@ -16,8 +16,7 @@ export class VSCodeUIContext {
    * package.json の when 句で使用: `pahcer.status == 'ready'`
    */
   async setPahcerStatus(status: PahcerStatus): Promise<void> {
-    const statusString = this.pahcerStatusToString(status);
-    await vscode.commands.executeCommand('setContext', 'pahcer.status', statusString);
+    await vscode.commands.executeCommand('setContext', 'pahcer.status', status);
   }
 
   /**
@@ -50,21 +49,5 @@ export class VSCodeUIContext {
    */
   async setCanShowDiff(canShow: boolean): Promise<void> {
     await vscode.commands.executeCommand('setContext', 'pahcer.canShowDiff', canShow);
-  }
-
-  /**
-   * PahcerStatus を文字列に変換
-   */
-  private pahcerStatusToString(status: PahcerStatus): string {
-    switch (status) {
-      case PahcerStatus.NotInstalled:
-        return 'notInstalled';
-      case PahcerStatus.NotInitialized:
-        return 'notInitialized';
-      case PahcerStatus.Ready:
-        return 'ready';
-      default:
-        return 'unknown';
-    }
   }
 }

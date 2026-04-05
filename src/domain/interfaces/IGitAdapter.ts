@@ -18,18 +18,12 @@ export interface IGitAdapter {
   commitAll(message: string): Promise<string>;
 
   /**
-   * 指定した 2 つのコミット間の差分を VS Code で表示
-   * @param olderCommitHash 古いコミットハッシュ
-   * @param newerCommitHash 新しいコミットハッシュ
-   * @param leftTitle 左側のタイトル
-   * @param rightTitle 右側のタイトル
+   * 指定した2つのコミット間で変更されたソースファイル一覧を取得
    */
-  showDiff(
+  getChangedSourceFilesBetweenCommits(
     olderCommitHash: string,
     newerCommitHash: string,
-    leftTitle: string,
-    rightTitle: string,
-  ): Promise<void>;
+  ): Promise<string[]>;
 
   /**
    * Git リポジトリが存在するかチェック

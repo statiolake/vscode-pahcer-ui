@@ -1,14 +1,12 @@
 import * as vscode from 'vscode';
-import { DownloadTesterError, type InitializeUseCase } from '../../application/initializeUseCase';
+import {
+  DownloadTesterError,
+  type ExecuteInitializeUseCase,
+  type GetDefaultProjectNameQuery,
+  type InitializeOptions,
+  type PrepareInitializeUseCase,
+} from '../../application/initializeUseCase';
 import type { VSCodeUIContext } from '../vscodeUIContext';
-
-interface InitOptions {
-  problemName: string;
-  objective: 'max' | 'min';
-  language: 'rust' | 'cpp' | 'python' | 'go';
-  isInteractive: boolean;
-  testerUrl: string;
-}
 
 /**
  * pahcer init を実行するための初期化WebView
@@ -17,7 +15,9 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly vscodeUIContext: VSCodeUIContext,
-    private readonly initializeUseCase: InitializeUseCase,
+    private readonly getDefaultProjectNameQuery: GetDefaultProjectNameQuery,
+    private readonly prepareInitializeUseCase: PrepareInitializeUseCase,
+    private readonly executeInitializeUseCase: ExecuteInitializeUseCase,
   ) {}
 
   async resolveWebviewView(
@@ -41,46 +41,52 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
     });
   }
 
-  private async handleInitialize(options: InitOptions): Promise<void> {
+  private async handleInitialize(options: InitializeOptions): Promise<void> {
     try {
       if (options.testerUrl) {
         vscode.window.showInformationMessage('ローカルテスターをダウンロード中...');
       }
 
-      await this.initializeUseCase.handle({
-        problemName: options.problemName,
-        objective: options.objective,
-        language: options.language,
-        isInteractive: options.isInteractive,
-        testerUrl: options.testerUrl,
-        confirmToUseDetected: async (userSelectedInteractive, testerSeemsInteractive) => {
-          const detectedType = testerSeemsInteractive
-            ? 'インタラクティブ問題'
-            : '非インタラクティブ問題';
-          const userSelectedType = userSelectedInteractive
-            ? 'インタラクティブ'
-            : '非インタラクティブ';
+      const preparation = await this.prepareInitializeUseCase.execute(options);
+      let finalOptions = options;
 
-          const answer = await vscode.window.showWarningMessage(
-            '検出されたインタラクティブ設定に変更しますか？',
-            {
-              modal: true,
-              detail:
-                `ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
-                `指定された問題タイプ: ${userSelectedType}\n` +
-                `検出された問題タイプ: ${detectedType}\n\n` +
-                `検出された問題タイプで続けますか？`,
-            },
-            {
-              title: testerSeemsInteractive ? 'インタラクティブに変更' : '非インタラクティブに変更',
-            },
-            { title: 'このまま続行', isCloseAffordance: true },
-          );
+      if (preparation.type === 'requires-confirmation') {
+        const detectedType = preparation.detectedInteractive
+          ? 'インタラクティブ問題'
+          : '非インタラクティブ問題';
+        const userSelectedType = preparation.options.isInteractive
+          ? 'インタラクティブ'
+          : '非インタラクティブ';
 
-          // 「〜に変更」の選択肢を選んだ場合は true を返す
-          return answer !== undefined && answer.title !== 'このまま続行';
-        },
-      });
+        const answer = await vscode.window.showWarningMessage(
+          '検出されたインタラクティブ設定に変更しますか？',
+          {
+            modal: true,
+            detail:
+              `ダウンロードされたローカルテスターの構成から、指定と異なる問題タイプが検出されました。\n\n` +
+              `指定された問題タイプ: ${userSelectedType}\n` +
+              `検出された問題タイプ: ${detectedType}\n\n` +
+              `検出された問題タイプで続けますか？`,
+          },
+          {
+            title: preparation.detectedInteractive
+              ? 'インタラクティブに変更'
+              : '非インタラクティブに変更',
+          },
+          { title: 'このまま続行', isCloseAffordance: true },
+        );
+
+        finalOptions = {
+          ...preparation.options,
+          isInteractive:
+            answer !== undefined && answer.title !== 'このまま続行'
+              ? preparation.detectedInteractive
+              : preparation.options.isInteractive,
+        };
+      }
+
+      const { job } = await this.executeInitializeUseCase.execute(finalOptions);
+      await job.wait();
 
       await this.vscodeUIContext.setShowInitialization(false);
 
@@ -106,7 +112,7 @@ export class InitializationWebViewController implements vscode.WebviewViewProvid
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'initialization.js'),
     );
 
-    const defaultProjectName = await this.initializeUseCase.getDefaultProjectName();
+    const defaultProjectName = await this.getDefaultProjectNameQuery.execute();
 
     return `<!DOCTYPE html>
 <html lang="ja">

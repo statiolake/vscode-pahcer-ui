@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { RunPahcerUseCase } from '../../../application/runPahcerUseCase';
+import type { ExecuteRunUseCase, PrepareRunUseCase } from '../../../application/runPahcerUseCase';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -26,19 +26,23 @@ async function confirmGitIntegration(): Promise<boolean> {
  * pahcer run コマンドハンドラ
  */
 export function runCommand(
-  runPahcerUseCase: RunPahcerUseCase,
+  prepareRunUseCase: PrepareRunUseCase,
+  executeRunUseCase: ExecuteRunUseCase,
   treeViewController: PahcerTreeViewController,
 ): () => Promise<void> {
   return async () => {
     try {
-      const result = await runPahcerUseCase.handle({
-        options: {},
-        confirmGitIntegration,
-      });
+      const preparation = await prepareRunUseCase.execute();
+      let enableGitIntegration: boolean | undefined;
+      if (preparation.type === 'requires-confirmation') {
+        enableGitIntegration = await confirmGitIntegration();
+      }
+      const result = await executeRunUseCase.execute({ options: {}, enableGitIntegration });
+      const completion = await result.completion;
       treeViewController.refresh();
 
       // ユースケースからのメッセージを表示
-      for (const message of result.messages) {
+      for (const message of completion.messages) {
         vscode.window.showInformationMessage(message);
       }
     } catch (error) {

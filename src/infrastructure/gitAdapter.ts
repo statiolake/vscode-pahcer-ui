@@ -1,12 +1,6 @@
 import { execSync } from 'node:child_process';
-import * as vscode from 'vscode';
 import type { IGitAdapter } from '../domain/interfaces/IGitAdapter';
 import { CommandExecutionError } from './exceptions';
-
-/**
- * 差分を開くとき、最大で開くファイルの数
- */
-const MAX_FILES = 3;
 
 /**
  * Git操作を抽象化するアダプター
@@ -51,21 +45,11 @@ export class GitAdapter implements IGitAdapter {
     }
   }
 
-  /**
-   * 指定した2つのコミット間の差分をVS Codeで表示
-   * @param olderCommitHash 古い方のコミットハッシュ (left)
-   * @param newerCommitHash 新しい方のコミットハッシュ (right)
-   * @param leftTitle 左側（古い方）のタイトル
-   * @param rightTitle 右側（新しい方）のタイトル
-   */
-  async showDiff(
+  async getChangedSourceFilesBetweenCommits(
     olderCommitHash: string,
     newerCommitHash: string,
-    leftTitle: string,
-    rightTitle: string,
-  ): Promise<void> {
+  ): Promise<string[]> {
     try {
-      // Get list of changed files with numstat to detect binary files
       const numstatOutput = execSync(`git diff --numstat ${olderCommitHash} ${newerCommitHash}`, {
         cwd: this.workspaceRoot,
       })
@@ -73,11 +57,9 @@ export class GitAdapter implements IGitAdapter {
         .trim();
 
       if (!numstatOutput) {
-        vscode.window.showInformationMessage('変更されたファイルはありません');
-        return;
+        return [];
       }
 
-      // Parse numstat output: "added deleted filename" or "- - filename" for binary
       const files = numstatOutput
         .split('\n')
         .filter((line) => line.trim())
@@ -106,39 +88,7 @@ export class GitAdapter implements IGitAdapter {
           const ext = f.toLowerCase().split('.').pop();
           return ext !== 'txt' && ext !== 'json' && ext !== 'html';
         });
-
-      if (files.length === 0) {
-        vscode.window.showInformationMessage('表示対象の変更ファイルはありません');
-        return;
-      }
-
-      if (files.length > MAX_FILES) {
-        vscode.window.showErrorMessage(
-          `変更ファイルが多すぎます（${files.length}個）。差分表示は${MAX_FILES}個以下のファイルでのみ利用できます。`,
-        );
-        return;
-      }
-
-      // Open diff for each file
-      for (const file of files) {
-        const fileUri = vscode.Uri.file(`${this.workspaceRoot}/${file}`);
-        const leftUri = fileUri.with({
-          scheme: 'git',
-          query: JSON.stringify({ ref: olderCommitHash, path: fileUri.fsPath }),
-        });
-        const rightUri = fileUri.with({
-          scheme: 'git',
-          query: JSON.stringify({ ref: newerCommitHash, path: fileUri.fsPath }),
-        });
-
-        await vscode.commands.executeCommand(
-          'vscode.diff',
-          leftUri,
-          rightUri,
-          `${file} (${leftTitle} ↔ ${rightTitle})`,
-          { preview: false }, // Open in regular tab, not preview tab
-        );
-      }
+      return files;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new CommandExecutionError('git diff', message);

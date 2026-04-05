@@ -1,8 +1,8 @@
-import type { PahcerConfig } from '../models/configFile';
-import type { PahcerRunOptions, PahcerStatus } from '../models/pahcerStatus';
+import type { PahcerStatus } from '../models/pahcerStatus';
+import type { InitPahcerCommand, PahcerJob, RunPahcerCommand } from './pahcerJob';
 
 /**
- * pahcer CLI ツールの実行と状態をチェックするアダプターインターフェース
+ * pahcer CLI ツールの実行と状態確認を抽象化するポート
  */
 export interface IPahcerAdapter {
   /**
@@ -11,23 +11,12 @@ export interface IPahcerAdapter {
   checkStatus(): Promise<PahcerStatus>;
 
   /**
-   * pahcer run コマンドを実行
-   * @param options 実行オプション（startSeed, endSeed, freezeBestScores）
-   * @param configFile 設定ファイル（指定時はこちらを使用）
+   * pahcer init を開始する
    */
-  run(options?: PahcerRunOptions, configFile?: PahcerConfig): Promise<number | undefined>;
+  startInit(command: InitPahcerCommand): Promise<PahcerJob>;
 
   /**
-   * pahcer init を実行
-   * @param problemName 問題名
-   * @param objective 最大化/最小化
-   * @param language 言語
-   * @param isInteractive インタラクティブモード
+   * pahcer run を開始する
    */
-  init(
-    problemName: string,
-    objective: 'max' | 'min',
-    language: 'rust' | 'cpp' | 'python' | 'go',
-    isInteractive: boolean,
-  ): Promise<number | undefined>;
+  startRun(command: RunPahcerCommand): Promise<PahcerJob>;
 }
