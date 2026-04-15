@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { ITestCaseSummaryQueryService } from '../domain/interfaces/ITestCaseSummaryQueryService';
-import { SummaryTestCase } from '../domain/models/summaryTestCase';
+import { TreeViewTestCaseSummary } from '../application/dtos/pahcerTreeData';
+import type { ITestCaseSummaryQueryService } from '../application/queryServices/testCaseSummaryQueryService';
 import { TestCaseId } from '../domain/models/testCase';
 import { asErrnoException } from '../util/lang';
 import { ResultJsonSchema } from './schemas';
@@ -12,7 +12,7 @@ import { ResultJsonSchema } from './schemas';
 export class TestCaseSummaryQueryService implements ITestCaseSummaryQueryService {
   constructor(private workspaceRoot: string) {}
 
-  async findByExecutionId(executionId: string): Promise<SummaryTestCase[]> {
+  async findByExecutionId(executionId: string): Promise<TreeViewTestCaseSummary[]> {
     const jsonPath = path.join(this.workspaceRoot, 'pahcer', 'json', `result_${executionId}.json`);
 
     try {
@@ -21,7 +21,7 @@ export class TestCaseSummaryQueryService implements ITestCaseSummaryQueryService
 
       return (raw.cases ?? []).map(
         (c) =>
-          new SummaryTestCase(
+          new TreeViewTestCaseSummary(
             new TestCaseId(executionId, c.seed),
             c.score,
             c.execution_time,

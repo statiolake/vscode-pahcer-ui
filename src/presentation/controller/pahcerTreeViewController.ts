@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import type { PahcerTreeData } from '../../application/dtos/pahcerTreeData';
 import { ResourceNotFoundError } from '../../application/exceptions';
 import type { LoadPahcerTreeDataUseCase } from '../../application/loadPahcerTreeDataUseCase';
 import { PahcerStatus } from '../../domain/interfaces';
@@ -6,7 +7,6 @@ import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRep
 import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
 import type { Execution } from '../../domain/models/execution';
 import type { TestCase } from '../../domain/models/testCase';
-import type { TreeData } from '../../domain/models/treeData';
 import type { ExecutionStatsCalculator } from '../../domain/services/executionStatsAggregator';
 import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
 import { SeedExecutionSorter } from '../../domain/services/seedExecutionSorter';
@@ -48,7 +48,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   private checkedResults = new Set<string>();
 
   // Cache for reuse across method calls
-  private cachedTreeData?: TreeData;
+  private cachedTreeData?: PahcerTreeData;
 
   constructor(
     private readonly appConfig: AppUIConfig,
@@ -207,7 +207,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
   ): Promise<PahcerTreeItem[]> {
     const items: PahcerTreeItem[] = [];
 
-    // TreeData をユースケースから取得（キャッシュ）
+    // PahcerTreeData をユースケースから取得（キャッシュ）
     let treeData = this.cachedTreeData;
     if (!treeData) {
       try {
@@ -292,7 +292,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    */
   private async getSeeds(): Promise<PahcerTreeItem[]> {
     try {
-      // TreeData をユースケースから取得（キャッシュ）
+      // PahcerTreeData をユースケースから取得（キャッシュ）
       let treeData = this.cachedTreeData;
       if (!treeData) {
         treeData = await this.loadTreeDataUseCase.load();
@@ -344,7 +344,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    */
   private async getExecutionsForSeed(seed: number): Promise<PahcerTreeItem[]> {
     try {
-      // TreeData をユースケースから取得（キャッシュ）
+      // PahcerTreeData をユースケースから取得（キャッシュ）
       let treeData = this.cachedTreeData;
       if (!treeData) {
         treeData = await this.loadTreeDataUseCase.load();

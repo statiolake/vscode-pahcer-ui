@@ -1,12 +1,12 @@
 import type { IExecutionRepository } from '../domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
-import type { ITestCaseSummaryQueryService } from '../domain/interfaces/ITestCaseSummaryQueryService';
 import { type TestCase, TestCaseId } from '../domain/models/testCase';
-import { TreeData } from '../domain/models/treeData';
 import { BestScoreCalculator } from '../domain/services/bestScoreCalculator';
 import { ExecutionStatsCalculator } from '../domain/services/executionStatsAggregator';
+import { PahcerTreeData } from './dtos/pahcerTreeData';
 import { ResourceNotFoundError } from './exceptions';
+import type { ITestCaseSummaryQueryService } from './queryServices/testCaseSummaryQueryService';
 
 /**
  * TreeView表示用データを準備するユースケース
@@ -22,7 +22,7 @@ import { ResourceNotFoundError } from './exceptions';
  * 3. 各実行のテストケースを軽量読み込み（メタデータや出力存在確認は行わない）
  * 4. ベストスコアを計算（ドメインサービス）
  * 5. 実行統計を計算（ドメインサービス）
- * 6. TreeData として返す
+ * 6. PahcerTreeData として返す
  */
 export class LoadPahcerTreeDataUseCase {
   constructor(
@@ -35,10 +35,10 @@ export class LoadPahcerTreeDataUseCase {
   /**
    * TreeView表示用データを読み込む
    *
-   * @returns TreeData - TreeView表示に必要な計算済みデータ
+   * @returns PahcerTreeData - TreeView表示に必要な計算済みデータ
    * @throws ResourceNotFoundError - pahcer設定が見つからない場合
    */
-  async load(): Promise<TreeData> {
+  async load(): Promise<PahcerTreeData> {
     // 実行結果を全件取得
     const executions = await this.executionRepository.findAll();
 
@@ -67,8 +67,7 @@ export class LoadPahcerTreeDataUseCase {
       config.objective,
     );
 
-    // TreeData として返す
-    return new TreeData(executions, allTestCases, config, bestScores, executionStatsList);
+    return new PahcerTreeData(executions, allTestCases, config, bestScores, executionStatsList);
   }
 
   /**
