@@ -1,4 +1,5 @@
 import type { IGitAdapter } from '../domain/interfaces/IGitAdapter';
+import type { ExecutionStatsCalculator } from '../domain/services/executionStatsAggregator';
 
 /**
  * Git統合の確認ダイアログを表示するためのコールバック型
@@ -46,11 +47,12 @@ export class CommitResultsUseCase {
   /**
    * テスト実行後に結果をコミット
    *
-   * @param caseCount テストケース数
-   * @param totalScore 総スコア
+   * @param executionStats 実行結果の統計
    * @returns コミット結果（UI表示は呼び出し元に委譲）
    */
-  async commitAfterExecution(caseCount: number, totalScore: number): Promise<CommitResult> {
+  async commitAfterExecution(
+    executionStats: ExecutionStatsCalculator.ExecutionStats,
+  ): Promise<CommitResult> {
     const gitIntegration = await this.gitIntegrationConfig.gitIntegration();
 
     // Git統合が無効な場合は何もしない
@@ -59,11 +61,8 @@ export class CommitResultsUseCase {
     }
 
     try {
-      // 平均スコアを計算
-      const averageScore = caseCount > 0 ? totalScore / caseCount : 0;
-
       // コミットメッセージを作成
-      const message = `Results - ${caseCount} cases, total score: ${totalScore}, avg: ${averageScore.toFixed(2)}`;
+      const message = `Results - ${executionStats.caseCount} cases, total score: ${executionStats.totalScore}, avg: ${executionStats.averageScore.toFixed(2)}`;
 
       const commitHash = await this.gitAdapter.commitAll(message);
 

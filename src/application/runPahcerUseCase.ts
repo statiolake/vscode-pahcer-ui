@@ -5,7 +5,10 @@ import type { IPahcerAdapter } from '../domain/interfaces/IPahcerAdapter';
 import type { IPahcerConfigRepository } from '../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseRepository';
 import type { PahcerConfig } from '../domain/models/configFile';
+import type { Execution } from '../domain/models/execution';
 import type { PahcerRunOptions } from '../domain/models/pahcerStatus';
+import { BestScoreCalculator } from '../domain/services/bestScoreCalculator';
+import { ExecutionStatsCalculator } from '../domain/services/executionStatsAggregator';
 import type { CommitResultsUseCase, ConfirmGitIntegration } from './commitResultsUseCase';
 import { PreconditionFailedError, ResourceNotFoundError } from './exceptions';
 
@@ -101,13 +104,10 @@ export class RunPahcerUseCase {
       await this.executionRepository.upsert(latestExecution);
     }
 
-    // テストケースデータから統計情報を取得
-    const executionTestCases = await this.testCaseRepository.findByExecutionId(latestExecution.id);
-    const caseCount = executionTestCases.length;
-    const totalScore = executionTestCases.reduce((sum, tc) => sum + tc.score, 0);
+    const executionStats = await this.loadExecutionStats(latestExecution);
 
     // Git統合 - 実行後に結果をコミット
-    const afterResult = await this.commitResultsUseCase.commitAfterExecution(caseCount, totalScore);
+    const afterResult = await this.commitResultsUseCase.commitAfterExecution(executionStats);
     if (afterResult.message) {
       messages.push(afterResult.message);
     }
@@ -143,6 +143,28 @@ export class RunPahcerUseCase {
     await this.pahcerConfigRepository.upsert(tempConfig);
 
     return tempConfig;
+  }
+
+  private async loadExecutionStats(
+    execution: Execution,
+  ): Promise<ExecutionStatsCalculator.ExecutionStats> {
+    const testCases = await this.testCaseRepository.findByExecutionId(execution.id);
+    const config = await this.pahcerConfigRepository.findById('normal');
+    if (!config) {
+      throw new ResourceNotFoundError('pahcer 設定');
+    }
+
+    const bestScores = BestScoreCalculator.calculate(testCases, config.objective);
+    const stats = ExecutionStatsCalculator.calculate(
+      [execution],
+      testCases,
+      bestScores,
+      config.objective,
+    )[0];
+    if (!stats) {
+      throw new PreconditionFailedError('実行統計が取得できませんでした');
+    }
+    return stats;
   }
 
   /**
