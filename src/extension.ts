@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CommitResultsUseCase } from './application/commitResultsUseCase';
 import { InitializeUseCase } from './application/initializeUseCase';
+import { LoadComparisonDataUseCase } from './application/loadComparisonDataUseCase';
 import { LoadPahcerTreeDataUseCase } from './application/loadPahcerTreeDataUseCase';
 import type { ITestCaseSummaryQueryService } from './application/queryServices/testCaseSummaryQueryService';
 import type { IComparisonConfigRepository } from './application/repositories/IComparisonConfigRepository';
@@ -83,6 +84,7 @@ interface UseCases {
   commitResultsUseCase: CommitResultsUseCase;
   runPahcerUseCase: RunPahcerUseCase;
   loadPahcerTreeDataUseCase: LoadPahcerTreeDataUseCase;
+  loadComparisonDataUseCase: LoadComparisonDataUseCase;
   initializeUseCase: InitializeUseCase;
 }
 
@@ -145,6 +147,12 @@ function initializeUseCases(
     adapters.testCaseSummaryQueryService,
     adapters.pahcerConfigRepository,
   );
+  const loadComparisonDataUseCase = new LoadComparisonDataUseCase(
+    adapters.executionRepository,
+    adapters.testCaseRepository,
+    adapters.comparisonConfigRepository,
+    adapters.pahcerConfigRepository,
+  );
 
   const initializeUseCase = new InitializeUseCase(
     adapters.testerDownloader,
@@ -158,6 +166,7 @@ function initializeUseCases(
     commitResultsUseCase,
     runPahcerUseCase,
     loadPahcerTreeDataUseCase,
+    loadComparisonDataUseCase,
     initializeUseCase,
   };
 }
@@ -186,10 +195,7 @@ function initializeControllers(
   );
   const comparisonViewController = new ComparisonViewController(
     context,
-    adapters.executionRepository,
-    adapters.testCaseRepository,
-    adapters.comparisonConfigRepository,
-    adapters.pahcerConfigRepository,
+    useCases.loadComparisonDataUseCase,
   );
 
   return {

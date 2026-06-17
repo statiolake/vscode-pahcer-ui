@@ -1,11 +1,6 @@
 import * as vscode from 'vscode';
-import type { IComparisonConfigRepository } from '../../application/repositories/IComparisonConfigRepository';
-import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
-import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
-import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
-import type { Execution } from '../../domain/models/execution';
-import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
-import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
+import type { ComparisonData } from '../../application/dtos/comparisonData';
+import type { LoadComparisonDataUseCase } from '../../application/loadComparisonDataUseCase';
 
 function getNonce() {
   let text = '';
@@ -25,39 +20,21 @@ export class ComparisonViewController {
 
   constructor(
     private context: vscode.ExtensionContext,
-    private executionRepository: IExecutionRepository,
-    private testCaseRepository: ITestCaseRepository,
-    private comparisonConfigRepository: IComparisonConfigRepository,
-    private pahcerConfigRepository: IPahcerConfigRepository,
+    private loadComparisonDataUseCase: LoadComparisonDataUseCase,
   ) {}
 
   /**
    * 比較ビューを表示
    */
   async showComparison(executionIds: string[]): Promise<void> {
-    // Load execution data
-    const executions: Execution[] = [];
-    for (const executionId of executionIds) {
-      try {
-        const execution = await this.executionRepository.findById(executionId);
-        if (execution) {
-          executions.push(execution);
-        }
-      } catch (error) {
-        console.error(`Failed to load execution ${executionId}:`, error);
-      }
-    }
-
-    if (executions.length === 0) {
-      // Close panel if no results selected
-      if (this.panel) {
-        this.panel.dispose();
-      }
-      return;
-    }
-
     try {
-      const comparisonData = await this.prepareComparisonData(executions);
+      const comparisonData = await this.loadComparisonDataUseCase.load(executionIds);
+      if (!comparisonData) {
+        if (this.panel) {
+          this.panel.dispose();
+        }
+        return;
+      }
 
       // Create or update panel
       if (this.panel) {
@@ -97,7 +74,7 @@ export class ComparisonViewController {
               const { resultId, seed } = message;
               await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
             } else if (message.command === 'saveComparisonConfig') {
-              await this.comparisonConfigRepository.upsert(message.config);
+              await this.loadComparisonDataUseCase.saveConfig(message.config);
             }
           },
           undefined,
@@ -115,104 +92,9 @@ export class ComparisonViewController {
   }
 
   /**
-   * 比較データを準備
-   */
-  private async prepareComparisonData(executions: Execution[]) {
-    // Load test cases for selected executions
-    const testCasesArray = await Promise.all(
-      executions.map((exec) => this.testCaseRepository.findByExecutionId(exec.id)),
-    );
-    const testCases = testCasesArray.flat();
-    const pahcerConfig = await this.pahcerConfigRepository.findById('normal');
-    if (!pahcerConfig) {
-      throw new Error('pahcer設定が見つかりません');
-    }
-
-    // Calculate best scores
-    const bestScores = BestScoreCalculator.calculate(testCases, pahcerConfig.objective);
-
-    // Collect all seeds for selected executions
-    const allSeeds = new Set<number>();
-    for (const testCase of testCases) {
-      allSeeds.add(testCase.id.seed);
-    }
-    const seeds = Array.from(allSeeds).sort((a, b) => a - b);
-
-    // Build inputData and stderrData from TestCase analysis fields
-    const inputDataObj: Record<number, string> = {};
-    const stderrData: Record<string, Record<number, Record<string, number>>> = {};
-
-    for (const execution of executions) {
-      stderrData[execution.id] = {};
-
-      // Get test cases for this execution
-      const executionTestCases = testCases.filter((tc) => tc.id.executionId === execution.id);
-
-      for (const testCase of executionTestCases) {
-        const seed = testCase.id.seed;
-
-        // Use analysis data from TestCase object
-        if (testCase.firstInputLine !== undefined) {
-          // Use first input line from test case analysis
-          if (!inputDataObj[seed]) {
-            inputDataObj[seed] = testCase.firstInputLine || '';
-          }
-
-          // Use stderr variables from test case analysis
-          stderrData[execution.id][seed] = testCase.stderrVars || {};
-        } else {
-          // Fallback to empty if analysis data not available
-          if (!inputDataObj[seed]) {
-            inputDataObj[seed] = '';
-          }
-          stderrData[execution.id][seed] = {};
-        }
-      }
-    }
-
-    // Load config
-    const config = await this.comparisonConfigRepository.find();
-
-    // Prepare data for React
-    const results = executions.map((execution) => ({
-      id: execution.id,
-      time: execution.getLongTitle(),
-      cases: testCases
-        .filter((tc) => tc.id.executionId === execution.id)
-        .map((tc) => {
-          // Calculate relative score using domain service
-          const bestScore = bestScores.get(tc.id.seed);
-          const relativeScore = RelativeScoreCalculator.calculate(
-            tc.score,
-            bestScore,
-            pahcerConfig.objective,
-          );
-
-          return {
-            seed: tc.id.seed,
-            score: tc.score,
-            relativeScore,
-            executionTime: tc.executionTime,
-          };
-        }),
-    }));
-
-    return {
-      results,
-      seeds,
-      inputData: inputDataObj,
-      stderrData,
-      config,
-    };
-  }
-
-  /**
    * WebViewのHTMLを生成
    */
-  private getWebviewContent(
-    comparisonData: Awaited<ReturnType<typeof this.prepareComparisonData>>,
-    webview: vscode.Webview,
-  ): string {
+  private getWebviewContent(comparisonData: ComparisonData, webview: vscode.Webview): string {
     // Get script URI
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'comparison.js'),
