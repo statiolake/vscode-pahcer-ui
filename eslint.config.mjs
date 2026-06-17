@@ -31,4 +31,70 @@ export default [
       semi: 'warn',
     },
   },
+  {
+    files: ['src/domain/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '../application/**',
+                '../../application/**',
+                '../infrastructure/**',
+                '../../infrastructure/**',
+                '../presentation/**',
+                '../../presentation/**',
+              ],
+              message:
+                'Domain layer must not depend on application, infrastructure, or presentation.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/presentation/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '../infrastructure/**',
+                '../../infrastructure/**',
+                '../../../infrastructure/**',
+                '../../../../infrastructure/**',
+              ],
+              message: 'Presentation layer must not import infrastructure directly.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/infrastructure/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '../presentation/**',
+                '../../presentation/**',
+                '../../../presentation/**',
+                '../../../../presentation/**',
+              ],
+              message: 'Infrastructure layer must not depend on presentation.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
