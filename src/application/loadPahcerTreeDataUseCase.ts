@@ -4,7 +4,18 @@ import type { ITestCaseRepository } from '../domain/interfaces/ITestCaseReposito
 import { type TestCase, TestCaseId } from '../domain/models/testCase';
 import { BestScoreCalculator } from '../domain/services/bestScoreCalculator';
 import { ExecutionStatsCalculator } from '../domain/services/executionStatsAggregator';
-import { PahcerTreeData } from './dtos/pahcerTreeData';
+import { RelativeScoreCalculator } from '../domain/services/relativeScoreCalculator';
+import { SeedExecutionSorter, type SeedSortOrder } from '../domain/services/seedExecutionSorter';
+import { SeedStatsCalculator } from '../domain/services/seedStatsCalculator';
+import { SeedStatsSorter } from '../domain/services/seedStatsSorter';
+import { TestCaseGrouper } from '../domain/services/testCaseGrouper';
+import { type ExecutionSortOrder, TestCaseSorter } from '../domain/services/testCaseSorter';
+import {
+  PahcerTreeData,
+  type TreeExecutionCases,
+  type TreeSeedExecution,
+  type TreeSeedStats,
+} from './dtos/pahcerTreeData';
 import { ResourceNotFoundError } from './exceptions';
 import type { ITestCaseSummaryQueryService } from './queryServices/testCaseSummaryQueryService';
 
@@ -77,10 +88,110 @@ export class LoadPahcerTreeDataUseCase {
     return this.testCaseRepository.findByExecutionId(executionId);
   }
 
+  async loadCasesForExecution(
+    treeData: PahcerTreeData,
+    executionId: string,
+    sortOrder: ExecutionSortOrder,
+  ): Promise<TreeExecutionCases | undefined> {
+    const executionStats = treeData.executionStatsList.find(
+      (stats) => stats.execution.id === executionId,
+    );
+    if (!executionStats) {
+      return undefined;
+    }
+
+    const detailedCases = await this.testCaseRepository.findByExecutionId(executionId);
+    const relativeScores = this.calculateRelativeScores(treeData, detailedCases);
+    const sortedCases = TestCaseSorter.byOrder(detailedCases, sortOrder, relativeScores);
+
+    return {
+      executionStats,
+      cases: sortedCases.map((testCase) => ({
+        testCase,
+        relativeScore: relativeScores.get(testCase.id.seed) ?? 100,
+      })),
+    };
+  }
+
+  loadSeeds(treeData: PahcerTreeData): TreeSeedStats[] {
+    const statsMap = SeedStatsCalculator.calculate(treeData.testCases, treeData.bestScores);
+    return SeedStatsSorter.bySeedAscending(statsMap);
+  }
+
+  async loadExecutionsForSeed(
+    treeData: PahcerTreeData,
+    seed: number,
+    sortOrder: SeedSortOrder,
+  ): Promise<TreeSeedExecution[]> {
+    const grouped = TestCaseGrouper.bySeed(treeData.testCases, treeData.executions);
+    const seedGroup = grouped.find((group) => group.seed === seed);
+    if (!seedGroup) {
+      return [];
+    }
+
+    const executionDataWithOutput = (
+      await Promise.all(
+        seedGroup.executions.map(async (executionData) => {
+          const detailedTestCase = await this.loadTestCaseForTree(executionData.execution.id, seed);
+          if (!detailedTestCase) {
+            return undefined;
+          }
+          return {
+            execution: executionData.execution,
+            testCase: detailedTestCase,
+          };
+        }),
+      )
+    ).filter((value): value is Omit<TreeSeedExecution, 'relativeScore' | 'isLatest'> => {
+      return value !== undefined;
+    });
+
+    const latestExecutionId = [...executionDataWithOutput].sort((a, b) =>
+      b.execution.id.localeCompare(a.execution.id),
+    )[0]?.execution.id;
+    const sortedExecutions = SeedExecutionSorter.byOrder(executionDataWithOutput, sortOrder);
+
+    return sortedExecutions.map((executionData) => {
+      const bestScore = treeData.bestScores.get(seed);
+      const relativeScore = RelativeScoreCalculator.calculate(
+        executionData.testCase.score,
+        bestScore,
+        treeData.config.objective,
+      );
+
+      return {
+        ...executionData,
+        relativeScore,
+        isLatest:
+          executionData.execution.id === latestExecutionId &&
+          (sortOrder === 'absoluteScoreAsc' || sortOrder === 'absoluteScoreDesc'),
+      };
+    });
+  }
+
   /**
    * Seedノード展開時に必要なテストケースを1件取得する（Tree表示用）
    */
   async loadTestCaseForTree(executionId: string, seed: number): Promise<TestCase | undefined> {
     return this.testCaseRepository.findById(new TestCaseId(executionId, seed));
+  }
+
+  private calculateRelativeScores(
+    treeData: PahcerTreeData,
+    testCases: TestCase[],
+  ): Map<number, number> {
+    const relativeScores = new Map<number, number>();
+
+    for (const testCase of testCases) {
+      const bestScore = treeData.bestScores.get(testCase.id.seed);
+      const relativeScore = RelativeScoreCalculator.calculate(
+        testCase.score,
+        bestScore,
+        treeData.config.objective,
+      );
+      relativeScores.set(testCase.id.seed, relativeScore);
+    }
+
+    return relativeScores;
   }
 }
