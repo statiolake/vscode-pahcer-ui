@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
+import type { IComparisonConfigRepository } from '../../application/repositories/IComparisonConfigRepository';
 import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
-import type { IUIConfigRepository } from '../../domain/interfaces/IUIConfigRepository';
 import type { Execution } from '../../domain/models/execution';
 import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
 import { RelativeScoreCalculator } from '../../domain/services/relativeScoreCalculator';
@@ -27,7 +27,7 @@ export class ComparisonViewController {
     private context: vscode.ExtensionContext,
     private executionRepository: IExecutionRepository,
     private testCaseRepository: ITestCaseRepository,
-    private uiConfigRepository: IUIConfigRepository,
+    private comparisonConfigRepository: IComparisonConfigRepository,
     private pahcerConfigRepository: IPahcerConfigRepository,
   ) {}
 
@@ -97,7 +97,7 @@ export class ComparisonViewController {
               const { resultId, seed } = message;
               await vscode.commands.executeCommand('pahcer-ui.showVisualizer', seed, resultId);
             } else if (message.command === 'saveComparisonConfig') {
-              await this.uiConfigRepository.upsert(message.config);
+              await this.comparisonConfigRepository.upsert(message.config);
             }
           },
           undefined,
@@ -171,7 +171,7 @@ export class ComparisonViewController {
     }
 
     // Load config
-    const config = await this.uiConfigRepository.find();
+    const config = await this.comparisonConfigRepository.find();
 
     // Prepare data for React
     const results = executions.map((execution) => ({

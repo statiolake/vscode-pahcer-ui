@@ -3,11 +3,12 @@ import { CommitResultsUseCase } from './application/commitResultsUseCase';
 import { InitializeUseCase } from './application/initializeUseCase';
 import { LoadPahcerTreeDataUseCase } from './application/loadPahcerTreeDataUseCase';
 import type { ITestCaseSummaryQueryService } from './application/queryServices/testCaseSummaryQueryService';
+import type { IComparisonConfigRepository } from './application/repositories/IComparisonConfigRepository';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
 import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from './domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from './domain/interfaces/ITestCaseRepository';
-import type { IUIConfigRepository } from './domain/interfaces/IUIConfigRepository';
+import { ComparisonConfigRepository } from './infrastructure/comparisonConfigRepository';
 import { ExecutionRepository } from './infrastructure/executionRepository';
 import { FileAnalyzer } from './infrastructure/fileAnalyzer';
 import { GitAdapter } from './infrastructure/gitAdapter';
@@ -18,7 +19,6 @@ import { PahcerConfigRepository } from './infrastructure/pahcerConfigRepository'
 import { TestCaseRepository } from './infrastructure/testCaseRepository';
 import { TestCaseSummaryQueryService } from './infrastructure/testCaseSummaryQueryService';
 import { TesterDownloader } from './infrastructure/testerDownloader';
-import { UIConfigRepository } from './infrastructure/uiConfigRepository';
 import { VisualizerAdapter } from './infrastructure/visualizerAdapter';
 import { AppUIConfig } from './presentation/appUIConfig';
 import { addCommentCommand } from './presentation/controller/commands/addCommentCommand';
@@ -63,7 +63,7 @@ interface Adapters {
   testCaseRepository: ITestCaseRepository;
   testCaseSummaryQueryService: ITestCaseSummaryQueryService;
   testerDownloader: TesterDownloader;
-  uiConfigRepository: IUIConfigRepository;
+  comparisonConfigRepository: IComparisonConfigRepository;
   visualizerAdapter: VisualizerAdapter;
 }
 
@@ -98,7 +98,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
   const gitAdapter = new GitAdapter(workspaceRoot);
   const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
   const testCaseSummaryQueryService = new TestCaseSummaryQueryService(workspaceRoot);
-  const uiConfigRepository = new UIConfigRepository(workspaceRoot);
+  const comparisonConfigRepository = new ComparisonConfigRepository(workspaceRoot);
   const visualizerAdapter = new VisualizerAdapter(workspaceRoot);
   const testerDownloader = new TesterDownloader(workspaceRoot);
   const pahcerAdapter = new PahcerAdapter(pahcerConfigRepository, workspaceRoot);
@@ -114,7 +114,7 @@ async function initializeAdapters(workspaceRoot: string): Promise<Adapters> {
     testCaseRepository,
     testCaseSummaryQueryService,
     testerDownloader,
-    uiConfigRepository,
+    comparisonConfigRepository,
     visualizerAdapter,
   };
 }
@@ -188,7 +188,7 @@ function initializeControllers(
     context,
     adapters.executionRepository,
     adapters.testCaseRepository,
-    adapters.uiConfigRepository,
+    adapters.comparisonConfigRepository,
     adapters.pahcerConfigRepository,
   );
 

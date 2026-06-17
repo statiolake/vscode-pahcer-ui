@@ -1,15 +1,15 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
-import type { IUIConfigRepository } from '../domain/interfaces/IUIConfigRepository';
-import { UIConfig } from '../domain/models/uiConfig';
+import { ComparisonConfig } from '../application/dtos/comparisonConfig';
+import type { IComparisonConfigRepository } from '../application/repositories/IComparisonConfigRepository';
 import { ensureDir } from '../util/fs';
 import { asErrnoException } from '../util/lang';
-import { UIConfigSchema } from './schemas';
+import { ComparisonConfigSchema } from './schemas';
 
 /**
- * 比較設定のリポジトリ
+ * 比較ビュー設定のリポジトリ。
  */
-export class UIConfigRepository implements IUIConfigRepository {
+export class ComparisonConfigRepository implements IComparisonConfigRepository {
   private configDirPath: string;
   private configPath: string;
 
@@ -18,16 +18,11 @@ export class UIConfigRepository implements IUIConfigRepository {
     this.configPath = path.join(this.configDirPath, 'config.json');
   }
 
-  /**
-   * 設定を読み込む
-   * ファイルが見つからない場合はデフォルト設定を返す
-   * その他のエラーは投げ直す
-   */
-  async find(): Promise<UIConfig> {
+  async find(): Promise<ComparisonConfig> {
     try {
       const content = await fs.readFile(this.configPath, { encoding: 'utf-8' });
-      const loaded = UIConfigSchema.parse(JSON.parse(content));
-      return new UIConfig(
+      const loaded = ComparisonConfigSchema.parse(JSON.parse(content));
+      return new ComparisonConfig(
         loaded.featureString,
         loaded.xAxis,
         loaded.yAxis,
@@ -35,20 +30,16 @@ export class UIConfigRepository implements IUIConfigRepository {
         loaded.filter,
       );
     } catch (error) {
-      // ファイルが見つからない場合のみデフォルト設定を返す
       if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
         throw new Error(
           `設定の読み込みに失敗しました (${this.configPath}): ${error instanceof Error ? error.message : String(error)}`,
         );
       }
-      return new UIConfig();
+      return new ComparisonConfig();
     }
   }
 
-  /**
-   * 設定を保存する
-   */
-  async upsert(config: UIConfig): Promise<void> {
+  async upsert(config: ComparisonConfig): Promise<void> {
     await ensureDir(this.configDirPath);
     await fs.writeFile(this.configPath, JSON.stringify(config, null, 2));
   }

@@ -45,9 +45,9 @@ export const TestCaseMetadataSchema = z.object({
 export type TestCaseMetadata = z.infer<typeof TestCaseMetadataSchema>;
 
 /**
- * UIConfig のスキーマ
+ * 比較ビュー設定ファイルのスキーマ
  */
-export const UIConfigSchema = z.object({
+export const ComparisonConfigSchema = z.object({
   featureString: z.string().optional(),
   xAxis: z.string().optional(),
   yAxis: z.string().optional(),
