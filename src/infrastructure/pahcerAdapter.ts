@@ -6,9 +6,6 @@ import type { PahcerConfig } from '../domain/models/configFile';
 import { type PahcerRunOptions, PahcerStatus } from '../domain/models/pahcerStatus';
 import { FileOperationError } from './exceptions';
 
-// Re-export for backward compatibility
-export { PahcerStatus, type PahcerRunOptions };
-
 /**
  * pahcer CLIツールの実行と状態をチェックするアダプター
  *

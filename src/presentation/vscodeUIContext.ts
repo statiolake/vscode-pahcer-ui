@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
+import { PahcerStatus } from '../domain/models/pahcerStatus';
 import type { GroupingMode } from '../domain/services/testCaseSorter';
-import { PahcerStatus } from '../infrastructure/pahcerAdapter';
 
 /**
  * VSCode Context API を型安全に扱うアダプター
