@@ -14,7 +14,7 @@ export class ShowExecutionDiffUseCase {
   ) {}
 
   async showDiff(executionIds: string[]): Promise<ShowExecutionDiffResult> {
-    const executions = await this.findExecutionsWithCommitHash(executionIds);
+    const executions = await this.findExecutions(executionIds);
 
     if (executions.length !== 2) {
       return { status: 'invalidSelection' };
@@ -47,12 +47,16 @@ export class ShowExecutionDiffUseCase {
     return executions.length === 2;
   }
 
-  private async findExecutionsWithCommitHash(executionIds: string[]): Promise<Execution[]> {
+  private async findExecutions(executionIds: string[]): Promise<Execution[]> {
     return (
       await Promise.all(
         executionIds.map((executionId) => this.executionRepository.findById(executionId)),
       )
-    ).filter((execution): execution is Execution => {
+    ).filter((execution): execution is Execution => execution !== undefined);
+  }
+
+  private async findExecutionsWithCommitHash(executionIds: string[]): Promise<Execution[]> {
+    return (await this.findExecutions(executionIds)).filter((execution): execution is Execution => {
       return execution !== undefined && execution.commitHash !== undefined;
     });
   }
