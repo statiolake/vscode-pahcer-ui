@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import type { IGitAdapter } from '@pahcer/core/domain/interfaces/IGitAdapter';
 import * as vscode from 'vscode';
-import { CommandExecutionError } from './exceptions';
+import { VSCodeCommandExecutionError } from './exceptions';
 
 /**
  * 差分を開くとき、最大で開くファイルの数
@@ -47,7 +47,7 @@ export class GitAdapter implements IGitAdapter {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new CommandExecutionError('git commit', message);
+      throw new VSCodeCommandExecutionError('git commit', message);
     }
   }
 
@@ -141,7 +141,7 @@ export class GitAdapter implements IGitAdapter {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new CommandExecutionError('git diff', message);
+      throw new VSCodeCommandExecutionError('git diff', message);
     }
   }
 
@@ -195,7 +195,7 @@ export class GitAdapter implements IGitAdapter {
         });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new CommandExecutionError('git ls-tree', message);
+      throw new VSCodeCommandExecutionError('git ls-tree', message);
     }
   }
 
@@ -211,7 +211,7 @@ export class GitAdapter implements IGitAdapter {
       return content;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new CommandExecutionError('git show', message);
+      throw new VSCodeCommandExecutionError('git show', message);
     }
   }
 }

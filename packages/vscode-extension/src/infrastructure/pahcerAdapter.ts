@@ -4,7 +4,7 @@ import type { IPahcerConfigRepository } from '@pahcer/core/domain/interfaces/IPa
 import type { PahcerConfig } from '@pahcer/core/domain/models/configFile';
 import { type PahcerRunOptions, PahcerStatus } from '@pahcer/core/domain/models/pahcerStatus';
 import * as vscode from 'vscode';
-import { FileOperationError } from './exceptions';
+import { VSCodeFileOperationError } from './exceptions';
 
 /**
  * pahcer CLIツールの実行と状態をチェックするアダプター
@@ -69,7 +69,7 @@ export class PahcerAdapter implements IPahcerAdapter {
     isInteractive: boolean,
   ): Promise<number | undefined> {
     if (!this.workspaceRoot) {
-      throw new FileOperationError('init', '<workspace-root>', 'workspaceRoot is required');
+      throw new VSCodeFileOperationError('init', '<workspace-root>', 'workspaceRoot is required');
     }
 
     let command = `pahcer init --problem "${problemName}" --objective ${objective} --lang ${language}`;
@@ -84,7 +84,11 @@ export class PahcerAdapter implements IPahcerAdapter {
    */
   private async executeTask(name: string, command: string): Promise<number | undefined> {
     if (!this.workspaceRoot) {
-      throw new FileOperationError('executeTask', '<workspace-root>', 'workspaceRoot is required');
+      throw new VSCodeFileOperationError(
+        'executeTask',
+        '<workspace-root>',
+        'workspaceRoot is required',
+      );
     }
 
     const taskExecution = new vscode.ShellExecution(command, {

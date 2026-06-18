@@ -60,6 +60,12 @@ export default [
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: 'vscode',
+              message: 'Node adapters must not depend on VS Code APIs.',
+            },
+          ],
           patterns: [
             {
               group: ['@pahcer/node-adapters/**', '@pahcer/vscode-extension/**'],
