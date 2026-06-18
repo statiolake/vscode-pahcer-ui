@@ -120,4 +120,20 @@ export default [
       ],
     },
   },
+  {
+    files: ['packages/web-interface/src/client/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@pahcer/core/domain/**', '@pahcer/node-adapters/**'],
+              message: 'Web client must depend on application DTOs, not domain or adapters.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
