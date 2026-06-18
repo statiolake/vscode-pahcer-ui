@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { ComparisonConfig } from '../../src/application/dtos/comparisonConfig';
 import type {
   ComparisonData,
   ComparisonViewOptions,
 } from '../../src/application/dtos/comparisonData';
+import { PahcerTreeData } from '../../src/application/dtos/pahcerTreeData';
 import {
   evaluateExpression,
   isValidExpression,
@@ -13,6 +15,24 @@ import { ComparisonViewReadModelService } from '../../src/application/services/c
 import { parseFeatures } from '../../src/application/services/featureParser';
 
 describe('application services', () => {
+  it('constructs application DTOs with defaults', () => {
+    const comparisonConfig = new ComparisonConfig();
+    const treeData = new PahcerTreeData([], [], 'max', new Map(), []);
+
+    assert.deepEqual(
+      { ...comparisonConfig },
+      {
+        featureString: 'N M K',
+        xAxis: 'seed',
+        yAxis: 'avg(absScore)',
+        chartType: 'line',
+        filter: '',
+      },
+    );
+    assert.equal(treeData.objective, 'max');
+    assert.deepEqual(treeData.executions, []);
+  });
+
   it('parses feature strings', () => {
     assert.deepEqual(parseFeatures(' N  M K '), ['N', 'M', 'K']);
     assert.deepEqual(parseFeatures('   '), []);

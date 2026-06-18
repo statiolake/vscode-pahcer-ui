@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import dayjs from 'dayjs';
+import { ResourceNotFoundError } from '../../src/application/exceptions';
 import { LoadPahcerTreeDataUseCase } from '../../src/application/loadPahcerTreeDataUseCase';
 import type { ITestCaseSummaryQueryService } from '../../src/application/queryServices/testCaseSummaryQueryService';
 import type { IExecutionRepository } from '../../src/domain/interfaces/IExecutionRepository';
@@ -71,6 +72,33 @@ describe('LoadPahcerTreeDataUseCase', () => {
     );
     assert.equal(seedExecutions[0].isLatest, true);
     assert.equal(seedExecutions[1].relativeScore, 50);
+
+    assert.deepEqual(
+      useCase.loadSeeds(treeData).map((stats) => ({
+        seed: stats.seed,
+        count: stats.count,
+        bestScore: stats.bestScore,
+      })),
+      [
+        { seed: 0, count: 2, bestScore: 20 },
+        { seed: 1, count: 2, bestScore: 5 },
+      ],
+    );
+    assert.equal((await useCase.loadExecutionTestCasesForTree('20260101010101')).length, 2);
+    assert.equal((await useCase.loadTestCaseForTree('20260101010101', 0))?.score, 10);
+    assert.equal(await useCase.loadCasesForExecution(treeData, 'missing', 'seedAsc'), undefined);
+    assert.deepEqual(await useCase.loadExecutionsForSeed(treeData, 999, 'executionAsc'), []);
+  });
+
+  it('fails when pahcer config is missing', async () => {
+    const useCase = new LoadPahcerTreeDataUseCase(
+      new InMemoryExecutionRepository([]),
+      new InMemoryTestCaseRepository([]),
+      new InMemoryTestCaseSummaryQueryService([]),
+      new MissingPahcerConfigRepository(),
+    );
+
+    await assert.rejects(() => useCase.load(), ResourceNotFoundError);
   });
 });
 
@@ -134,6 +162,16 @@ class FixedPahcerConfigRepository implements IPahcerConfigRepository {
 
   async findById(_id: ConfigId): Promise<PahcerConfig | undefined> {
     return new PahcerConfig('normal', 'pahcer_config.toml', 'problem', 0, 1, this.objective);
+  }
+
+  async upsert(_config: PahcerConfig): Promise<void> {}
+
+  async delete(_id: ConfigId): Promise<void> {}
+}
+
+class MissingPahcerConfigRepository implements IPahcerConfigRepository {
+  async findById(_id: ConfigId): Promise<PahcerConfig | undefined> {
+    return undefined;
   }
 
   async upsert(_config: PahcerConfig): Promise<void> {}

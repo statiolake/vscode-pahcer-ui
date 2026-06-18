@@ -55,6 +55,34 @@ describe('LoadComparisonDataUseCase', () => {
 
     assert.equal(await useCase.load(['missing']), undefined);
   });
+
+  it('saves comparison config through repository', async () => {
+    const repository = new InMemoryComparisonConfigRepository(new ComparisonConfig());
+    const useCase = new LoadComparisonDataUseCase(
+      new InMemoryExecutionRepository([]),
+      new InMemoryTestCaseRepository([]),
+      repository,
+      new FixedPahcerConfigRepository('max'),
+    );
+    const config = new ComparisonConfig('N', 'N', 'avg(absScore)', 'scatter', 'N > 0');
+
+    await useCase.saveConfig(config);
+
+    assert.deepEqual(repository.upserted, [config]);
+  });
+
+  it('fails when pahcer config is missing for loaded executions', async () => {
+    const useCase = new LoadComparisonDataUseCase(
+      new InMemoryExecutionRepository([
+        new Execution('20260101010101', dayjs('2026-01-01T01:01:01'), 'base', null),
+      ]),
+      new InMemoryTestCaseRepository([]),
+      new InMemoryComparisonConfigRepository(new ComparisonConfig()),
+      new MissingPahcerConfigRepository(),
+    );
+
+    await assert.rejects(() => useCase.load(['20260101010101']), /pahcer設定が見つかりません/);
+  });
 });
 
 function testCase(
@@ -107,13 +135,17 @@ class InMemoryTestCaseRepository implements ITestCaseRepository {
 }
 
 class InMemoryComparisonConfigRepository implements IComparisonConfigRepository {
+  upserted: ComparisonConfig[] = [];
+
   constructor(private readonly config: ComparisonConfig) {}
 
   async find(): Promise<ComparisonConfig> {
     return this.config;
   }
 
-  async upsert(_config: ComparisonConfig): Promise<void> {}
+  async upsert(config: ComparisonConfig): Promise<void> {
+    this.upserted.push(config);
+  }
 }
 
 class FixedPahcerConfigRepository implements IPahcerConfigRepository {
@@ -121,6 +153,16 @@ class FixedPahcerConfigRepository implements IPahcerConfigRepository {
 
   async findById(_id: ConfigId): Promise<PahcerConfig | undefined> {
     return new PahcerConfig('normal', 'pahcer_config.toml', 'problem', 0, 1, this.objective);
+  }
+
+  async upsert(_config: PahcerConfig): Promise<void> {}
+
+  async delete(_id: ConfigId): Promise<void> {}
+}
+
+class MissingPahcerConfigRepository implements IPahcerConfigRepository {
+  async findById(_id: ConfigId): Promise<PahcerConfig | undefined> {
+    return undefined;
   }
 
   async upsert(_config: PahcerConfig): Promise<void> {}
