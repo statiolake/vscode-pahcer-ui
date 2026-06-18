@@ -4,9 +4,10 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 const entries = {
-  comparison: 'src/presentation/view/webview/comparison/index.tsx',
-  runOptions: 'src/presentation/view/webview/runOptions/index.tsx',
-  initialization: 'src/presentation/view/webview/initialization/index.tsx',
+  comparison: 'packages/vscode-extension/src/presentation/view/webview/comparison/index.tsx',
+  runOptions: 'packages/vscode-extension/src/presentation/view/webview/runOptions/index.tsx',
+  initialization:
+    'packages/vscode-extension/src/presentation/view/webview/initialization/index.tsx',
 };
 
 async function build() {

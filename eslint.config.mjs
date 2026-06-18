@@ -32,7 +32,7 @@ export default [
     },
   },
   {
-    files: ['src/domain/**/*.ts'],
+    files: ['packages/core/src/domain/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -42,10 +42,9 @@ export default [
               group: [
                 '../application/**',
                 '../../application/**',
-                '../infrastructure/**',
-                '../../infrastructure/**',
-                '../presentation/**',
-                '../../presentation/**',
+                '@pahcer/core/application/**',
+                '@pahcer/node-adapters/**',
+                '@pahcer/vscode-extension/**',
               ],
               message:
                 'Domain layer must not depend on application, infrastructure, or presentation.',
@@ -56,7 +55,23 @@ export default [
     },
   },
   {
-    files: ['src/presentation/**/*.{ts,tsx}'],
+    files: ['packages/core/src/application/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@pahcer/node-adapters/**', '@pahcer/vscode-extension/**'],
+              message: 'Application layer must not depend on adapters or presentation.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/vscode-extension/src/presentation/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -72,6 +87,8 @@ export default [
                 '../../infrastructure/**',
                 '../../../infrastructure/**',
                 '../../../../infrastructure/**',
+                '@pahcer/core/domain/**',
+                '@pahcer/node-adapters/**',
               ],
               message:
                 'Presentation layer must depend on application APIs, not domain or infrastructure.',
@@ -82,7 +99,7 @@ export default [
     },
   },
   {
-    files: ['src/infrastructure/**/*.ts'],
+    files: ['packages/node-adapters/src/infrastructure/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -94,6 +111,7 @@ export default [
                 '../../presentation/**',
                 '../../../presentation/**',
                 '../../../../presentation/**',
+                '@pahcer/vscode-extension/**',
               ],
               message: 'Infrastructure layer must not depend on presentation.',
             },

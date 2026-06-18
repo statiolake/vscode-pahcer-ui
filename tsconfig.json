@@ -11,8 +11,14 @@
     "skipLibCheck": true,
     "noImplicitReturns": true /* Report error when not all code paths in function return a value. */,
     "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
-    "noUnusedParameters": true /* Report errors on unused parameters. */
+    "noUnusedParameters": true /* Report errors on unused parameters. */,
+    "baseUrl": ".",
+    "paths": {
+      "@pahcer/core/*": ["packages/core/src/*"],
+      "@pahcer/node-adapters/*": ["packages/node-adapters/src/*"],
+      "@pahcer/vscode-extension/*": ["packages/vscode-extension/src/*"]
+    }
   },
-  "include": ["src/**/*", "webview/**/*"],
+  "include": ["packages/**/*"],
   "exclude": ["node_modules", "dist"]
 }
