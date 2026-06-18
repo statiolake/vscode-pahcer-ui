@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ComparisonViewReadModelService } from '../../../../application/services/comparisonViewReadModelService';
 import { postMessage } from '../shared/utils/vscode';
 import { ComparisonChart } from './components/ComparisonChart';
 import { ControlPanel } from './components/ControlPanel';
 import { StatsTable } from './components/StatsTable';
-import type { ComparisonData } from './types';
+import type { ComparisonData, ComparisonViewOptions } from './types';
 
 interface Props {
   initialData: ComparisonData;
@@ -17,6 +18,22 @@ export function ComparisonView({ initialData }: Props) {
   const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
   const [filter, setFilter] = useState(initialData.config.filter);
   const [skipFailed, setSkipFailed] = useState(true);
+  const readModelService = useMemo(() => new ComparisonViewReadModelService(), []);
+  const viewOptions: ComparisonViewOptions = useMemo(
+    () => ({
+      featureString,
+      xAxis,
+      yAxis,
+      chartType,
+      skipFailed,
+      filter,
+    }),
+    [featureString, xAxis, yAxis, chartType, skipFailed, filter],
+  );
+  const readModel = useMemo(
+    () => readModelService.build(data, viewOptions),
+    [data, readModelService, viewOptions],
+  );
 
   // Listen for data updates from extension
   useEffect(() => {
@@ -60,6 +77,7 @@ export function ComparisonView({ initialData }: Props) {
         chartType={chartType}
         skipFailed={skipFailed}
         filter={filter}
+        validation={readModel.validation}
         onFeatureStringChange={setFeatureString}
         onXAxisChange={setXAxis}
         onYAxisChange={setYAxis}
@@ -68,17 +86,9 @@ export function ComparisonView({ initialData }: Props) {
         onFilterChange={setFilter}
       />
 
-      <ComparisonChart
-        data={data}
-        featureString={featureString}
-        xAxis={xAxis}
-        yAxis={yAxis}
-        chartType={chartType}
-        skipFailed={skipFailed}
-        filter={filter}
-      />
+      <ComparisonChart chart={readModel.chart} chartType={chartType} />
 
-      <StatsTable data={data} featureString={featureString} filter={filter} />
+      <StatsTable stats={readModel.stats} showsFilteredCount={filter.trim() !== ''} />
     </div>
   );
 }

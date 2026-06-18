@@ -1,5 +1,4 @@
-import { isValidExpression } from '../../shared/utils/expression';
-import { parseFeatures } from '../../shared/utils/features';
+import type { ComparisonExpressionValidation } from '../types';
 
 interface Props {
   featureString: string;
@@ -8,6 +7,7 @@ interface Props {
   chartType: 'line' | 'scatter';
   skipFailed: boolean;
   filter: string;
+  validation: ComparisonExpressionValidation;
   onFeatureStringChange: (value: string) => void;
   onXAxisChange: (value: string) => void;
   onYAxisChange: (value: string) => void;
@@ -23,6 +23,7 @@ export function ControlPanel({
   chartType,
   skipFailed,
   filter,
+  validation,
   onFeatureStringChange,
   onXAxisChange,
   onYAxisChange,
@@ -30,9 +31,6 @@ export function ControlPanel({
   onSkipFailedChange,
   onFilterChange,
 }: Props) {
-  const features = parseFeatures(featureString);
-  const variableNames = ['seed', 'absScore', 'relScore', ...features];
-
   const sectionStyle = {
     marginBottom: '20px',
     padding: '10px',
@@ -59,15 +57,11 @@ export function ControlPanel({
     border: '1px solid var(--vscode-input-border)',
   };
 
-  const isXAxisValid = isValidExpression(xAxis, variableNames);
-  const isYAxisValid = isValidExpression(yAxis, variableNames);
-  const isFilterValid = filter.trim() === '' || isValidExpression(filter, variableNames);
-
   const xAxisInputStyle = {
     ...inputStyle,
     width: '200px',
-    outline: isXAxisValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
-    backgroundColor: isXAxisValid
+    outline: validation.xAxis ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
+    backgroundColor: validation.xAxis
       ? 'var(--vscode-input-background)'
       : 'var(--vscode-inputValidation-errorBackground)',
   };
@@ -75,8 +69,8 @@ export function ControlPanel({
   const yAxisInputStyle = {
     ...inputStyle,
     width: '200px',
-    outline: isYAxisValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
-    backgroundColor: isYAxisValid
+    outline: validation.yAxis ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
+    backgroundColor: validation.yAxis
       ? 'var(--vscode-input-background)'
       : 'var(--vscode-inputValidation-errorBackground)',
   };
@@ -84,8 +78,8 @@ export function ControlPanel({
   const filterInputStyle = {
     ...inputStyle,
     width: '200px',
-    outline: isFilterValid ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
-    backgroundColor: isFilterValid
+    outline: validation.filter ? 'none' : '2px solid var(--vscode-inputValidation-errorBorder)',
+    backgroundColor: validation.filter
       ? 'var(--vscode-input-background)'
       : 'var(--vscode-inputValidation-errorBackground)',
   };
@@ -112,7 +106,7 @@ export function ControlPanel({
             onChange={(e) => onFilterChange(e.target.value)}
             placeholder="例: N >= 100"
             style={filterInputStyle}
-            title={isFilterValid ? '' : '式が不正です'}
+            title={validation.filter ? '' : '式が不正です'}
           />
         </label>
       </div>
@@ -136,7 +130,7 @@ export function ControlPanel({
             onChange={(e) => onXAxisChange(e.target.value)}
             placeholder="例: seed, N, log(N)"
             style={xAxisInputStyle}
-            title={isXAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+            title={validation.xAxis ? '' : '式が不正です（未完成の括弧や演算子があります）'}
           />
         </label>
         <label style={labelStyle}>
@@ -147,7 +141,7 @@ export function ControlPanel({
             onChange={(e) => onYAxisChange(e.target.value)}
             placeholder="例: absScore, relScore"
             style={yAxisInputStyle}
-            title={isYAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+            title={validation.yAxis ? '' : '式が不正です（未完成の括弧や演算子があります）'}
           />
         </label>
         <label style={labelStyle}>

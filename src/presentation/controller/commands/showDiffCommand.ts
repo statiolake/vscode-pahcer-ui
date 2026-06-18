@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { IGitAdapter } from '../../../domain/interfaces/IGitAdapter';
+import type { ShowExecutionDiffUseCase } from '../../../application/showExecutionDiffUseCase';
 import type { PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
@@ -7,33 +7,18 @@ import type { PahcerTreeViewController } from '../pahcerTreeViewController';
  */
 export function showDiffCommand(
   treeViewController: PahcerTreeViewController,
-  gitAdapter: IGitAdapter,
+  showExecutionDiffUseCase: ShowExecutionDiffUseCase,
 ): () => Promise<void> {
   return async () => {
-    const checkedExecutions = await treeViewController.getCheckedResultsWithCommitHash();
-
-    if (checkedExecutions.length !== 2) {
-      vscode.window.showErrorMessage('コミットハッシュを持つ実行結果を2つ選択してください');
-      return;
-    }
-
-    // Sort by startTime to ensure older is left, newer is right
-    const sorted = checkedExecutions.sort((a, b) => a.startTime.valueOf() - b.startTime.valueOf());
-
-    const [older, newer] = sorted;
-
-    if (!older.commitHash || !newer.commitHash) {
-      vscode.window.showErrorMessage('選択された結果にコミットハッシュがありません');
-      return;
-    }
-
     try {
-      await gitAdapter.showDiff(
-        older.commitHash,
-        newer.commitHash,
-        older.getTitleWithHash(),
-        newer.getTitleWithHash(),
+      const result = await showExecutionDiffUseCase.showDiff(
+        treeViewController.getCheckedResults(),
       );
+      if (result.status === 'invalidSelection') {
+        vscode.window.showErrorMessage('コミットハッシュを持つ実行結果を2つ選択してください');
+      } else if (result.status === 'missingCommitHash') {
+        vscode.window.showErrorMessage('選択された結果にコミットハッシュがありません');
+      }
     } catch (error) {
       vscode.window.showErrorMessage(`差分表示に失敗しました: ${error}`);
     }

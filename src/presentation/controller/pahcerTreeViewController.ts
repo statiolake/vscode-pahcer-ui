@@ -1,11 +1,8 @@
 import * as vscode from 'vscode';
+import type { CheckPahcerStatusUseCase } from '../../application/checkPahcerStatusUseCase';
 import type { PahcerTreeData } from '../../application/dtos/pahcerTreeData';
 import { ResourceNotFoundError } from '../../application/exceptions';
 import type { LoadPahcerTreeDataUseCase } from '../../application/loadPahcerTreeDataUseCase';
-import { PahcerStatus } from '../../domain/interfaces';
-import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
-import type { IPahcerAdapter } from '../../domain/interfaces/IPahcerAdapter';
-import type { Execution } from '../../domain/models/execution';
 import type { AppUIConfig } from '../appUIConfig';
 import type { TreeItemBuilder } from '../view/treeView/treeItemBuilder';
 
@@ -43,9 +40,8 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
 
   constructor(
     private readonly appConfig: AppUIConfig,
-    private readonly pahcerAdapter: IPahcerAdapter,
+    private readonly checkPahcerStatusUseCase: CheckPahcerStatusUseCase,
     private readonly loadTreeDataUseCase: LoadPahcerTreeDataUseCase,
-    private readonly executionRepository: IExecutionRepository,
     private readonly treeItemBuilder: TreeItemBuilder,
   ) {}
 
@@ -88,10 +84,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
    */
   async getChildren(element?: PahcerTreeItem): Promise<PahcerTreeItem[]> {
     // Check pahcer status
-    const status = await this.pahcerAdapter.checkStatus();
-
-    // If not ready, return empty array to show welcome view
-    if (status !== PahcerStatus.Ready) {
+    if (!(await this.checkPahcerStatusUseCase.isReady())) {
       return [];
     }
 
@@ -247,7 +240,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
         'case',
         builtItem.description as string,
       );
-      item.seed = testCase.id.seed;
+      item.seed = testCase.seed;
       item.executionId = executionId;
       item.command = builtItem.command;
       item.iconPath = builtItem.iconPath;
@@ -329,7 +322,7 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       const items: PahcerTreeItem[] = [];
 
       for (const executionData of seedExecutions) {
-        const time = executionData.execution.getShortTitle();
+        const time = executionData.execution.shortTitle;
 
         const builtItem = this.treeItemBuilder.buildSeedExecutionItem(
           time,
@@ -367,19 +360,5 @@ export class PahcerTreeViewController implements vscode.TreeDataProvider<PahcerT
       const item = new PahcerTreeItem(message, vscode.TreeItemCollapsibleState.None, 'info');
       return [item];
     }
-  }
-
-  /**
-   * コミットハッシュを持つチェック済み結果を取得
-   */
-  async getCheckedResultsWithCommitHash(): Promise<Execution[]> {
-    const results: Execution[] = [];
-    for (const executionId of this.checkedResults) {
-      const execution = await this.executionRepository.findById(executionId);
-      if (execution?.commitHash) {
-        results.push(execution);
-      }
-    }
-    return results;
   }
 }

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { IInOutFilesAdapter } from '../../../domain/interfaces/IInOutFilesAdapter';
+import type { OpenCaseFileUseCase } from '../../../application/openCaseFileUseCase';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
 /**
@@ -11,14 +11,17 @@ import type { PahcerTreeItem } from '../pahcerTreeViewController';
  * - エディタ操作
  */
 export function openInputFileCommand(
-  inOutFilesAdapter: IInOutFilesAdapter,
+  openCaseFileUseCase: OpenCaseFileUseCase,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     if (item.seed == null) {
       return;
     }
 
-    const inputPath = inOutFilesAdapter.getNonArchivedPath('in', item.seed);
+    const inputPath = openCaseFileUseCase.resolvePath({ kind: 'input', seed: item.seed });
+    if (!inputPath) {
+      return;
+    }
     try {
       const document = await vscode.workspace.openTextDocument(inputPath);
       await vscode.window.showTextDocument(document);
@@ -38,17 +41,21 @@ export function openInputFileCommand(
  * - エディタ操作
  */
 export function openOutputFileCommand(
-  inOutFilesAdapter: IInOutFilesAdapter,
+  openCaseFileUseCase: OpenCaseFileUseCase,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     if (item.seed === null || item.seed === undefined || !item.executionId) {
       return;
     }
 
-    const outputPath = inOutFilesAdapter.getArchivedPath('out', {
+    const outputPath = openCaseFileUseCase.resolvePath({
+      kind: 'output',
       executionId: item.executionId,
       seed: item.seed,
     });
+    if (!outputPath) {
+      return;
+    }
     try {
       const document = await vscode.workspace.openTextDocument(outputPath);
       await vscode.window.showTextDocument(document);
@@ -68,17 +75,21 @@ export function openOutputFileCommand(
  * - エディタ操作
  */
 export function openErrorFileCommand(
-  inOutFilesAdapter: IInOutFilesAdapter,
+  openCaseFileUseCase: OpenCaseFileUseCase,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     if (item.seed === null || item.seed === undefined || !item.executionId) {
       return;
     }
 
-    const errorPath = inOutFilesAdapter.getArchivedPath('err', {
+    const errorPath = openCaseFileUseCase.resolvePath({
+      kind: 'error',
       executionId: item.executionId,
       seed: item.seed,
     });
+    if (!errorPath) {
+      return;
+    }
     try {
       const document = await vscode.workspace.openTextDocument(errorPath);
       await vscode.window.showTextDocument(document);

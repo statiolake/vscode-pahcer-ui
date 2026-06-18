@@ -1,6 +1,9 @@
 import { ConfigurationTarget, workspace } from 'vscode';
-import type { SeedSortOrder } from '../domain/services/seedExecutionSorter';
-import type { ExecutionSortOrder, GroupingMode } from '../domain/services/testCaseSorter';
+import type {
+  ExecutionSortOrder,
+  GroupingMode,
+  SeedSortOrder,
+} from '../application/dtos/pahcerUIState';
 
 const PREFERENCES_SECTION = 'pahcer-ui';
 

@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
-import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
-import type { IInOutFilesAdapter } from '../../domain/interfaces/IInOutFilesAdapter';
-import type { IVisualizerAdapter } from '../../domain/interfaces/IVisualizerAdapter';
+import type { VisualizerUseCase } from '../../application/visualizerUseCase';
 
 /**
  * ビジュアライザのWebViewコントローラ
@@ -13,9 +11,7 @@ export class VisualizerViewController {
 
   constructor(
     _context: vscode.ExtensionContext,
-    private inOutFilesAdapter: IInOutFilesAdapter,
-    private executionRepository: IExecutionRepository,
-    private visualizerAdapter: IVisualizerAdapter,
+    private visualizerUseCase: VisualizerUseCase,
   ) {}
 
   /**
@@ -27,7 +23,7 @@ export class VisualizerViewController {
     );
 
     // Check if visualizer is already downloaded
-    let htmlFileName = await this.visualizerAdapter.getCachedHtmlFileName();
+    let htmlFileName = await this.visualizerUseCase.getCachedHtmlFileName();
 
     // Get visualizer URL if HTML file not found
     if (!htmlFileName) {
@@ -70,7 +66,7 @@ export class VisualizerViewController {
         async () => {
           try {
             console.log(`[VisualizerViewController] Starting download`);
-            htmlFileName = await this.visualizerAdapter.download(url);
+            htmlFileName = await this.visualizerUseCase.download(url);
             console.log(`[VisualizerViewController] Download completed: ${htmlFileName}`);
           } catch (e) {
             console.error(
@@ -103,30 +99,16 @@ export class VisualizerViewController {
     resultId: string | undefined,
     htmlFileName: string,
   ): Promise<void> {
-    // Get execution time from result file if resultId is provided
-    let executionTime = '';
-    if (resultId) {
-      const result = await this.executionRepository.findById(resultId);
-      if (result) {
-        executionTime = ` (${result.startTime.toDate().toLocaleString()})`;
-      } else {
-        console.warn(`Execution ${resultId} not found`);
-      }
-    }
-
-    // Read test case input and output from archived files
-    // resultId should always be provided as execution results are archived immediately after running
     if (!resultId) {
       console.error('[VisualizerViewController] resultId is required but not provided');
       vscode.window.showErrorMessage('実行IDが指定されていません');
       return;
     }
 
-    const input = await this.inOutFilesAdapter.loadIn(seed);
-    const output = await this.inOutFilesAdapter.loadArchived('out', {
-      executionId: resultId,
+    const { executionTimeLabel, input, output } = await this.visualizerUseCase.loadCaseData(
       seed,
-    });
+      resultId,
+    );
 
     // Get current zoom level from settings
     const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
@@ -135,7 +117,7 @@ export class VisualizerViewController {
     // Reuse existing panel if available, otherwise create new one
     if (VisualizerViewController.currentPanel) {
       // Update title
-      VisualizerViewController.currentPanel.title = `Seed ${seed}${executionTime}`;
+      VisualizerViewController.currentPanel.title = `Seed ${seed}${executionTimeLabel}`;
 
       // Reveal panel if hidden
       VisualizerViewController.currentPanel.reveal(vscode.ViewColumn.Active);
@@ -151,12 +133,12 @@ export class VisualizerViewController {
       // Create a new webview panel
       const panel = vscode.window.createWebviewPanel(
         'pahcerVisualizer',
-        `Seed ${seed}${executionTime}`,
+        `Seed ${seed}${executionTimeLabel}`,
         vscode.ViewColumn.Active,
         {
           enableScripts: true,
           retainContextWhenHidden: true,
-          localResourceRoots: [vscode.Uri.file(this.visualizerAdapter.getVisualizerDir())],
+          localResourceRoots: [vscode.Uri.file(this.visualizerUseCase.getVisualizerDir())],
         },
       );
 
@@ -187,7 +169,7 @@ export class VisualizerViewController {
       VisualizerViewController.panelDisposables.push(disposeDisposable);
 
       // Read HTML content
-      let htmlContent = await this.visualizerAdapter.readHtml(htmlFileName);
+      let htmlContent = await this.visualizerUseCase.readHtml(htmlFileName);
 
       // Convert local paths to webview URIs
       htmlContent = await this.convertResourcePaths(htmlContent, panel.webview);
@@ -214,9 +196,9 @@ export class VisualizerViewController {
     match = srcRelativeRegex.exec(html);
     while (match !== null) {
       const fileName = match[1];
-      if (await this.visualizerAdapter.resourceExists(fileName)) {
+      if (await this.visualizerUseCase.resourceExists(fileName)) {
         const resourceUri = webview.asWebviewUri(
-          vscode.Uri.file(this.visualizerAdapter.getResourcePath(fileName)),
+          vscode.Uri.file(this.visualizerUseCase.getResourcePath(fileName)),
         );
         console.log(
           `[VisualizerViewController] Converted relative path: ./${fileName} -> ${resourceUri}`,
@@ -233,9 +215,9 @@ export class VisualizerViewController {
     match = srcProtocolRegex.exec(html);
     while (match !== null) {
       const fileName = match[1];
-      if (await this.visualizerAdapter.resourceExists(fileName)) {
+      if (await this.visualizerUseCase.resourceExists(fileName)) {
         const resourceUri = webview.asWebviewUri(
-          vscode.Uri.file(this.visualizerAdapter.getResourcePath(fileName)),
+          vscode.Uri.file(this.visualizerUseCase.getResourcePath(fileName)),
         );
         console.log(
           `[VisualizerViewController] Converted protocol-relative URL: ${fileName} -> ${resourceUri}`,
@@ -252,9 +234,9 @@ export class VisualizerViewController {
     match = importRegex.exec(html);
     while (match !== null) {
       const fileName = match[1];
-      if (await this.visualizerAdapter.resourceExists(fileName)) {
+      if (await this.visualizerUseCase.resourceExists(fileName)) {
         const resourceUri = webview.asWebviewUri(
-          vscode.Uri.file(this.visualizerAdapter.getResourcePath(fileName)),
+          vscode.Uri.file(this.visualizerUseCase.getResourcePath(fileName)),
         );
         console.log(
           `[VisualizerViewController] Converted module import: ./${fileName} -> ${resourceUri}`,

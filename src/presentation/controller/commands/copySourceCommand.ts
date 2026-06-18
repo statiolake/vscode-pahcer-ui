@@ -1,14 +1,12 @@
 import * as vscode from 'vscode';
-import type { IExecutionRepository } from '../../../domain/interfaces/IExecutionRepository';
-import type { IGitAdapter } from '../../../domain/interfaces/IGitAdapter';
+import type { CopySourceAtExecutionUseCase } from '../../../application/copySourceAtExecutionUseCase';
 import type { PahcerTreeItem } from '../pahcerTreeViewController';
 
 /**
  * 選択した実行時点でのソースコードをクリップボードにコピーするコマンド
  */
 export function copySourceCommand(
-  executionRepository: IExecutionRepository,
-  gitAdapter: IGitAdapter,
+  copySourceAtExecutionUseCase: CopySourceAtExecutionUseCase,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
     try {
@@ -16,38 +14,33 @@ export function copySourceCommand(
         return;
       }
 
-      // 実行情報を取得
-      const execution = await executionRepository.findById(item.executionId);
-      if (!execution) {
-        vscode.window.showErrorMessage('実行情報が見つかりません');
-        return;
-      }
-
-      // コミットハッシュがない場合
-      if (!execution.commitHash) {
-        vscode.window.showErrorMessage(
-          'この実行にはコミットハッシュが記録されていません。Git統合が有効な状態で実行されたテストのみコピーできます。',
-        );
-        return;
-      }
-
-      // そのコミット時点でのソースファイル一覧を取得
-      const files = await gitAdapter.getSourceFilesAtCommit(execution.commitHash);
-
-      if (files.length === 0) {
-        vscode.window.showInformationMessage('コピー対象のソースファイルが見つかりませんでした');
-        return;
-      }
+      const preparation = await copySourceAtExecutionUseCase.prepare(item.executionId);
 
       let selectedFile: string;
 
-      if (files.length === 1) {
+      switch (preparation.status) {
+        case 'notFound':
+          vscode.window.showErrorMessage('実行情報が見つかりません');
+          return;
+        case 'missingCommitHash':
+          vscode.window.showErrorMessage(
+            'この実行にはコミットハッシュが記録されていません。Git統合が有効な状態で実行されたテストのみコピーできます。',
+          );
+          return;
+        case 'noFiles':
+          vscode.window.showInformationMessage('コピー対象のソースファイルが見つかりませんでした');
+          return;
+        case 'ready':
+          break;
+      }
+
+      if (preparation.files.length === 1) {
         // ファイルが1つだけの場合はそのまま使用
-        selectedFile = files[0];
+        selectedFile = preparation.files[0];
       } else {
         // 複数ファイルの場合は QuickPick で選択
         const picked = await vscode.window.showQuickPick(
-          files.map((f) => ({
+          preparation.files.map((f) => ({
             label: f,
             description: '',
           })),
@@ -66,7 +59,14 @@ export function copySourceCommand(
       }
 
       // ファイル内容を取得
-      const content = await gitAdapter.getFileContentAtCommit(execution.commitHash, selectedFile);
+      const content = await copySourceAtExecutionUseCase.loadContent(
+        item.executionId,
+        selectedFile,
+      );
+      if (content === undefined) {
+        vscode.window.showErrorMessage('実行情報が見つかりません');
+        return;
+      }
 
       // クリップボードにコピー
       await vscode.env.clipboard.writeText(content);

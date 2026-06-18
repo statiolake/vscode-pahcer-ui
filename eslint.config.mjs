@@ -56,7 +56,7 @@ export default [
     },
   },
   {
-    files: ['src/presentation/**/*.ts'],
+    files: ['src/presentation/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -64,12 +64,17 @@ export default [
           patterns: [
             {
               group: [
+                '../domain/**',
+                '../../domain/**',
+                '../../../domain/**',
+                '../../../../domain/**',
                 '../infrastructure/**',
                 '../../infrastructure/**',
                 '../../../infrastructure/**',
                 '../../../../infrastructure/**',
               ],
-              message: 'Presentation layer must not import infrastructure directly.',
+              message:
+                'Presentation layer must depend on application APIs, not domain or infrastructure.',
             },
           ],
         },

@@ -12,8 +12,7 @@ export function isValidExpression(expr: string, _variableNames?: string[]): bool
     // 構文のみをチェック（評価なし）
     parseExpression(expr);
     return true;
-  } catch (e) {
-    console.warn(`式 '${expr}' の検証エラー:`, e);
+  } catch {
     return false;
   }
 }

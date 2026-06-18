@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-import type { IExecutionRepository } from '../../../domain/interfaces/IExecutionRepository';
+import type { UpdateExecutionCommentUseCase } from '../../../application/updateExecutionCommentUseCase';
 import type { PahcerTreeItem, PahcerTreeViewController } from '../pahcerTreeViewController';
 
 /**
  * コメント追加コマンドハンドラ
  */
 export function addCommentCommand(
-  executionRepository: IExecutionRepository,
+  updateExecutionCommentUseCase: UpdateExecutionCommentUseCase,
   treeViewController: PahcerTreeViewController,
 ): (item: PahcerTreeItem) => Promise<void> {
   return async (item: PahcerTreeItem) => {
@@ -26,13 +26,11 @@ export function addCommentCommand(
 
     // Update comment in pahcer's JSON file
     try {
-      const execution = await executionRepository.findById(item.executionId);
-      if (!execution) {
+      const updated = await updateExecutionCommentUseCase.update(item.executionId, comment);
+      if (!updated) {
         vscode.window.showErrorMessage('実行結果が見つかりませんでした');
         return;
       }
-      execution.comment = comment;
-      await executionRepository.upsert(execution);
 
       // Refresh tree view
       treeViewController.refresh();

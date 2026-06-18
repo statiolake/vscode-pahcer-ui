@@ -20,3 +20,57 @@ export interface ComparisonData {
   stderrData: Record<string, Record<number, Record<string, number>>>;
   config: ComparisonConfig;
 }
+
+export interface ComparisonViewOptions {
+  featureString: string;
+  xAxis: string;
+  yAxis: string;
+  chartType: 'line' | 'scatter';
+  skipFailed: boolean;
+  filter: string;
+}
+
+export interface ComparisonChartPoint {
+  x: number;
+  y: number;
+  resultId: string;
+  seed: number;
+  variables?: Record<string, number>;
+  group?: Array<{ seed: number; y: number }>;
+}
+
+export interface ComparisonChartDataset {
+  label: string;
+  resultId: string;
+  data: ComparisonChartPoint[];
+}
+
+export interface ComparisonChartReadModel {
+  datasets: ComparisonChartDataset[];
+  xAxisLabel: string;
+  yAxisLabel: string;
+}
+
+export interface ComparisonStatsRow {
+  name: string;
+  totalScore: number;
+  mean: number;
+  sd: number;
+  bestCount: number;
+  uniqueBestCount: number;
+  failCount: number;
+  filteredCount: number;
+  totalCount: number;
+}
+
+export interface ComparisonExpressionValidation {
+  xAxis: boolean;
+  yAxis: boolean;
+  filter: boolean;
+}
+
+export interface ComparisonViewReadModel {
+  chart: ComparisonChartReadModel;
+  stats: ComparisonStatsRow[];
+  validation: ComparisonExpressionValidation;
+}

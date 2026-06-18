@@ -1,51 +1,85 @@
-import type { PahcerConfig } from '../../domain/models/configFile';
-import type { Execution } from '../../domain/models/execution';
-import type { TestCase, TestCaseId } from '../../domain/models/testCase';
-import type { ExecutionStatsCalculator } from '../../domain/services/executionStatsAggregator';
-import type { SeedStatsCalculator } from '../../domain/services/seedStatsCalculator';
-
 /**
- * TreeView の集計表示に必要な軽量テストケース情報。
- *
- * Entity ではなく、TreeView 表示ユースケース向けの参照専用 DTO。
+ * Tree 表示ユースケース向けの実行結果 DTO。
  */
-export class TreeViewTestCaseSummary {
-  constructor(
-    public readonly id: TestCaseId,
-    public readonly score: number,
-    public readonly executionTime: number,
-    public readonly errorMessage: string,
-  ) {}
+export interface TreeExecutionSummary {
+  id: string;
+  shortTitle: string;
+  longTitle: string;
+  titleWithHash: string;
+  startTimeMillis: number;
+  comment: string;
+  tagName: string | null;
+  commitHash?: string;
 }
 
 /**
- * TreeView 表示ユースケース向けの集約 DTO。
+ * Tree 表示ユースケース向けのテストケース DTO。
+ */
+export interface TreeTestCase {
+  executionId: string;
+  seed: number;
+  score: number;
+  executionTime: number;
+  errorMessage: string;
+  foundOutput: boolean;
+}
+
+/**
+ * Tree の集計表示に必要な軽量テストケース情報。
+ */
+export interface TreeViewTestCaseSummary {
+  executionId: string;
+  seed: number;
+  score: number;
+  executionTime: number;
+  errorMessage: string;
+}
+
+export interface TreeExecutionStats {
+  execution: TreeExecutionSummary;
+  caseCount: number;
+  acCount: number;
+  totalScore: number;
+  averageScore: number;
+  averageRelativeScore: number;
+  maxExecutionTime: number;
+  waSeeds: number[];
+}
+
+/**
+ * Tree 表示ユースケース向けの集約 DTO。
  */
 export class PahcerTreeData {
   constructor(
-    public readonly executions: Execution[],
+    public readonly executions: TreeExecutionSummary[],
     public readonly testCases: TreeViewTestCaseSummary[],
-    public readonly config: PahcerConfig,
+    public readonly objective: 'max' | 'min',
     public readonly bestScores: Map<number, number>,
-    public readonly executionStatsList: ExecutionStatsCalculator.ExecutionStats[],
+    public readonly executionStatsList: TreeExecutionStats[],
   ) {}
 }
 
 export interface TreeExecutionCase {
-  testCase: TestCase;
+  testCase: TreeTestCase;
   relativeScore: number;
 }
 
 export interface TreeExecutionCases {
-  executionStats: ExecutionStatsCalculator.ExecutionStats;
+  executionStats: TreeExecutionStats;
   cases: TreeExecutionCase[];
 }
 
 export interface TreeSeedExecution {
-  execution: Execution;
-  testCase: TestCase;
+  execution: TreeExecutionSummary;
+  testCase: TreeTestCase;
   relativeScore: number;
   isLatest: boolean;
 }
 
-export type TreeSeedStats = SeedStatsCalculator.SeedStats;
+export interface TreeSeedStats {
+  seed: number;
+  count: number;
+  averageScore: number;
+  averageRelativeScore: number;
+  bestScore: number;
+}

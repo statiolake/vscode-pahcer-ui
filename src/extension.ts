@@ -1,11 +1,17 @@
 import * as vscode from 'vscode';
+import { CheckPahcerStatusUseCase } from './application/checkPahcerStatusUseCase';
 import { CommitResultsUseCase } from './application/commitResultsUseCase';
+import { CopySourceAtExecutionUseCase } from './application/copySourceAtExecutionUseCase';
 import { InitializeUseCase } from './application/initializeUseCase';
 import { LoadComparisonDataUseCase } from './application/loadComparisonDataUseCase';
 import { LoadPahcerTreeDataUseCase } from './application/loadPahcerTreeDataUseCase';
+import { OpenCaseFileUseCase } from './application/openCaseFileUseCase';
 import type { ITestCaseSummaryQueryService } from './application/queryServices/testCaseSummaryQueryService';
 import type { IComparisonConfigRepository } from './application/repositories/IComparisonConfigRepository';
 import { RunPahcerUseCase } from './application/runPahcerUseCase';
+import { ShowExecutionDiffUseCase } from './application/showExecutionDiffUseCase';
+import { UpdateExecutionCommentUseCase } from './application/updateExecutionCommentUseCase';
+import { VisualizerUseCase } from './application/visualizerUseCase';
 import type { IExecutionRepository } from './domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from './domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from './domain/interfaces/ITestCaseRepository';
@@ -86,6 +92,12 @@ interface UseCases {
   loadPahcerTreeDataUseCase: LoadPahcerTreeDataUseCase;
   loadComparisonDataUseCase: LoadComparisonDataUseCase;
   initializeUseCase: InitializeUseCase;
+  checkPahcerStatusUseCase: CheckPahcerStatusUseCase;
+  updateExecutionCommentUseCase: UpdateExecutionCommentUseCase;
+  openCaseFileUseCase: OpenCaseFileUseCase;
+  copySourceAtExecutionUseCase: CopySourceAtExecutionUseCase;
+  showExecutionDiffUseCase: ShowExecutionDiffUseCase;
+  visualizerUseCase: VisualizerUseCase;
 }
 
 /**
@@ -161,6 +173,24 @@ function initializeUseCases(
     adapters.pahcerConfigRepository,
     workspaceName,
   );
+  const checkPahcerStatusUseCase = new CheckPahcerStatusUseCase(adapters.pahcerAdapter);
+  const updateExecutionCommentUseCase = new UpdateExecutionCommentUseCase(
+    adapters.executionRepository,
+  );
+  const openCaseFileUseCase = new OpenCaseFileUseCase(adapters.inOutFilesAdapter);
+  const copySourceAtExecutionUseCase = new CopySourceAtExecutionUseCase(
+    adapters.executionRepository,
+    adapters.gitAdapter,
+  );
+  const showExecutionDiffUseCase = new ShowExecutionDiffUseCase(
+    adapters.executionRepository,
+    adapters.gitAdapter,
+  );
+  const visualizerUseCase = new VisualizerUseCase(
+    adapters.inOutFilesAdapter,
+    adapters.executionRepository,
+    adapters.visualizerAdapter,
+  );
 
   return {
     commitResultsUseCase,
@@ -168,6 +198,12 @@ function initializeUseCases(
     loadPahcerTreeDataUseCase,
     loadComparisonDataUseCase,
     initializeUseCase,
+    checkPahcerStatusUseCase,
+    updateExecutionCommentUseCase,
+    openCaseFileUseCase,
+    copySourceAtExecutionUseCase,
+    showExecutionDiffUseCase,
+    visualizerUseCase,
   };
 }
 
@@ -177,21 +213,17 @@ function initializeUseCases(
 function initializeControllers(
   context: vscode.ExtensionContext,
   appUIConfig: AppUIConfig,
-  adapters: Adapters,
   useCases: UseCases,
 ): Controllers {
   const treeViewController = new PahcerTreeViewController(
     appUIConfig,
-    adapters.pahcerAdapter,
+    useCases.checkPahcerStatusUseCase,
     useCases.loadPahcerTreeDataUseCase,
-    adapters.executionRepository,
     new TreeItemBuilder(),
   );
   const visualizerViewController = new VisualizerViewController(
     context,
-    adapters.inOutFilesAdapter,
-    adapters.executionRepository,
-    adapters.visualizerAdapter,
+    useCases.visualizerUseCase,
   );
   const comparisonViewController = new ComparisonViewController(
     context,
@@ -229,6 +261,7 @@ async function registerTreeView(
   appUIConfig: AppUIConfig,
   vscodeUIContext: VSCodeUIContext,
   controllers: Controllers,
+  useCases: UseCases,
 ): Promise<vscode.TreeView<unknown>> {
   const treeView = vscode.window.createTreeView('pahcerResults', {
     treeDataProvider: controllers.treeViewController,
@@ -253,9 +286,9 @@ async function registerTreeView(
     await controllers.comparisonViewController.showComparison(checkedResults);
 
     // Update context for diff button visibility
-    const resultsWithCommitHash =
-      await controllers.treeViewController.getCheckedResultsWithCommitHash();
-    await vscodeUIContext.setCanShowDiff(resultsWithCommitHash.length === 2);
+    await vscodeUIContext.setCanShowDiff(
+      await useCases.showExecutionDiffUseCase.canShowDiff(checkedResults),
+    );
   });
 
   return treeView;
@@ -287,7 +320,6 @@ function registerRunOptionsView(
 function registerCommands(
   appUIConfig: AppUIConfig,
   vscodeUIContext: VSCodeUIContext,
-  adapters: Adapters,
   controllers: Controllers,
   useCases: UseCases,
 ): vscode.Disposable[] {
@@ -334,27 +366,27 @@ function registerCommands(
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.addComment',
-      addCommentCommand(adapters.executionRepository, controllers.treeViewController),
+      addCommentCommand(useCases.updateExecutionCommentUseCase, controllers.treeViewController),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.openInputFile',
-      openInputFileCommand(adapters.inOutFilesAdapter),
+      openInputFileCommand(useCases.openCaseFileUseCase),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.openOutputFile',
-      openOutputFileCommand(adapters.inOutFilesAdapter),
+      openOutputFileCommand(useCases.openCaseFileUseCase),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.openErrorFile',
-      openErrorFileCommand(adapters.inOutFilesAdapter),
+      openErrorFileCommand(useCases.openCaseFileUseCase),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.showDiff',
-      showDiffCommand(controllers.treeViewController, adapters.gitAdapter),
+      showDiffCommand(controllers.treeViewController, useCases.showExecutionDiffUseCase),
     ),
     vscode.commands.registerCommand(
       'pahcer-ui.copySource',
-      copySourceCommand(adapters.executionRepository, adapters.gitAdapter),
+      copySourceCommand(useCases.copySourceAtExecutionUseCase),
     ),
   ];
 }
@@ -373,23 +405,23 @@ export async function activate(context: vscode.ExtensionContext) {
   // UI を初期化する
   const appUIConfig = new AppUIConfig();
   const vscodeUIContext = new VSCodeUIContext();
-  await vscodeUIContext.setPahcerStatus(await adapters.pahcerAdapter.checkStatus());
   await vscodeUIContext.setShowInitialization(false);
 
   // Initialize all use cases
   const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name ?? '';
   const useCases = initializeUseCases(adapters, workspaceName, appUIConfig);
+  await vscodeUIContext.setPahcerStatus(await useCases.checkPahcerStatusUseCase.check());
 
   // Initialize all controllers
-  const controllers = initializeControllers(context, appUIConfig, adapters, useCases);
+  const controllers = initializeControllers(context, appUIConfig, useCases);
 
   // Register all views
   const initializationView = registerInitializationView(context, vscodeUIContext, useCases);
-  const treeView = await registerTreeView(appUIConfig, vscodeUIContext, controllers);
+  const treeView = await registerTreeView(appUIConfig, vscodeUIContext, controllers, useCases);
   const runOptionsView = registerRunOptionsView(context, vscodeUIContext, useCases);
 
   // Register all commands
-  const commands = registerCommands(appUIConfig, vscodeUIContext, adapters, controllers, useCases);
+  const commands = registerCommands(appUIConfig, vscodeUIContext, controllers, useCases);
 
   // Add all disposables to context
   context.subscriptions.push(initializationView, treeView, runOptionsView, ...commands);

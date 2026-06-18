@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
-import type { TestCase } from '../../../domain/models/testCase';
-import type { ExecutionStatsCalculator } from '../../../domain/services/executionStatsAggregator';
-import type { SeedStatsCalculator } from '../../../domain/services/seedStatsCalculator';
+import type {
+  TreeExecutionStats,
+  TreeSeedStats,
+  TreeTestCase,
+} from '../../../application/dtos/pahcerTreeData';
 
 /**
  * TreeItem を生成するビルダー
@@ -11,11 +13,11 @@ export class TreeItemBuilder {
    * 実行結果のTreeItemを生成
    */
   buildExecutionItem(
-    executionStats: ExecutionStatsCalculator.ExecutionStats,
+    executionStats: TreeExecutionStats,
     comparisonMode: boolean,
     isChecked: boolean,
   ): vscode.TreeItem {
-    const time = executionStats.execution.getShortTitle();
+    const time = executionStats.execution.shortTitle;
     const avgScore = executionStats.averageScore.toFixed(1);
     const avgRel = executionStats.averageRelativeScore.toFixed(2);
 
@@ -80,7 +82,7 @@ export class TreeItemBuilder {
   /**
    * サマリーのTreeItemを生成
    */
-  buildSummaryItem(executionStats: ExecutionStatsCalculator.ExecutionStats): vscode.TreeItem {
+  buildSummaryItem(executionStats: TreeExecutionStats): vscode.TreeItem {
     const summaryLabel = `AC: ${executionStats.acCount}/${executionStats.caseCount}, Total Score: ${executionStats.totalScore.toLocaleString()}, Max Time: ${(executionStats.maxExecutionTime * 1000).toFixed(0)}ms`;
     const summaryItem = new vscode.TreeItem(summaryLabel, vscode.TreeItemCollapsibleState.None);
     summaryItem.contextValue = 'summary';
@@ -94,8 +96,12 @@ export class TreeItemBuilder {
    * @param relativeScore 相対スコア（%）
    * @param resultId 実行結果ID
    */
-  buildTestCaseItem(testCase: TestCase, relativeScore: number, resultId?: string): vscode.TreeItem {
-    const seedStr = String(testCase.id.seed).padStart(4, '0');
+  buildTestCaseItem(
+    testCase: TreeTestCase,
+    relativeScore: number,
+    resultId?: string,
+  ): vscode.TreeItem {
+    const seedStr = String(testCase.seed).padStart(4, '0');
     const label = `${seedStr}: ${testCase.score} (${relativeScore.toFixed(3)}%)`;
     const description = `${(testCase.executionTime * 1000).toFixed(2)}ms`;
 
@@ -108,14 +114,14 @@ export class TreeItemBuilder {
       item.command = {
         command: 'pahcer-ui.showVisualizer',
         title: 'Show Visualizer',
-        arguments: [testCase.id.seed, resultId],
+        arguments: [testCase.seed, resultId],
       };
     } else {
       // For cases without output file, show error notification
       item.command = {
         command: 'pahcer-ui.showResultsNotFoundError',
         title: 'Show Results Not Found Error',
-        arguments: [testCase.id.seed],
+        arguments: [testCase.seed],
       };
     }
 
@@ -135,7 +141,7 @@ export class TreeItemBuilder {
   /**
    * SeedのTreeItemを生成
    */
-  buildSeedItem(stats: SeedStatsCalculator.SeedStats): vscode.TreeItem {
+  buildSeedItem(stats: TreeSeedStats): vscode.TreeItem {
     const seedStr = String(stats.seed).padStart(4, '0');
     const label = seedStr;
     const description = `${stats.count} runs - Avg: ${stats.averageScore.toFixed(2)}`;
@@ -161,7 +167,7 @@ export class TreeItemBuilder {
    */
   buildSeedExecutionItem(
     time: string,
-    testCase: TestCase,
+    testCase: TreeTestCase,
     relativeScore: number,
     seed: number,
     resultId: string,
