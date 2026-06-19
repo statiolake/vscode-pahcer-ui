@@ -54,8 +54,8 @@ type SourcePreparation =
   | { status: 'ready'; files: string[] };
 
 const executionSortOptions: Array<{ value: ExecutionSortOrder; label: string }> = [
-  { value: 'seedAsc', label: 'Seed 昇順' },
-  { value: 'seedDesc', label: 'Seed 降順' },
+  { value: 'seedAsc', label: 'シード 昇順' },
+  { value: 'seedDesc', label: 'シード 降順' },
   { value: 'relativeScoreDesc', label: '相対スコア 降順' },
   { value: 'relativeScoreAsc', label: '相対スコア 昇順' },
   { value: 'absoluteScoreDesc', label: '絶対スコア 降順' },
@@ -244,7 +244,7 @@ function App() {
   async function openCaseFile(kind: CaseFileKind, executionId: string, seed: number) {
     const query = new URLSearchParams({ kind, executionId, seed: String(seed) });
     const file = await fetchJson<FileView>(`/api/case-file?${query}`);
-    setFileView({ ...file, title: `${kind}: seed ${seed}` });
+    setFileView({ ...file, title: `${caseFileKindLabel(kind)}: シード ${seed}` });
     setActivePanel('case');
   }
 
@@ -304,7 +304,7 @@ function App() {
       <style>{styles}</style>
       <header className="commandBar">
         <div className="brand">
-          <strong>Pahcer UI</strong>
+          <strong>Pahcer</strong>
           <span>{status?.workspaceRoot ?? ''}</span>
         </div>
         <span className="statusChip">{statusLabel(status?.status)}</span>
@@ -321,7 +321,7 @@ function App() {
       {status?.status === 'notInstalled' && (
         <section className="welcome">
           <h1>pahcer が見つかりません</h1>
-          <p>この workspace で pahcer コマンドを実行できる状態にしてください。</p>
+          <p>このワークスペースで pahcer コマンドを実行できる状態にしてください。</p>
           <a href="https://github.com/terry-u16/pahcer" target="_blank" rel="noreferrer">
             pahcer を開く
           </a>
@@ -331,7 +331,7 @@ function App() {
       {status?.status === 'notInitialized' && (
         <section className="welcome">
           <h1>初期化が必要です</h1>
-          <p>問題名、目的、言語、テスターを指定して workspace を初期化します。</p>
+          <p>問題名、目的、言語、テスターを指定してワークスペースを初期化します。</p>
           <InitializePanel
             defaultProjectName={status.defaultProjectName}
             onInitialize={(request) => void initialize(request)}
@@ -344,8 +344,8 @@ function App() {
           <aside className="sideBar">
             <div className="resultHeader">
               <div>
-                <h2>Results</h2>
-                <p>{selectedExecutionIds.length} selected</p>
+                <h2>実行結果</h2>
+                <p>{selectedExecutionIds.length} 件を選択中</p>
               </div>
               <div className="contextActions">
                 <button
@@ -353,13 +353,13 @@ function App() {
                   className="primaryAction"
                   onClick={() => void runPahcer({ freezeBestScores: false })}
                 >
-                  Run
+                  実行
                 </button>
                 <button type="button" onClick={() => setActivePanel('run')}>
-                  Options
+                  条件指定
                 </button>
                 <button type="button" onClick={() => void reload()}>
-                  Refresh
+                  更新
                 </button>
               </div>
             </div>
@@ -376,7 +376,7 @@ function App() {
                 className={mode === 'bySeed' ? 'active' : ''}
                 onClick={() => void updatePreferences({ groupingMode: 'bySeed' })}
               >
-                Seed
+                シード
               </button>
               <select
                 value={
@@ -496,9 +496,9 @@ function App() {
 
             {activePanel === 'visualizer' &&
               (visualizerSrc ? (
-                <iframe className="visualizer" src={visualizerSrc} title="visualizer" />
+                <iframe className="visualizer" src={visualizerSrc} title="ビジュアライザ" />
               ) : (
-                <EmptyPanel text="ケースから Visualizer を開いてください" />
+                <EmptyPanel text="ケースを選択してビジュアライザを開いてください" />
               ))}
 
             {activePanel === 'run' && <RunPanel onRun={(options) => void runPahcer(options)} />}
@@ -561,7 +561,7 @@ function ExecutionTree(props: {
               }}
             />
             <button type="button" onClick={() => props.onPrepareSource(stats.execution.id)}>
-              Source
+              ソース
             </button>
           </div>
           {props.openExecutionId === stats.execution.id && props.cases && (
@@ -593,7 +593,7 @@ function SeedTree(props: {
   onSelectCase: (executionId: string, seed: number) => void;
 }) {
   if (props.seeds.length === 0) {
-    return <EmptyPanel text="Seed がありません" />;
+    return <EmptyPanel text="シードがありません" />;
   }
 
   return (
@@ -609,7 +609,7 @@ function SeedTree(props: {
               {props.openSeed === seed.seed ? 'v' : '>'}
             </button>
             <button type="button" className="treeLabel" onClick={() => props.onOpenSeed(seed.seed)}>
-              Seed {seed.seed}
+              シード {seed.seed}
             </button>
             <span className="score">{formatNumber(seed.bestScore)}</span>
           </div>
@@ -644,10 +644,10 @@ function SeedTree(props: {
 function SummaryRow(props: { stats: TreeExecutionStats }) {
   return (
     <div className="summaryRow">
-      <span>cases {props.stats.caseCount}</span>
+      <span>ケース {props.stats.caseCount}</span>
       <span>AC {props.stats.acCount}</span>
-      <span>avg {formatNumber(props.stats.averageScore)}</span>
-      <span>relative {formatNumber(props.stats.averageRelativeScore)}%</span>
+      <span>平均 {formatNumber(props.stats.averageScore)}</span>
+      <span>相対 {formatNumber(props.stats.averageRelativeScore)}%</span>
     </div>
   );
 }
@@ -660,10 +660,10 @@ function CaseRow(props: { testCase: TreeTestCase; relativeScore: number; onSelec
       className={failed ? 'treeRow caseRow failed' : 'treeRow caseRow'}
       onClick={props.onSelect}
     >
-      <span>Seed {props.testCase.seed}</span>
+      <span>シード {props.testCase.seed}</span>
       <span>{formatNumber(props.testCase.score)}</span>
       <span>{formatNumber(props.relativeScore)}%</span>
-      <span>{formatNumber(props.testCase.executionTime)}s</span>
+      <span>{formatNumber(props.testCase.executionTime)} 秒</span>
     </button>
   );
 }
@@ -730,7 +730,7 @@ function ComparisonPanel(props: {
         </div>
         {props.selectedCount === 2 && (
           <button type="button" onClick={props.onShowDiff}>
-            Diff
+            差分を表示
           </button>
         )}
       </div>
@@ -739,32 +739,32 @@ function ComparisonPanel(props: {
         <>
           <div className="formGrid comparisonControls">
             <label>
-              feature
+              特徴量
               <input
                 value={featureString}
                 onChange={(event) => setFeatureString(event.target.value)}
               />
             </label>
             <label>
-              x
+              X 軸
               <input value={xAxis} onChange={(event) => setXAxis(event.target.value)} />
             </label>
             <label>
-              y
+              Y 軸
               <input value={yAxis} onChange={(event) => setYAxis(event.target.value)} />
             </label>
             <label>
-              chart
+              グラフ
               <select
                 value={chartType}
                 onChange={(event) => setChartType(event.target.value as 'line' | 'scatter')}
               >
-                <option value="line">line</option>
-                <option value="scatter">scatter</option>
+                <option value="line">折れ線</option>
+                <option value="scatter">散布図</option>
               </select>
             </label>
             <label>
-              filter
+              絞り込み
               <input value={filter} onChange={(event) => setFilter(event.target.value)} />
             </label>
             <label className="checkLabel">
@@ -773,7 +773,7 @@ function ComparisonPanel(props: {
                 checked={skipFailed}
                 onChange={(event) => setSkipFailed(event.target.checked)}
               />
-              failed を除外
+              失敗ケースを除外
             </label>
           </div>
           {readModel && (
@@ -787,7 +787,7 @@ function ComparisonPanel(props: {
                         <i
                           key={`${point.resultId}:${point.seed}:${point.x}`}
                           style={{ height: `${Math.max(4, Math.min(100, point.y))}%` }}
-                          title={`seed ${point.seed}: ${formatNumber(point.y)}`}
+                          title={`シード ${point.seed}: ${formatNumber(point.y)}`}
                         />
                       ))}
                     </div>
@@ -798,11 +798,11 @@ function ComparisonPanel(props: {
                 <thead>
                   <tr>
                     <th>実行</th>
-                    <th>Total</th>
-                    <th>Mean</th>
-                    <th>SD</th>
-                    <th>Best</th>
-                    <th>Fail</th>
+                    <th>合計</th>
+                    <th>平均</th>
+                    <th>標準偏差</th>
+                    <th>最良</th>
+                    <th>失敗</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -835,19 +835,19 @@ function CasePanel(props: {
   return (
     <div className="panelContent">
       <div className="panelHeader">
-        <h2>Seed {props.selectedCase.seed}</h2>
+        <h2>シード {props.selectedCase.seed}</h2>
         <div className="commands caseCommands">
           <button type="button" onClick={() => props.onOpenFile('input')}>
-            Input
+            入力
           </button>
           <button type="button" onClick={() => props.onOpenFile('output')}>
-            Output
+            出力
           </button>
           <button type="button" onClick={() => props.onOpenFile('error')}>
-            Error
+            エラー
           </button>
           <button type="button" onClick={props.onVisualizer}>
-            Visualizer
+            ビジュアライザ
           </button>
         </div>
       </div>
@@ -865,7 +865,7 @@ function DiffPanel(props: { diff: DiffView | null; selectedCount: number }) {
     return <EmptyPanel text={`差分対象: ${props.selectedCount}/2 件`} />;
   }
   if (props.diff.status !== 'shown') {
-    return <EmptyPanel text={`差分を表示できません: ${props.diff.status}`} />;
+    return <EmptyPanel text={diffStatusLabel(props.diff.status)} />;
   }
   if (!props.diff.files || props.diff.files.length === 0) {
     return <EmptyPanel text="表示対象の変更ファイルはありません" />;
@@ -889,9 +889,9 @@ function SourcePanel(props: {
   return (
     <div className="panelContent">
       <div className="panelHeader">
-        <h2>Source</h2>
+        <h2>ソース</h2>
         <button type="button" onClick={props.onPrepare}>
-          Load files
+          ファイルを読み込む
         </button>
       </div>
       {props.preparation?.status === 'ready' && (
@@ -904,7 +904,7 @@ function SourcePanel(props: {
         </div>
       )}
       {props.preparation && props.preparation.status !== 'ready' && (
-        <EmptyPanel text={`ソースを取得できません: ${props.preparation.status}`} />
+        <EmptyPanel text={sourcePreparationStatusLabel(props.preparation.status)} />
       )}
       {props.sourceView && <FileBlock file={props.sourceView} />}
     </div>
@@ -925,14 +925,14 @@ function RunPanel(props: {
   const [enableGitIntegration, setEnableGitIntegration] = useState(false);
   return (
     <div className="panelContent narrow">
-      <h2>Run options</h2>
+      <h2>実行オプション</h2>
       <div className="formGrid">
         <label>
-          start seed
+          開始シード
           <input value={startSeed} onChange={(event) => setStartSeed(event.target.value)} />
         </label>
         <label>
-          end seed
+          終了シード
           <input value={endSeed} onChange={(event) => setEndSeed(event.target.value)} />
         </label>
         <label className="checkLabel">
@@ -941,7 +941,7 @@ function RunPanel(props: {
             checked={freezeBestScores}
             onChange={(event) => setFreezeBestScores(event.target.checked)}
           />
-          freeze best scores
+          ベストスコアを固定する
         </label>
         <label className="checkLabel">
           <input
@@ -949,7 +949,7 @@ function RunPanel(props: {
             checked={enableGitIntegration}
             onChange={(event) => setEnableGitIntegration(event.target.checked)}
           />
-          git integration
+          Git 連携を使う
         </label>
       </div>
       <button
@@ -963,7 +963,7 @@ function RunPanel(props: {
           })
         }
       >
-        Run
+        実行
       </button>
     </div>
   );
@@ -988,38 +988,38 @@ function InitializePanel(props: {
   const [useDetectedInteractive, setUseDetectedInteractive] = useState(true);
   return (
     <div className="panelContent narrow">
-      <h2>Initialize</h2>
+      <h2>初期化</h2>
       <div className="formGrid">
         <label>
-          problem
+          問題名
           <input value={problemName} onChange={(event) => setProblemName(event.target.value)} />
         </label>
         <label>
-          objective
+          目的
           <select
             value={objective}
             onChange={(event) => setObjective(event.target.value as 'max' | 'min')}
           >
-            <option value="max">max</option>
-            <option value="min">min</option>
+            <option value="max">最大化</option>
+            <option value="min">最小化</option>
           </select>
         </label>
         <label>
-          language
+          言語
           <select
             value={language}
             onChange={(event) =>
               setLanguage(event.target.value as 'rust' | 'cpp' | 'python' | 'go')
             }
           >
-            <option value="rust">rust</option>
-            <option value="cpp">cpp</option>
-            <option value="python">python</option>
-            <option value="go">go</option>
+            <option value="rust">Rust</option>
+            <option value="cpp">C++</option>
+            <option value="python">Python</option>
+            <option value="go">Go</option>
           </select>
         </label>
         <label>
-          tester URL
+          テスター URL
           <input value={testerUrl} onChange={(event) => setTesterUrl(event.target.value)} />
         </label>
         <label className="checkLabel">
@@ -1028,7 +1028,7 @@ function InitializePanel(props: {
             checked={isInteractive}
             onChange={(event) => setIsInteractive(event.target.checked)}
           />
-          interactive
+          インタラクティブ
         </label>
         <label className="checkLabel">
           <input
@@ -1036,7 +1036,7 @@ function InitializePanel(props: {
             checked={useDetectedInteractive}
             onChange={(event) => setUseDetectedInteractive(event.target.checked)}
           />
-          detected tester type を優先
+          検出したテスター種別を使う
         </label>
       </div>
       <button
@@ -1052,7 +1052,7 @@ function InitializePanel(props: {
           })
         }
       >
-        Initialize
+        初期化
       </button>
     </div>
   );
@@ -1063,7 +1063,7 @@ function FileBlock(props: { file: FileView }) {
     <section className="fileBlock">
       <h3>{props.file.title}</h3>
       {props.file.path && <p>{props.file.path}</p>}
-      <pre>{props.file.content || '(empty)'}</pre>
+      <pre>{props.file.content || '(空)'}</pre>
     </section>
   );
 }
@@ -1098,26 +1098,63 @@ function panelLabel(panel: Panel): string {
     case 'source':
       return 'ソース';
     case 'visualizer':
-      return 'Visualizer';
+      return 'ビジュアライザ';
     case 'run':
-      return 'Run';
+      return '実行';
     case 'initialize':
-      return 'Init';
+      return '初期化';
   }
 }
 
 function statusLabel(status: PahcerStatusView | undefined): string {
   switch (status) {
     case 'ready':
-      return 'Ready';
+      return '準備完了';
     case 'notInitialized':
-      return 'Not initialized';
+      return '未初期化';
     case 'notInstalled':
-      return 'Not installed';
+      return '未インストール';
     case 'unknown':
-      return 'Unknown';
+      return '状態不明';
     default:
-      return 'Loading';
+      return '読み込み中';
+  }
+}
+
+function caseFileKindLabel(kind: CaseFileKind): string {
+  switch (kind) {
+    case 'input':
+      return '入力';
+    case 'output':
+      return '出力';
+    case 'error':
+      return 'エラー';
+  }
+}
+
+function sourcePreparationStatusLabel(status: SourcePreparation['status']): string {
+  switch (status) {
+    case 'notFound':
+      return '実行結果が見つかりません';
+    case 'missingCommitHash':
+      return 'コミット情報がありません';
+    case 'noFiles':
+      return '表示できるソースファイルがありません';
+    case 'ready':
+      return '読み込み可能です';
+  }
+}
+
+function diffStatusLabel(status: string): string {
+  switch (status) {
+    case 'invalidSelection':
+      return '比較する実行を 2 件選択してください';
+    case 'missingCommitHash':
+      return 'コミット情報がないため差分を表示できません';
+    case 'shown':
+      return '表示済み';
+    default:
+      return status;
   }
 }
 
