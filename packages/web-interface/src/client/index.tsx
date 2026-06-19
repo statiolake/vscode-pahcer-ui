@@ -54,19 +54,19 @@ type SourcePreparation =
   | { status: 'ready'; files: string[] };
 
 const executionSortOptions: Array<{ value: ExecutionSortOrder; label: string }> = [
-  { value: 'seedAsc', label: 'シード 昇順' },
-  { value: 'seedDesc', label: 'シード 降順' },
-  { value: 'relativeScoreDesc', label: '相対スコア 降順' },
-  { value: 'relativeScoreAsc', label: '相対スコア 昇順' },
-  { value: 'absoluteScoreDesc', label: '絶対スコア 降順' },
-  { value: 'absoluteScoreAsc', label: '絶対スコア 昇順' },
+  { value: 'seedAsc', label: 'シードの昇順' },
+  { value: 'seedDesc', label: 'シードの降順' },
+  { value: 'relativeScoreDesc', label: '相対スコアの降順' },
+  { value: 'relativeScoreAsc', label: '相対スコアの昇順' },
+  { value: 'absoluteScoreDesc', label: '絶対スコアの降順' },
+  { value: 'absoluteScoreAsc', label: '絶対スコアの昇順' },
 ];
 
 const seedSortOptions: Array<{ value: SeedSortOrder; label: string }> = [
-  { value: 'executionAsc', label: '実行 昇順' },
-  { value: 'executionDesc', label: '実行 降順' },
-  { value: 'absoluteScoreDesc', label: '絶対スコア 降順' },
-  { value: 'absoluteScoreAsc', label: '絶対スコア 昇順' },
+  { value: 'executionAsc', label: '実行の昇順' },
+  { value: 'executionDesc', label: '実行の降順' },
+  { value: 'absoluteScoreDesc', label: '絶対スコアの降順' },
+  { value: 'absoluteScoreAsc', label: '絶対スコアの昇順' },
 ];
 
 function App() {
@@ -244,7 +244,7 @@ function App() {
   async function openCaseFile(kind: CaseFileKind, executionId: string, seed: number) {
     const query = new URLSearchParams({ kind, executionId, seed: String(seed) });
     const file = await fetchJson<FileView>(`/api/case-file?${query}`);
-    setFileView({ ...file, title: `${caseFileKindLabel(kind)}: シード ${seed}` });
+    setFileView({ ...file, title: `${caseFileKindLabel(kind)}: Seed ${formatSeed(seed)}` });
     setActivePanel('case');
   }
 
@@ -344,7 +344,7 @@ function App() {
           <aside className="sideBar">
             <div className="resultHeader">
               <div>
-                <h2>実行結果</h2>
+                <h2>Pahcer Results</h2>
                 <p>{selectedExecutionIds.length} 件を選択中</p>
               </div>
               <div className="contextActions">
@@ -376,7 +376,7 @@ function App() {
                 className={mode === 'bySeed' ? 'active' : ''}
                 onClick={() => void updatePreferences({ groupingMode: 'bySeed' })}
               >
-                シード
+                Seed
               </button>
               <select
                 value={
@@ -546,9 +546,9 @@ function ExecutionTree(props: {
               className="treeLabel"
               onClick={() => props.onOpenExecution(stats.execution.id)}
             >
-              {stats.execution.titleWithHash}
+              {executionTreeLabel(stats)}
             </button>
-            <span className="score">{formatNumber(stats.totalScore)}</span>
+            <span className="score">{executionDescription(stats.execution)}</span>
           </div>
           <div className="commentLine">
             <input
@@ -609,9 +609,11 @@ function SeedTree(props: {
               {props.openSeed === seed.seed ? 'v' : '>'}
             </button>
             <button type="button" className="treeLabel" onClick={() => props.onOpenSeed(seed.seed)}>
-              シード {seed.seed}
+              {formatSeed(seed.seed)}
             </button>
-            <span className="score">{formatNumber(seed.bestScore)}</span>
+            <span className="score">
+              {seed.count} runs - Avg: {seed.averageScore.toFixed(2)}
+            </span>
           </div>
           {props.openSeed === seed.seed && (
             <div className="children">
@@ -627,10 +629,9 @@ function SeedTree(props: {
                     className="treeLabel"
                     onClick={() => props.onSelectCase(execution.execution.id, seed.seed)}
                   >
-                    {execution.execution.titleWithHash}
+                    {seedExecutionLabel(execution)}
                   </button>
-                  <span>{formatNumber(execution.testCase.score)}</span>
-                  <span>{formatNumber(execution.relativeScore)}%</span>
+                  <span>{formatExecutionTime(execution.testCase.executionTime)}</span>
                 </div>
               ))}
             </div>
@@ -644,10 +645,11 @@ function SeedTree(props: {
 function SummaryRow(props: { stats: TreeExecutionStats }) {
   return (
     <div className="summaryRow">
-      <span>ケース {props.stats.caseCount}</span>
-      <span>AC {props.stats.acCount}</span>
-      <span>平均 {formatNumber(props.stats.averageScore)}</span>
-      <span>相対 {formatNumber(props.stats.averageRelativeScore)}%</span>
+      <span>
+        AC: {props.stats.acCount}/{props.stats.caseCount}
+      </span>
+      <span>Total Score: {props.stats.totalScore.toLocaleString()}</span>
+      <span>Max Time: {(props.stats.maxExecutionTime * 1000).toFixed(0)}ms</span>
     </div>
   );
 }
@@ -660,10 +662,11 @@ function CaseRow(props: { testCase: TreeTestCase; relativeScore: number; onSelec
       className={failed ? 'treeRow caseRow failed' : 'treeRow caseRow'}
       onClick={props.onSelect}
     >
-      <span>シード {props.testCase.seed}</span>
-      <span>{formatNumber(props.testCase.score)}</span>
-      <span>{formatNumber(props.relativeScore)}%</span>
-      <span>{formatNumber(props.testCase.executionTime)} 秒</span>
+      <span>
+        {formatSeed(props.testCase.seed)}: {formatNumber(props.testCase.score)} (
+        {props.relativeScore.toFixed(3)}%)
+      </span>
+      <span>{formatExecutionTime(props.testCase.executionTime)}</span>
     </button>
   );
 }
@@ -739,18 +742,18 @@ function ComparisonPanel(props: {
         <>
           <div className="formGrid comparisonControls">
             <label>
-              特徴量
+              Features:
               <input
                 value={featureString}
                 onChange={(event) => setFeatureString(event.target.value)}
               />
             </label>
             <label>
-              X 軸
+              X軸:
               <input value={xAxis} onChange={(event) => setXAxis(event.target.value)} />
             </label>
             <label>
-              Y 軸
+              Y軸:
               <input value={yAxis} onChange={(event) => setYAxis(event.target.value)} />
             </label>
             <label>
@@ -764,7 +767,7 @@ function ComparisonPanel(props: {
               </select>
             </label>
             <label>
-              絞り込み
+              Filter:
               <input value={filter} onChange={(event) => setFilter(event.target.value)} />
             </label>
             <label className="checkLabel">
@@ -773,7 +776,7 @@ function ComparisonPanel(props: {
                 checked={skipFailed}
                 onChange={(event) => setSkipFailed(event.target.checked)}
               />
-              失敗ケースを除外
+              WA を無視
             </label>
           </div>
           {readModel && (
@@ -787,7 +790,7 @@ function ComparisonPanel(props: {
                         <i
                           key={`${point.resultId}:${point.seed}:${point.x}`}
                           style={{ height: `${Math.max(4, Math.min(100, point.y))}%` }}
-                          title={`シード ${point.seed}: ${formatNumber(point.y)}`}
+                          title={`Seed ${formatSeed(point.seed)}: ${formatNumber(point.y)}`}
                         />
                       ))}
                     </div>
@@ -798,11 +801,12 @@ function ComparisonPanel(props: {
                 <thead>
                   <tr>
                     <th>実行</th>
-                    <th>合計</th>
-                    <th>平均</th>
-                    <th>標準偏差</th>
-                    <th>最良</th>
-                    <th>失敗</th>
+                    <th>スコア合計</th>
+                    <th>Mean ± SD</th>
+                    <th>#Best</th>
+                    <th>#Unique</th>
+                    <th>#Fail</th>
+                    <th>フィルタ後件数</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -810,10 +814,13 @@ function ComparisonPanel(props: {
                     <tr key={row.name}>
                       <td>{row.name}</td>
                       <td>{formatNumber(row.totalScore)}</td>
-                      <td>{formatNumber(row.mean)}</td>
-                      <td>{formatNumber(row.sd)}</td>
+                      <td>
+                        {formatNumber(row.mean)} ± {formatNumber(row.sd)}
+                      </td>
                       <td>{row.bestCount}</td>
+                      <td>{row.uniqueBestCount}</td>
                       <td>{row.failCount}</td>
+                      <td>{row.filteredCount}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -835,7 +842,7 @@ function CasePanel(props: {
   return (
     <div className="panelContent">
       <div className="panelHeader">
-        <h2>シード {props.selectedCase.seed}</h2>
+        <h2>Seed {formatSeed(props.selectedCase.seed)}</h2>
         <div className="commands caseCommands">
           <button type="button" onClick={() => props.onOpenFile('input')}>
             入力
@@ -925,15 +932,20 @@ function RunPanel(props: {
   const [enableGitIntegration, setEnableGitIntegration] = useState(false);
   return (
     <div className="panelContent narrow">
-      <h2>実行オプション</h2>
+      <h2>詳細実行オプション</h2>
       <div className="formGrid">
         <label>
-          開始シード
+          開始 Seed
           <input value={startSeed} onChange={(event) => setStartSeed(event.target.value)} />
+          <span className="fieldHelp">テストケースの開始seed値を指定します。</span>
         </label>
         <label>
-          終了シード
+          終了 Seed
           <input value={endSeed} onChange={(event) => setEndSeed(event.target.value)} />
+          <span className="fieldHelp">
+            テストケースの終了seed値を指定します。[start_seed, end_seed)
+            の半開区間が実行されるため、end_seedは区間に含まれません。
+          </span>
         </label>
         <label className="checkLabel">
           <input
@@ -941,7 +953,10 @@ function RunPanel(props: {
             checked={freezeBestScores}
             onChange={(event) => setFreezeBestScores(event.target.checked)}
           />
-          ベストスコアを固定する
+          <span>
+            ベストスコアを更新しない (--freeze-best-scores)
+            <small>チェックすると、ベストスコアの更新を行わずにテストを実行します。</small>
+          </span>
         </label>
         <label className="checkLabel">
           <input
@@ -949,7 +964,7 @@ function RunPanel(props: {
             checked={enableGitIntegration}
             onChange={(event) => setEnableGitIntegration(event.target.checked)}
           />
-          Git 連携を使う
+          <span>Git 連携を使う</span>
         </label>
       </div>
       <button
@@ -988,24 +1003,26 @@ function InitializePanel(props: {
   const [useDetectedInteractive, setUseDetectedInteractive] = useState(true);
   return (
     <div className="panelContent narrow">
-      <h2>初期化</h2>
+      <h2>Pahcer プロジェクトの初期化</h2>
       <div className="formGrid">
         <label>
           問題名
           <input value={problemName} onChange={(event) => setProblemName(event.target.value)} />
+          <span className="fieldHelp">AtCoderの問題名を入力してください。</span>
         </label>
         <label>
-          目的
+          最適化の目的
           <select
             value={objective}
             onChange={(event) => setObjective(event.target.value as 'max' | 'min')}
           >
-            <option value="max">最大化</option>
-            <option value="min">最小化</option>
+            <option value="max">スコアを最大化 (Max)</option>
+            <option value="min">スコアを最小化 (Min)</option>
           </select>
+          <span className="fieldHelp">問題のスコア最適化の方向を選択してください。</span>
         </label>
         <label>
-          言語
+          使用言語
           <select
             value={language}
             onChange={(event) =>
@@ -1017,10 +1034,16 @@ function InitializePanel(props: {
             <option value="python">Python</option>
             <option value="go">Go</option>
           </select>
+          <span className="fieldHelp">
+            プロジェクトで使用するプログラミング言語を選択してください。
+          </span>
         </label>
         <label>
-          テスター URL
+          ローカルテスターURL（オプション）
           <input value={testerUrl} onChange={(event) => setTesterUrl(event.target.value)} />
+          <span className="fieldHelp">
+            ローカルテスターのZIPファイルURLを入力すると、自動的にダウンロードして展開します。空欄の場合はスキップされます。
+          </span>
         </label>
         <label className="checkLabel">
           <input
@@ -1028,7 +1051,10 @@ function InitializePanel(props: {
             checked={isInteractive}
             onChange={(event) => setIsInteractive(event.target.checked)}
           />
-          インタラクティブ
+          <span>
+            インタラクティブ問題
+            <small>インタラクティブ問題の場合はチェックを入れてください。</small>
+          </span>
         </label>
         <label className="checkLabel">
           <input
@@ -1036,7 +1062,7 @@ function InitializePanel(props: {
             checked={useDetectedInteractive}
             onChange={(event) => setUseDetectedInteractive(event.target.checked)}
           />
-          検出したテスター種別を使う
+          <span>検出したテスター種別を使う</span>
         </label>
       </div>
       <button
@@ -1206,6 +1232,26 @@ function numberFromText(value: string): number | undefined {
 
 function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function formatSeed(seed: number): string {
+  return String(seed).padStart(4, '0');
+}
+
+function formatExecutionTime(seconds: number): string {
+  return `${(seconds * 1000).toFixed(2)}ms`;
+}
+
+function executionTreeLabel(stats: TreeExecutionStats): string {
+  return `${stats.execution.shortTitle} - Avg: ${stats.averageScore.toFixed(1)} (${stats.averageRelativeScore.toFixed(2)}%)`;
+}
+
+function seedExecutionLabel(execution: TreeSeedExecution): string {
+  return `${execution.execution.shortTitle}: ${execution.testCase.score.toLocaleString()} (${execution.relativeScore.toFixed(3)}%)`;
+}
+
+function executionDescription(execution: TreeExecutionStats['execution']): string {
+  return execution.comment || execution.tagName?.replace(/^pahcer\//, '') || '';
 }
 
 function toErrorMessage(error: unknown): string {
@@ -1423,7 +1469,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   border-radius: 6px;
 }
 .treeRow:hover { background: var(--surface-muted); }
-.caseRow { grid-template-columns: minmax(90px, 1fr) 84px 66px 66px; color: var(--muted); }
+.caseRow { grid-template-columns: minmax(120px, 1fr) auto; color: var(--muted); }
 .caseRow.failed { color: var(--danger); background: transparent; }
 .executionRow .score, .score { color: var(--accent); font-weight: 700; }
 .disclosure {
@@ -1458,7 +1504,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
 }
 .summaryRow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin: 3px 0 5px;
   padding: 7px 9px;
@@ -1506,14 +1552,22 @@ label {
   font-weight: 600;
 }
 .checkLabel {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
   gap: 8px;
   min-height: 32px;
   color: var(--text);
   font-weight: 500;
 }
 .checkLabel input { width: auto; }
+.checkLabel span { display: grid; gap: 4px; }
+.fieldHelp, .checkLabel small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+}
 .chartArea { display: grid; gap: 12px; margin: 16px 0; }
 .dataset {
   display: grid;
