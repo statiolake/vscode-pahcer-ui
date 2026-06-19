@@ -521,6 +521,11 @@ window.addEventListener('DOMContentLoaded', () => {
     document.body.style.transform = 'scale(' + zoomLevel + ')';
     document.body.style.width = (100 / zoomLevel) + '%';
     display.textContent = Math.round(zoomLevel * 100) + '%';
+    fetch('/api/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ visualizerZoomLevel: zoomLevel })
+    }).catch(() => {});
   };
   for (const item of [['-', -0.1], ['+', 0.1], ['100%', 0]]) {
     const button = document.createElement('button');

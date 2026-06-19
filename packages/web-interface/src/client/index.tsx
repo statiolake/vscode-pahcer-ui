@@ -342,6 +342,9 @@ function App() {
         <section className="welcome">
           <h1>pahcer が見つかりません</h1>
           <p>この workspace で pahcer コマンドを実行できる状態にしてください。</p>
+          <a href="https://github.com/terry-u16/pahcer" target="_blank" rel="noreferrer">
+            pahcer を開く
+          </a>
         </section>
       )}
 
@@ -688,6 +691,25 @@ function ComparisonPanel(props: { data: ComparisonData | null; selectedCount: nu
     setChartType(props.data.config.chartType);
     setFilter(props.data.config.filter);
   }, [props.data]);
+
+  useEffect(() => {
+    if (!props.data) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      void fetchJson('/api/comparison/config', {
+        method: 'POST',
+        body: JSON.stringify({
+          featureString,
+          xAxis,
+          yAxis,
+          chartType,
+          filter,
+        }),
+      }).catch(console.error);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [chartType, featureString, filter, props.data, xAxis, yAxis]);
 
   const options: ComparisonViewOptions = {
     featureString,
