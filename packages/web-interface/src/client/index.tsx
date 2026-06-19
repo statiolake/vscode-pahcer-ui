@@ -307,31 +307,7 @@ function App() {
           <strong>Pahcer UI</strong>
           <span>{status?.workspaceRoot ?? ''}</span>
         </div>
-        <div className="commands">
-          <button
-            type="button"
-            className="primaryAction"
-            onClick={() => void runPahcer({ freezeBestScores: false })}
-          >
-            Run
-          </button>
-          <button type="button" onClick={() => setActivePanel('run')}>
-            Run with options
-          </button>
-          <button type="button" onClick={() => setActivePanel('initialize')}>
-            Initialize
-          </button>
-          <button type="button" onClick={() => void reload()}>
-            Refresh
-          </button>
-          <button
-            type="button"
-            disabled={selectedExecutionIds.length !== 2}
-            onClick={() => void showDiff()}
-          >
-            Diff
-          </button>
-        </div>
+        <span className="statusChip">{statusLabel(status?.status)}</span>
       </header>
 
       {error && <div className="notice error">{error}</div>}
@@ -366,6 +342,27 @@ function App() {
       {status?.status === 'ready' && treeData && preferences && (
         <section className="workbench">
           <aside className="sideBar">
+            <div className="resultHeader">
+              <div>
+                <h2>Results</h2>
+                <p>{selectedExecutionIds.length} selected</p>
+              </div>
+              <div className="contextActions">
+                <button
+                  type="button"
+                  className="primaryAction"
+                  onClick={() => void runPahcer({ freezeBestScores: false })}
+                >
+                  Run
+                </button>
+                <button type="button" onClick={() => setActivePanel('run')}>
+                  Options
+                </button>
+                <button type="button" onClick={() => void reload()}>
+                  Refresh
+                </button>
+              </div>
+            </div>
             <div className="treeToolbar">
               <button
                 type="button"
@@ -436,17 +433,15 @@ function App() {
 
           <section className="mainPanel">
             <nav className="panelTabs">
-              {(
-                [
-                  'comparison',
-                  'case',
-                  'diff',
-                  'source',
-                  'visualizer',
-                  'run',
-                  'initialize',
-                ] as Panel[]
-              ).map((panel) => (
+              {visiblePanels({
+                activePanel,
+                selectedCase,
+                selectedExecution,
+                diffView,
+                sourcePreparation,
+                sourceView,
+                visualizerSrc,
+              }).map((panel) => (
                 <button
                   type="button"
                   className={activePanel === panel ? 'active' : ''}
@@ -459,7 +454,11 @@ function App() {
             </nav>
 
             {activePanel === 'comparison' && (
-              <ComparisonPanel data={comparison} selectedCount={selectedExecutionIds.length} />
+              <ComparisonPanel
+                data={comparison}
+                selectedCount={selectedExecutionIds.length}
+                onShowDiff={() => void showDiff()}
+              />
             )}
 
             {activePanel === 'case' && selectedCase && (
@@ -503,13 +502,6 @@ function App() {
               ))}
 
             {activePanel === 'run' && <RunPanel onRun={(options) => void runPahcer(options)} />}
-
-            {activePanel === 'initialize' && (
-              <InitializePanel
-                defaultProjectName={status.defaultProjectName}
-                onInitialize={(request) => void initialize(request)}
-              />
-            )}
           </section>
         </section>
       )}
@@ -676,7 +668,11 @@ function CaseRow(props: { testCase: TreeTestCase; relativeScore: number; onSelec
   );
 }
 
-function ComparisonPanel(props: { data: ComparisonData | null; selectedCount: number }) {
+function ComparisonPanel(props: {
+  data: ComparisonData | null;
+  selectedCount: number;
+  onShowDiff: () => void;
+}) {
   const [featureString, setFeatureString] = useState('N M K');
   const [xAxis, setXAxis] = useState('seed');
   const [yAxis, setYAxis] = useState('avg(absScore)');
@@ -725,90 +721,105 @@ function ComparisonPanel(props: { data: ComparisonData | null; selectedCount: nu
   };
   const readModel = props.data ? service.build(props.data, options) : null;
 
-  if (!props.data) {
-    return <EmptyPanel text={`比較対象: ${props.selectedCount} 件`} />;
-  }
-
   return (
     <div className="panelContent">
-      <div className="formGrid comparisonControls">
-        <label>
-          feature
-          <input value={featureString} onChange={(event) => setFeatureString(event.target.value)} />
-        </label>
-        <label>
-          x
-          <input value={xAxis} onChange={(event) => setXAxis(event.target.value)} />
-        </label>
-        <label>
-          y
-          <input value={yAxis} onChange={(event) => setYAxis(event.target.value)} />
-        </label>
-        <label>
-          chart
-          <select
-            value={chartType}
-            onChange={(event) => setChartType(event.target.value as 'line' | 'scatter')}
-          >
-            <option value="line">line</option>
-            <option value="scatter">scatter</option>
-          </select>
-        </label>
-        <label>
-          filter
-          <input value={filter} onChange={(event) => setFilter(event.target.value)} />
-        </label>
-        <label className="checkLabel">
-          <input
-            type="checkbox"
-            checked={skipFailed}
-            onChange={(event) => setSkipFailed(event.target.checked)}
-          />
-          failed を除外
-        </label>
+      <div className="panelHeader">
+        <div>
+          <h2>比較</h2>
+          <p>{comparisonHint(props.selectedCount)}</p>
+        </div>
+        {props.selectedCount === 2 && (
+          <button type="button" onClick={props.onShowDiff}>
+            Diff
+          </button>
+        )}
       </div>
-      {readModel && (
+      {!props.data && <EmptyPanel text={`比較対象: ${props.selectedCount} 件`} />}
+      {props.data && (
         <>
-          <div className="chartArea">
-            {readModel.chart.datasets.map((dataset) => (
-              <div className="dataset" key={dataset.resultId}>
-                <strong>{dataset.label}</strong>
-                <div className="spark">
-                  {dataset.data.slice(0, 80).map((point) => (
-                    <i
-                      key={`${point.resultId}:${point.seed}:${point.x}`}
-                      style={{ height: `${Math.max(4, Math.min(100, point.y))}%` }}
-                      title={`seed ${point.seed}: ${formatNumber(point.y)}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="formGrid comparisonControls">
+            <label>
+              feature
+              <input
+                value={featureString}
+                onChange={(event) => setFeatureString(event.target.value)}
+              />
+            </label>
+            <label>
+              x
+              <input value={xAxis} onChange={(event) => setXAxis(event.target.value)} />
+            </label>
+            <label>
+              y
+              <input value={yAxis} onChange={(event) => setYAxis(event.target.value)} />
+            </label>
+            <label>
+              chart
+              <select
+                value={chartType}
+                onChange={(event) => setChartType(event.target.value as 'line' | 'scatter')}
+              >
+                <option value="line">line</option>
+                <option value="scatter">scatter</option>
+              </select>
+            </label>
+            <label>
+              filter
+              <input value={filter} onChange={(event) => setFilter(event.target.value)} />
+            </label>
+            <label className="checkLabel">
+              <input
+                type="checkbox"
+                checked={skipFailed}
+                onChange={(event) => setSkipFailed(event.target.checked)}
+              />
+              failed を除外
+            </label>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>実行</th>
-                <th>Total</th>
-                <th>Mean</th>
-                <th>SD</th>
-                <th>Best</th>
-                <th>Fail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {readModel.stats.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td>
-                  <td>{formatNumber(row.totalScore)}</td>
-                  <td>{formatNumber(row.mean)}</td>
-                  <td>{formatNumber(row.sd)}</td>
-                  <td>{row.bestCount}</td>
-                  <td>{row.failCount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {readModel && (
+            <>
+              <div className="chartArea">
+                {readModel.chart.datasets.map((dataset) => (
+                  <div className="dataset" key={dataset.resultId}>
+                    <strong>{dataset.label}</strong>
+                    <div className="spark">
+                      {dataset.data.slice(0, 80).map((point) => (
+                        <i
+                          key={`${point.resultId}:${point.seed}:${point.x}`}
+                          style={{ height: `${Math.max(4, Math.min(100, point.y))}%` }}
+                          title={`seed ${point.seed}: ${formatNumber(point.y)}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>実行</th>
+                    <th>Total</th>
+                    <th>Mean</th>
+                    <th>SD</th>
+                    <th>Best</th>
+                    <th>Fail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {readModel.stats.map((row) => (
+                    <tr key={row.name}>
+                      <td>{row.name}</td>
+                      <td>{formatNumber(row.totalScore)}</td>
+                      <td>{formatNumber(row.mean)}</td>
+                      <td>{formatNumber(row.sd)}</td>
+                      <td>{row.bestCount}</td>
+                      <td>{row.failCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </>
       )}
     </div>
@@ -1095,6 +1106,62 @@ function panelLabel(panel: Panel): string {
   }
 }
 
+function statusLabel(status: PahcerStatusView | undefined): string {
+  switch (status) {
+    case 'ready':
+      return 'Ready';
+    case 'notInitialized':
+      return 'Not initialized';
+    case 'notInstalled':
+      return 'Not installed';
+    case 'unknown':
+      return 'Unknown';
+    default:
+      return 'Loading';
+  }
+}
+
+function comparisonHint(selectedCount: number): string {
+  if (selectedCount === 0) {
+    return '比較する実行を左の一覧から選択してください';
+  }
+  if (selectedCount === 1) {
+    return 'もう 1 件以上選ぶと比較できます';
+  }
+  if (selectedCount === 2) {
+    return '2 件選択中。差分も確認できます';
+  }
+  return `${selectedCount} 件選択中`;
+}
+
+function visiblePanels(input: {
+  activePanel: Panel;
+  selectedCase: { executionId: string; seed: number } | null;
+  selectedExecution: TreeExecutionStats['execution'] | undefined;
+  diffView: DiffView | null;
+  sourcePreparation: SourcePreparation | null;
+  sourceView: FileView | null;
+  visualizerSrc: string | null;
+}): Panel[] {
+  const panels: Panel[] = ['comparison'];
+  if (input.selectedCase) {
+    panels.push('case');
+  }
+  if (input.diffView || input.activePanel === 'diff') {
+    panels.push('diff');
+  }
+  if (input.selectedExecution || input.sourcePreparation || input.sourceView) {
+    panels.push('source');
+  }
+  if (input.visualizerSrc) {
+    panels.push('visualizer');
+  }
+  if (input.activePanel === 'run') {
+    panels.push('run');
+  }
+  return panels;
+}
+
 function numberFromText(value: string): number | undefined {
   const parsed = Number(value);
   return value.trim() && Number.isFinite(parsed) ? parsed : undefined;
@@ -1195,6 +1262,18 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   white-space: nowrap;
   max-width: 52vw;
 }
+.statusChip {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  padding: 3px 9px;
+}
 .commands { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .notice {
   margin: 10px 16px 0;
@@ -1247,6 +1326,24 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   overflow: hidden;
 }
 .sideBar { display: flex; flex-direction: column; }
+.resultHeader {
+  display: grid;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfb;
+}
+.resultHeader h2 { font-size: 16px; }
+.resultHeader p, .panelHeader p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.contextActions {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+}
 .treeToolbar {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr);
@@ -1353,6 +1450,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   gap: 14px;
   margin-bottom: 14px;
 }
+.panelHeader > div { min-width: 0; }
 h2, h3 { margin: 0; letter-spacing: 0; }
 h2 { font-size: 18px; line-height: 1.25; }
 h3 { font-size: 14px; line-height: 1.35; }
