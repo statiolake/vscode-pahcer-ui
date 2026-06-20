@@ -280,7 +280,7 @@ export function App() {
     const requestId = comparisonRequestIdRef.current + 1;
     comparisonRequestIdRef.current = requestId;
 
-    if (!treeData || selectedExecutionIds.length === 0) {
+    if (!treeData || selectedExecutionIds.length < 2) {
       setComparison(null);
       return;
     }
