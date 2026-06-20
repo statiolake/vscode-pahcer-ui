@@ -26,6 +26,7 @@ describe('application services', () => {
         xAxis: 'seed',
         yAxis: 'avg(absScore)',
         chartType: 'line',
+        skipFailed: true,
         filter: '',
       },
     );
@@ -188,6 +189,7 @@ function comparisonData(): ComparisonData {
       xAxis: 'N',
       yAxis: 'avg(absScore)',
       chartType: 'line',
+      skipFailed: true,
       filter: '',
     },
   };

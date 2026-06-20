@@ -9,6 +9,7 @@ export class ComparisonConfig {
     public xAxis: string = 'seed',
     public yAxis: string = 'avg(absScore)',
     public chartType: 'line' | 'scatter' = 'line',
+    public skipFailed: boolean = true,
     public filter: string = '',
   ) {}
 }

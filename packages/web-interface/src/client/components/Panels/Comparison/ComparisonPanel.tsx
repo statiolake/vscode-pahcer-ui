@@ -31,6 +31,7 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
     setXAxis(props.data.config.xAxis);
     setYAxis(props.data.config.yAxis);
     setChartType(props.data.config.chartType);
+    setSkipFailed(props.data.config.skipFailed ?? true);
     setFilter(props.data.config.filter);
   }, [props.data]);
 
@@ -47,13 +48,14 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
           xAxis,
           yAxis,
           chartType,
+          skipFailed,
           filter,
         }),
       }).catch(console.error);
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [chartType, featureString, filter, props.data, xAxis, yAxis]);
+  }, [chartType, featureString, filter, props.data, skipFailed, xAxis, yAxis]);
 
   const viewOptions: ComparisonViewOptions = useMemo(
     () => ({

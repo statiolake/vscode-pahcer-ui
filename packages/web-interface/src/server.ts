@@ -425,8 +425,13 @@ function toComparisonConfig(value: unknown): ComparisonConfig {
     stringOrDefault(input.xAxis, 'seed'),
     stringOrDefault(input.yAxis, 'avg(absScore)'),
     input.chartType === 'scatter' ? 'scatter' : 'line',
+    booleanOrDefault(input.skipFailed, true),
     stringOrDefault(input.filter, ''),
   );
+}
+
+function booleanOrDefault(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
 }
 
 function toLanguage(value: unknown): 'rust' | 'cpp' | 'python' | 'go' {

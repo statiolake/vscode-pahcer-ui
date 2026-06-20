@@ -52,5 +52,6 @@ export const ComparisonConfigSchema = z.object({
   xAxis: z.string().optional(),
   yAxis: z.string().optional(),
   chartType: z.enum(['line', 'scatter']).optional(),
+  skipFailed: z.boolean().optional(),
   filter: z.string().optional(),
 });

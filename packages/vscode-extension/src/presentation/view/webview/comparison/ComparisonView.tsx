@@ -17,7 +17,7 @@ export function ComparisonView({ initialData }: Props) {
   const [yAxis, setYAxis] = useState(initialData.config.yAxis);
   const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
   const [filter, setFilter] = useState(initialData.config.filter);
-  const [skipFailed, setSkipFailed] = useState(true);
+  const [skipFailed, setSkipFailed] = useState(initialData.config.skipFailed ?? true);
   const readModelService = useMemo(() => new ComparisonViewReadModelService(), []);
   const viewOptions: ComparisonViewOptions = useMemo(
     () => ({
@@ -46,6 +46,7 @@ export function ComparisonView({ initialData }: Props) {
         setXAxis(message.data.config.xAxis);
         setYAxis(message.data.config.yAxis);
         setChartType(message.data.config.chartType);
+        setSkipFailed(message.data.config.skipFailed ?? true);
         setFilter(message.data.config.filter);
       }
     };
@@ -63,10 +64,11 @@ export function ComparisonView({ initialData }: Props) {
         xAxis,
         yAxis,
         chartType,
+        skipFailed,
         filter,
       },
     });
-  }, [featureString, xAxis, yAxis, chartType, filter]);
+  }, [featureString, xAxis, yAxis, chartType, skipFailed, filter]);
 
   return (
     <div style={{ padding: '20px' }}>

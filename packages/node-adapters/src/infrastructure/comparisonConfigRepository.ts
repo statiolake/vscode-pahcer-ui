@@ -27,6 +27,7 @@ export class ComparisonConfigRepository implements IComparisonConfigRepository {
         loaded.xAxis,
         loaded.yAxis,
         loaded.chartType,
+        loaded.skipFailed,
         loaded.filter,
       );
     } catch (error) {

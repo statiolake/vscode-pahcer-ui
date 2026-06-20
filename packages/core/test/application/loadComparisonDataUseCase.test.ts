@@ -23,7 +23,7 @@ describe('LoadComparisonDataUseCase', () => {
       testCase('20260102020202', 0, 20, 1.1, 'N=1', { width: 11 }),
       testCase('20260102020202', 1, 5, 2.0, 'N=2', { width: 21 }),
     ];
-    const config = new ComparisonConfig('N', 'seed', 'avg(relativeScore)', 'line', '');
+    const config = new ComparisonConfig('N', 'seed', 'avg(relativeScore)', 'line', false, '');
 
     const useCase = new LoadComparisonDataUseCase(
       new InMemoryExecutionRepository(executions),
@@ -64,7 +64,7 @@ describe('LoadComparisonDataUseCase', () => {
       repository,
       new FixedPahcerConfigRepository('max'),
     );
-    const config = new ComparisonConfig('N', 'N', 'avg(absScore)', 'scatter', 'N > 0');
+    const config = new ComparisonConfig('N', 'N', 'avg(absScore)', 'scatter', false, 'N > 0');
 
     await useCase.saveConfig(config);
 
