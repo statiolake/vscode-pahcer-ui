@@ -4,7 +4,28 @@ export const globalStyles = `
 ${designTokens}
 
 * { box-sizing: border-box; }
-html, body, #root { min-height: 100%; }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(106, 118, 112, 0.42) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background: rgba(106, 118, 112, 0.36);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(106, 118, 112, 0.54);
+  background-clip: content-box;
+}
+html, body, #root { height: 100%; }
 body {
   margin: 0;
   background: var(--bg);
@@ -12,6 +33,7 @@ body {
   font-family: var(--font-sans);
   font-size: var(--fs-base);
   line-height: var(--lh-base);
+  overflow: hidden;
 }
 button, .button, input, select, textarea { font: inherit; letter-spacing: 0; }
 button, .button {
@@ -73,8 +95,15 @@ input, select, textarea {
 }
 textarea { resize: vertical; line-height: var(--lh-base); }
 input::placeholder, textarea::placeholder { color: var(--soft); }
-main { min-height: 100vh; display: flex; flex-direction: column; }
+main {
+  height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .commandBar {
+  flex: 0 0 auto;
   min-height: var(--bar-base);
   border-bottom: 1px solid var(--line);
   background: var(--surface-translucent);
@@ -83,8 +112,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-4);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: var(--z-sticky);
   backdrop-filter: blur(var(--blur-sm));
 }
@@ -98,19 +126,6 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 52vw;
-}
-.statusChip {
-  min-height: var(--control-md);
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface-muted);
-  color: var(--muted);
-  font-size: var(--fs-sm);
-  font-weight: 650;
-  padding: var(--space-1) var(--space-2);
-  white-space: nowrap;
 }
 .topBarActions {
   display: inline-flex;
@@ -408,6 +423,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   grid-template-columns: minmax(var(--width-sidebar-min), var(--width-sidebar-max)) minmax(0, 1fr);
   padding: var(--space-3);
   gap: var(--space-3);
+  overflow: hidden;
 }
 .sideBar, .mainPanel {
   min-height: 0;
@@ -496,6 +512,8 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   padding: var(--space-1) var(--space-3);
 }
 .tree {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   list-style: none;
   margin: 0;
@@ -513,7 +531,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
 }
 .treeRow {
   position: relative;
-  min-height: var(--control-base);
+  min-height: var(--control-md);
   width: 100%;
   display: flex;
   align-items: center;
@@ -522,7 +540,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   border: 0;
   border-left: var(--size-tree-line) solid transparent;
   background: transparent;
-  padding: var(--space-1) var(--space-2) var(--space-1) calc(var(--space-2) - var(--size-tree-line));
+  padding: 2px var(--space-2) 2px calc(var(--space-2) - var(--size-tree-line));
   border-radius: var(--radius-md);
   color: var(--text);
 }
@@ -567,6 +585,37 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   width: var(--size-icon-sm);
   height: var(--size-icon-sm);
   flex: 0 0 var(--size-icon-sm);
+}
+.executionStatusIcon {
+  position: relative;
+  align-self: stretch;
+  width: var(--size-icon-sm);
+  min-height: var(--size-icon-sm);
+  flex: 0 0 var(--size-icon-sm);
+  display: grid;
+  place-items: center;
+}
+.executionStatusIcon .treeIcon {
+  position: relative;
+  z-index: 1;
+}
+.commitGraphIcon::before,
+.commitGraphIcon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  z-index: 0;
+  width: var(--size-tree-line);
+  transform: translateX(-50%);
+  background: var(--line-strong);
+}
+.commitGraphIcon.connectsPrevious::before {
+  top: calc(var(--space-2) * -1);
+  bottom: 50%;
+}
+.commitGraphIcon.connectsNext::after {
+  top: 50%;
+  bottom: calc(var(--space-2) * -1);
 }
 .treeLabel {
   min-width: 0;
@@ -690,7 +739,12 @@ button.treeLabel:hover {
   gap: var(--space-2);
   align-items: center;
 }
-.panelContent { min-height: 0; overflow: auto; padding: var(--space-4); }
+.panelContent {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+}
 .panelContent.narrow { max-width: var(--width-panel-narrow); }
 .panelHeader {
   display: flex;
@@ -724,6 +778,12 @@ label {
   max-width: var(--width-form);
 }
 .formIntro + .form {
+  margin-top: 0;
+}
+.runOptionsPanel {
+  max-width: var(--width-form);
+}
+.runOptionsPanel .form {
   margin-top: 0;
 }
 .formField {
@@ -1223,6 +1283,7 @@ fieldset.toggleGroup > legend.srOnly {
   font-weight: 400;
 }
 .visualizerPanel {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1375,8 +1436,12 @@ fieldset.toggleGroup > legend.srOnly {
   .welcomeActions .button { width: 100%; }
   .toastContainer { right: var(--space-2); bottom: var(--space-2); width: calc(100vw - (var(--space-2) * 2)); }
   .initializationShell { padding: var(--space-2); }
-  .workbench { grid-template-columns: 1fr; padding: var(--space-2); }
-  .sideBar { max-height: 48vh; }
+  .workbench {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 48vh) minmax(0, 1fr);
+    padding: var(--space-2);
+  }
+  .sideBar { max-height: none; }
   .panelHeader { align-items: flex-start; flex-direction: column; }
   .diffFile summary { align-items: flex-start; }
 }

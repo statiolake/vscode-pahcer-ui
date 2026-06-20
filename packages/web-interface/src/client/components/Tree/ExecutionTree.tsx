@@ -31,6 +31,11 @@ type EditingExecution = {
   comment: string;
 };
 
+type CommitGraphConnections = {
+  connectsPrevious: boolean;
+  connectsNext: boolean;
+};
+
 export function ExecutionTree(props: ExecutionTreeProps) {
   const [editingExecution, setEditingExecution] = useState<EditingExecution | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
@@ -69,10 +74,16 @@ export function ExecutionTree(props: ExecutionTreeProps) {
   return (
     <>
       <ul className="tree" aria-label="実行結果">
-        {props.stats.map((stats) => {
+        {props.stats.map((stats, index) => {
           const description = executionDescription(stats.execution);
           const isOpen = props.openExecutionId === stats.execution.id;
           const rowLabel = executionTreeLabel(stats);
+          const hasCommitHash = Boolean(stats.execution.commitHash);
+          const commitGraphConnections = {
+            connectsPrevious:
+              hasCommitHash && Boolean(props.stats[index - 1]?.execution.commitHash),
+            connectsNext: hasCommitHash && Boolean(props.stats[index + 1]?.execution.commitHash),
+          };
 
           return (
             <li className="treeGroup" key={stats.execution.id} aria-label={rowLabel}>
@@ -93,7 +104,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
                   onChange={() => props.onToggleExecution(stats.execution.id)}
                   aria-label={`${stats.execution.shortTitle} を比較対象にする`}
                 />
-                {executionIcon(stats)}
+                {executionIcon(stats, commitGraphConnections)}
                 <button
                   type="button"
                   className="treeLabel"
@@ -170,20 +181,45 @@ export function ExecutionTree(props: ExecutionTreeProps) {
   );
 }
 
-function executionIcon(stats: TreeExecutionStats) {
+function executionIcon(stats: TreeExecutionStats, commitGraphConnections: CommitGraphConnections) {
   const color = stats.waSeeds.length === 0 ? 'success' : stats.acCount > 0 ? 'warning' : 'danger';
 
   if (stats.execution.commitHash) {
-    return <IconGitCommit color={color} />;
+    return (
+      <span
+        className={[
+          'executionStatusIcon',
+          'commitGraphIcon',
+          commitGraphConnections.connectsPrevious ? 'connectsPrevious' : '',
+          commitGraphConnections.connectsNext ? 'connectsNext' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <IconGitCommit color={color} />
+      </span>
+    );
   }
 
   if (stats.waSeeds.length === 0) {
-    return <IconCheck color="success" />;
+    return (
+      <span className="executionStatusIcon">
+        <IconCheck color="success" />
+      </span>
+    );
   }
 
   if (stats.acCount > 0) {
-    return <IconWarning color="warning" />;
+    return (
+      <span className="executionStatusIcon">
+        <IconWarning color="warning" />
+      </span>
+    );
   }
 
-  return <IconCross color="danger" />;
+  return (
+    <span className="executionStatusIcon">
+      <IconCross color="danger" />
+    </span>
+  );
 }
