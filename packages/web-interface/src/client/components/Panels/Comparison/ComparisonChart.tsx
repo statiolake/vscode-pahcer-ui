@@ -8,6 +8,7 @@ import {
   LinearScale,
   LineElement,
   PointElement,
+  type PointStyle,
   Title,
   Tooltip,
   type TooltipItem,
@@ -31,18 +32,37 @@ interface PopupState {
   point: ChartDataPoint;
 }
 
+interface DatasetStyle {
+  color: string;
+  borderDash: readonly number[];
+  pointStyle: PointStyle;
+}
+
+const COMPARISON_DATASET_STYLES = [
+  { color: '#047857', borderDash: [], pointStyle: 'circle' },
+  { color: '#1D4ED8', borderDash: [6, 4], pointStyle: 'triangle' },
+  { color: '#7E22CE', borderDash: [2, 3], pointStyle: 'rect' },
+  { color: '#B45309', borderDash: [8, 3, 2, 3], pointStyle: 'cross' },
+  { color: '#B91C1C', borderDash: [10, 4], pointStyle: 'rectRot' },
+  { color: '#4B5563', borderDash: [4, 2, 1, 2], pointStyle: 'star' },
+  { color: '#BE185D', borderDash: [1, 3], pointStyle: 'crossRot' },
+  { color: '#0E7490', borderDash: [6, 2, 2, 2], pointStyle: 'rectRounded' },
+] satisfies readonly [DatasetStyle, ...DatasetStyle[]];
+
 export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
   const [popup, setPopup] = useState<PopupState | null>(null);
 
   const chartData = useMemo(
     () => ({
-      datasets: chart.datasets.map((dataset) => {
-        const color = getColorForResultId(dataset.resultId);
+      datasets: chart.datasets.map((dataset, datasetIndex) => {
+        const style = getDatasetStyle(datasetIndex);
         return {
           label: dataset.label,
           data: dataset.data,
-          borderColor: color,
-          backgroundColor: color,
+          borderColor: style.color,
+          backgroundColor: style.color,
+          borderDash: [...style.borderDash],
+          pointStyle: style.pointStyle,
           showLine: chartType === 'line',
           pointRadius: 3,
         };
@@ -189,17 +209,8 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
   );
 }
 
-function getColorForResultId(resultId: string): string {
-  let hash = 0;
-  for (let i = 0; i < resultId.length; i++) {
-    hash = resultId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  const hue = Math.abs(hash % 360);
-  const saturation = 70 + (Math.abs(hash >> 8) % 20);
-  const lightness = 50 + (Math.abs(hash >> 16) % 20);
-
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+function getDatasetStyle(datasetIndex: number): DatasetStyle {
+  return COMPARISON_DATASET_STYLES[datasetIndex % COMPARISON_DATASET_STYLES.length];
 }
 
 function getCssVariable(name: string, fallback: string): string {
