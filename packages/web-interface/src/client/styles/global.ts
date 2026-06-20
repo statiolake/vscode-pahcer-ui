@@ -606,7 +606,7 @@ button.treeLabel:hover {
   transition: opacity 120ms ease;
 }
 .treeRow:hover .rowActions,
-.treeRow:focus-within .rowActions {
+.treeRow:has(:focus-visible) .rowActions {
   opacity: 1;
   pointer-events: auto;
 }
