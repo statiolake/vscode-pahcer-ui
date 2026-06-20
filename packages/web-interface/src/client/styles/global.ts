@@ -495,7 +495,12 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   color: var(--text);
   padding: var(--space-1) var(--space-3);
 }
-.tree { overflow: auto; padding: var(--space-2); }
+.tree {
+  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+}
 .treeGroup {
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
@@ -646,6 +651,8 @@ button.treeLabel:hover {
   color: var(--text);
 }
 .children {
+  list-style: none;
+  margin: 0;
   margin-left: var(--control-md);
   border-left: 1px solid var(--line);
   padding: var(--space-1) 0 var(--space-1) var(--space-2);

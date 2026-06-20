@@ -13,21 +13,23 @@ export function CaseRow(props: CaseRowProps) {
   const failed =
     props.testCase.foundOutput &&
     (props.testCase.score === 0 || Boolean(props.testCase.errorMessage));
+  const rowLabel = `${formatSeed(props.testCase.seed)}: ${formatNumber(props.testCase.score)} (${props.relativeScore.toFixed(3)}%)`;
+  const executionTime = formatExecutionTime(props.testCase.executionTime);
 
   return (
-    <button
-      type="button"
-      className={failed ? 'treeRow caseRow failed' : 'treeRow caseRow'}
-      onClick={props.onSelect}
-      title={props.testCase.errorMessage || undefined}
-    >
-      {caseIcon(props.testCase)}
-      <span className="treeLabel">
-        {formatSeed(props.testCase.seed)}: {formatNumber(props.testCase.score)} (
-        {props.relativeScore.toFixed(3)}%)
-      </span>
-      <span className="description">{formatExecutionTime(props.testCase.executionTime)}</span>
-    </button>
+    <li aria-label={`${rowLabel} - ${executionTime}`}>
+      <button
+        type="button"
+        className={failed ? 'treeRow caseRow failed' : 'treeRow caseRow'}
+        onClick={props.onSelect}
+        title={props.testCase.errorMessage || undefined}
+        aria-label={`${rowLabel} - ${executionTime}`}
+      >
+        {caseIcon(props.testCase)}
+        <span className="treeLabel">{rowLabel}</span>
+        <span className="description">{executionTime}</span>
+      </button>
+    </li>
   );
 }
 

@@ -7,14 +7,16 @@ type SummaryRowProps = {
 };
 
 export function SummaryRow(props: SummaryRowProps) {
+  const rowLabel = `AC: ${props.stats.acCount}/${props.stats.caseCount} - Total Score: ${props.stats.totalScore.toLocaleString()} - Max Time: ${(props.stats.maxExecutionTime * 1000).toFixed(0)}ms`;
+
   return (
-    <div className="treeRow summaryRow">
+    <li className="treeRow summaryRow" aria-label={rowLabel}>
       <IconInfo color="muted" />
       <span className="treeLabel">
         AC: {props.stats.acCount}/{props.stats.caseCount} · Total Score:{' '}
         {props.stats.totalScore.toLocaleString()} · Max Time:{' '}
         {(props.stats.maxExecutionTime * 1000).toFixed(0)}ms
       </span>
-    </div>
+    </li>
   );
 }

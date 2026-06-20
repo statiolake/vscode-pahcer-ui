@@ -23,59 +23,76 @@ export function SeedTree(props: SeedTreeProps) {
   }
 
   return (
-    <div className="tree">
-      {props.seeds.map((seed) => (
-        <div className="treeGroup" key={seed.seed}>
-          <div className="treeRow seedRow">
-            <button
-              type="button"
-              className="disclosure"
-              onClick={() => props.onOpenSeed(seed.seed)}
-              aria-label={props.openSeed === seed.seed ? '閉じる' : '開く'}
-            >
-              {props.openSeed === seed.seed ? '▼' : '▶'}
-            </button>
-            <IconHash color="muted" />
-            <button type="button" className="treeLabel" onClick={() => props.onOpenSeed(seed.seed)}>
-              {formatSeed(seed.seed)}
-            </button>
-            <span className="description">
-              {seed.count} runs · Avg: {seed.averageScore.toFixed(2)}
-            </span>
-          </div>
-          {props.openSeed === seed.seed && (
-            <div className="children">
-              {props.executions.map((execution) => (
-                <div
-                  className={seedExecutionClassName(execution)}
-                  key={execution.execution.id}
-                  title={execution.testCase.errorMessage || undefined}
-                >
-                  <input
-                    type="checkbox"
-                    className="treeCheckbox"
-                    checked={props.selectedExecutionIds.includes(execution.execution.id)}
-                    onChange={() => props.onToggleExecution(execution.execution.id)}
-                    aria-label={`${execution.execution.shortTitle} を比較対象にする`}
-                  />
-                  {seedExecutionIcon(execution)}
-                  <button
-                    type="button"
-                    className="treeLabel"
-                    onClick={() => props.onSelectCase(execution.execution.id, seed.seed)}
-                  >
-                    {seedExecutionLabel(execution)}
-                  </button>
-                  <span className="description">
-                    {formatExecutionTime(execution.testCase.executionTime)}
-                  </span>
-                </div>
-              ))}
+    <ul className="tree" aria-label="シード">
+      {props.seeds.map((seed) => {
+        const isOpen = props.openSeed === seed.seed;
+        const seedLabel = `${formatSeed(seed.seed)} - ${seed.count} runs - Avg: ${seed.averageScore.toFixed(2)}`;
+
+        return (
+          <li className="treeGroup" key={seed.seed} aria-label={seedLabel}>
+            <div className="treeRow seedRow">
+              <button
+                type="button"
+                className="disclosure"
+                onClick={() => props.onOpenSeed(seed.seed)}
+                aria-label={`${seedLabel} を${isOpen ? '閉じる' : '開く'}`}
+                aria-expanded={isOpen}
+              >
+                {isOpen ? '▼' : '▶'}
+              </button>
+              <IconHash color="muted" />
+              <button
+                type="button"
+                className="treeLabel"
+                onClick={() => props.onOpenSeed(seed.seed)}
+                aria-label={seedLabel}
+                aria-expanded={isOpen}
+              >
+                {formatSeed(seed.seed)}
+              </button>
+              <span className="description">
+                {seed.count} runs · Avg: {seed.averageScore.toFixed(2)}
+              </span>
             </div>
-          )}
-        </div>
-      ))}
-    </div>
+            {isOpen && (
+              <ul className="children" aria-label={`${seedLabel} の実行結果`}>
+                {props.executions.map((execution) => {
+                  const executionTime = formatExecutionTime(execution.testCase.executionTime);
+                  const rowLabel = `${seedExecutionLabel(execution)} - ${executionTime}`;
+
+                  return (
+                    <li key={execution.execution.id} aria-label={rowLabel}>
+                      <div
+                        className={seedExecutionClassName(execution)}
+                        title={execution.testCase.errorMessage || undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className="treeCheckbox"
+                          checked={props.selectedExecutionIds.includes(execution.execution.id)}
+                          onChange={() => props.onToggleExecution(execution.execution.id)}
+                          aria-label={`${execution.execution.shortTitle} を比較対象にする`}
+                        />
+                        {seedExecutionIcon(execution)}
+                        <button
+                          type="button"
+                          className="treeLabel"
+                          onClick={() => props.onSelectCase(execution.execution.id, seed.seed)}
+                          aria-label={rowLabel}
+                        >
+                          {seedExecutionLabel(execution)}
+                        </button>
+                        <span className="description">{executionTime}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -67,75 +67,81 @@ export function ExecutionTree(props: ExecutionTreeProps) {
   }
 
   return (
-    <div className="tree">
-      {props.stats.map((stats) => {
-        const description = executionDescription(stats.execution);
-        const isOpen = props.openExecutionId === stats.execution.id;
+    <>
+      <ul className="tree" aria-label="実行結果">
+        {props.stats.map((stats) => {
+          const description = executionDescription(stats.execution);
+          const isOpen = props.openExecutionId === stats.execution.id;
+          const rowLabel = executionTreeLabel(stats);
 
-        return (
-          <div className="treeGroup" key={stats.execution.id}>
-            <div className="treeRow executionRow">
-              <button
-                type="button"
-                className="disclosure"
-                onClick={() => props.onOpenExecution(stats.execution.id)}
-                aria-label={isOpen ? '閉じる' : '開く'}
-              >
-                {isOpen ? '▼' : '▶'}
-              </button>
-              <input
-                type="checkbox"
-                className="treeCheckbox"
-                checked={props.selectedExecutionIds.includes(stats.execution.id)}
-                onChange={() => props.onToggleExecution(stats.execution.id)}
-                aria-label={`${stats.execution.shortTitle} を比較対象にする`}
-              />
-              {executionIcon(stats)}
-              <button
-                type="button"
-                className="treeLabel"
-                onClick={() => props.onOpenExecution(stats.execution.id)}
-              >
-                {executionTreeLabel(stats)}
-              </button>
-              {description && (
-                <span className="description" title={description}>
-                  {description}
-                </span>
-              )}
-              <span className="rowActions">
-                <IconButton
-                  icon={<IconPencil />}
-                  label="コメントを編集"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => openCommentEditor(stats)}
+          return (
+            <li className="treeGroup" key={stats.execution.id} aria-label={rowLabel}>
+              <div className="treeRow executionRow">
+                <button
+                  type="button"
+                  className="disclosure"
+                  onClick={() => props.onOpenExecution(stats.execution.id)}
+                  aria-label={`${rowLabel} を${isOpen ? '閉じる' : '開く'}`}
+                  aria-expanded={isOpen}
+                >
+                  {isOpen ? '▼' : '▶'}
+                </button>
+                <input
+                  type="checkbox"
+                  className="treeCheckbox"
+                  checked={props.selectedExecutionIds.includes(stats.execution.id)}
+                  onChange={() => props.onToggleExecution(stats.execution.id)}
+                  aria-label={`${stats.execution.shortTitle} を比較対象にする`}
                 />
-                <IconButton
-                  icon={<IconCopy />}
-                  label="この時点のソースをコピー"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => props.onPrepareSource(stats.execution.id)}
-                />
-              </span>
-            </div>
-            {isOpen && props.cases && (
-              <div className="children">
-                <SummaryRow stats={props.cases.executionStats} />
-                {props.cases.cases.map(({ testCase, relativeScore }) => (
-                  <CaseRow
-                    key={`${testCase.executionId}:${testCase.seed}`}
-                    testCase={testCase}
-                    relativeScore={relativeScore}
-                    onSelect={() => props.onSelectCase(testCase.executionId, testCase.seed)}
+                {executionIcon(stats)}
+                <button
+                  type="button"
+                  className="treeLabel"
+                  onClick={() => props.onOpenExecution(stats.execution.id)}
+                  aria-label={rowLabel}
+                  aria-expanded={isOpen}
+                >
+                  {rowLabel}
+                </button>
+                {description && (
+                  <span className="description" title={description}>
+                    {description}
+                  </span>
+                )}
+                <span className="rowActions">
+                  <IconButton
+                    icon={<IconPencil />}
+                    label="コメントを編集"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => openCommentEditor(stats)}
                   />
-                ))}
+                  <IconButton
+                    icon={<IconCopy />}
+                    label="この時点のソースをコピー"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => props.onPrepareSource(stats.execution.id)}
+                  />
+                </span>
               </div>
-            )}
-          </div>
-        );
-      })}
+              {isOpen && props.cases && (
+                <ul className="children" aria-label={`${rowLabel} のケース`}>
+                  <SummaryRow stats={props.cases.executionStats} />
+                  {props.cases.cases.map(({ testCase, relativeScore }) => (
+                    <CaseRow
+                      key={`${testCase.executionId}:${testCase.seed}`}
+                      testCase={testCase}
+                      relativeScore={relativeScore}
+                      onSelect={() => props.onSelectCase(testCase.executionId, testCase.seed)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       <Modal
         open={Boolean(editingExecution)}
         onClose={closeCommentEditor}
@@ -160,7 +166,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
           </label>
         </form>
       </Modal>
-    </div>
+    </>
   );
 }
 
