@@ -1,13 +1,13 @@
 import type { PahcerStatusView } from '@pahcer/core/application/dtos/pahcerUIState';
 
-import { statusLabel } from '../../utils/labels';
 import { IconButton } from '../common/IconButton';
-import { IconPlay, IconRefresh } from '../Tree/icons';
+import { IconPlay, IconRefresh, IconSettings } from '../Tree/icons';
 
 type TopBarProps = {
   status: PahcerStatusView | undefined;
   workspaceRoot: string;
   onRun: () => void;
+  onOpenRunOptions: () => void;
   onReload: () => void;
 };
 
@@ -29,12 +29,18 @@ export function TopBar(props: TopBarProps) {
           onClick={props.onRun}
         />
         <IconButton
+          icon={<IconSettings />}
+          label="詳細実行オプション"
+          variant="ghost"
+          disabled={props.status !== 'ready'}
+          onClick={props.onOpenRunOptions}
+        />
+        <IconButton
           icon={<IconRefresh />}
           label="結果を更新"
           variant="ghost"
           onClick={props.onReload}
         />
-        <span className="statusChip">{statusLabel(props.status)}</span>
       </div>
     </header>
   );

@@ -5,7 +5,7 @@ import type { CaseFileKind, Panel, SourcePreparation } from '../types';
 export function panelLabel(panel: Panel): string {
   switch (panel) {
     case 'comparison':
-      return '比較';
+      return 'グラフ';
     case 'case':
       return 'ケース';
     case 'diff':
@@ -14,8 +14,6 @@ export function panelLabel(panel: Panel): string {
       return 'ソース';
     case 'visualizer':
       return 'ビジュアライザ';
-    case 'run':
-      return '実行';
     case 'initialize':
       return '初期化';
   }

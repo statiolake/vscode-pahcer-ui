@@ -34,7 +34,7 @@ export type StatusResponse = {
   workspaceRoot: string;
 };
 
-export type Panel = 'comparison' | 'case' | 'diff' | 'source' | 'visualizer' | 'run' | 'initialize';
+export type Panel = 'comparison' | 'case' | 'diff' | 'source' | 'visualizer' | 'initialize';
 
 export type CaseFileKind = 'input' | 'output' | 'error';
 

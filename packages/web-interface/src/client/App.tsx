@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchJson } from './api';
 import { Button } from './components/common/Button';
 import { EmptyState } from './components/common/EmptyState';
+import { Modal } from './components/common/Modal';
 import {
   ToastContainer,
   type ToastItem,
@@ -83,7 +84,7 @@ type SourceFileTarget = {
   file: string;
 };
 
-const ALL_PANELS: Panel[] = ['comparison', 'case', 'source', 'diff', 'visualizer', 'run'];
+const ALL_PANELS: Panel[] = ['comparison', 'case', 'source', 'diff', 'visualizer'];
 
 export function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -123,6 +124,7 @@ export function App() {
   const [visualizerDownloading, setVisualizerDownloading] = useState(false);
   const [pendingVisualizerRequest, setPendingVisualizerRequest] =
     useState<VisualizerRequest | null>(null);
+  const [runOptionsModalOpen, setRunOptionsModalOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<Panel>('comparison');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -222,11 +224,11 @@ export function App() {
     [reportError],
   );
 
-  function nextUiActionRequestId() {
+  const nextUiActionRequestId = useCallback(() => {
     const requestId = uiActionRequestIdRef.current + 1;
     uiActionRequestIdRef.current = requestId;
     return requestId;
-  }
+  }, []);
 
   function invalidateExecutionCasesRequest() {
     const requestId = executionCasesRequestIdRef.current + 1;
@@ -282,7 +284,7 @@ export function App() {
     const requestId = comparisonRequestIdRef.current + 1;
     comparisonRequestIdRef.current = requestId;
 
-    if (!treeData || selectedExecutionIds.length < 2) {
+    if (!treeData || selectedExecutionIds.length === 0) {
       setComparison(null);
       return;
     }
@@ -506,10 +508,9 @@ export function App() {
     }
   }
 
-  async function showDiff() {
+  const loadDiffForCurrentSelection = useCallback(async () => {
     const executionIds = selectedExecutionIds.slice();
     if (executionIds.length !== 2) {
-      reportError('差分を表示するには実行を 2 件選択してください');
       return;
     }
 
@@ -517,7 +518,6 @@ export function App() {
     diffRequestIdRef.current = requestId;
     setDiffPending({ requestId, executionIds });
     setDiffError(null);
-    setActivePanel('diff');
 
     const isCurrentRequest = () =>
       diffRequestIdRef.current === requestId &&
@@ -545,7 +545,7 @@ export function App() {
         setDiffPending(null);
       }
     }
-  }
+  }, [nextUiActionRequestId, runUiAction, selectedExecutionIds]);
 
   async function prepareSource(executionId: string) {
     const requestId = nextUiActionRequestId();
@@ -803,7 +803,6 @@ export function App() {
         case 'visualizer':
           return hasVisualizer ? undefined : 'ケースを開いてビジュアライザを起動してください';
         case 'comparison':
-        case 'run':
         case 'initialize':
           return undefined;
       }
@@ -818,18 +817,15 @@ export function App() {
       }
 
       setActivePanel(panel);
+      if (panel === 'diff') {
+        void loadDiffForCurrentSelection();
+      }
     },
-    [getPanelDisabledReason],
+    [getPanelDisabledReason, loadDiffForCurrentSelection],
   );
 
   function renderPanelTabsActions() {
     switch (activePanel) {
-      case 'comparison':
-        return selectedCount === 2 ? (
-          <Button variant="secondary" onClick={() => void showDiff()}>
-            差分を表示
-          </Button>
-        ) : null;
       case 'case':
         return selectedCase ? (
           <Button
@@ -845,9 +841,9 @@ export function App() {
             ファイルを読み込む
           </Button>
         ) : null;
+      case 'comparison':
       case 'diff':
       case 'visualizer':
-      case 'run':
       case 'initialize':
         return null;
     }
@@ -876,6 +872,7 @@ export function App() {
         status={status?.status}
         workspaceRoot={status?.workspaceRoot ?? ''}
         onRun={() => void runPahcer({ freezeBestScores: false })}
+        onOpenRunOptions={() => setRunOptionsModalOpen(true)}
         onReload={() => void reload()}
       />
 
@@ -887,6 +884,19 @@ export function App() {
         onSubmit={(url) => downloadVisualizer(url)}
         downloading={visualizerDownloading}
       />
+      <Modal
+        open={runOptionsModalOpen}
+        onClose={() => setRunOptionsModalOpen(false)}
+        title="詳細実行オプション"
+      >
+        <RunOptionsPanel
+          onRun={(options) => {
+            setRunOptionsModalOpen(false);
+            void runPahcer(options);
+          }}
+          onCancel={() => setRunOptionsModalOpen(false)}
+        />
+      </Modal>
 
       {status?.status === 'notInstalled' && (
         <NotInstalledWelcome workspaceRoot={status.workspaceRoot} />
@@ -1042,13 +1052,6 @@ export function App() {
                 loadError={visualizerError}
                 title={visualizerTitle}
                 onResetVisualizer={resetVisualizer}
-              />
-            )}
-
-            {activePanel === 'run' && (
-              <RunOptionsPanel
-                onRun={(options) => void runPahcer(options)}
-                onCancel={() => setActivePanel('comparison')}
               />
             )}
           </section>

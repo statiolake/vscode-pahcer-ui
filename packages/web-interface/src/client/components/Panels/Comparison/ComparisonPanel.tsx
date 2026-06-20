@@ -189,18 +189,12 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
 
   return (
     <div className="panelContent">
-      {!props.data &&
-        (props.selectedCount === 0 ? (
-          <EmptyState
-            text="比較する実行を選択してください"
-            hint="左の一覧の実行行のチェックボックスを 2 件以上 ON にすると、ここに比較グラフが表示されます。"
-          />
-        ) : (
-          <EmptyState
-            text="あと 1 件以上選んでください"
-            hint="2 件以上の実行を比較できます。差分タブも有効になります。"
-          />
-        ))}
+      {!props.data && props.selectedCount === 0 && (
+        <EmptyState
+          text="グラフを表示する実行を選択してください"
+          hint="左の一覧から実行を選んでください。"
+        />
+      )}
       {props.data && activeReadModel && activeReadModelFilter !== undefined && (
         <>
           <ControlPanel

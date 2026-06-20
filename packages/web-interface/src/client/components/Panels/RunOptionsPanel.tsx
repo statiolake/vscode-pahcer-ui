@@ -70,7 +70,7 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
   }
 
   return (
-    <div className="panelContent narrow">
+    <div className="runOptionsPanel">
       <p className="formIntro">実行範囲やオプションを指定してテストを実行します。</p>
       <form className="form" noValidate onSubmit={handleSubmit}>
         <div className="formField">
