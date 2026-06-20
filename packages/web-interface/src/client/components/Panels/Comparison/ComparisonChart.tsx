@@ -13,9 +13,10 @@ import {
   Tooltip,
   type TooltipItem,
 } from 'chart.js';
-import { type KeyboardEvent, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Line, Scatter } from 'react-chartjs-2';
 
+import { focusFirstElement, trapFocus } from '../../common/focusScope';
 import type { ChartDataPoint, ComparisonViewReadModel } from './types';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
@@ -58,6 +59,7 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
   const [popup, setPopup] = useState<PopupState | null>(null);
   const [popupPosition, setPopupPosition] = useState<PopupPosition | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const popupTitleId = useId();
 
   const chartData = useMemo(
@@ -89,6 +91,9 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
       return undefined;
     }
 
+    previouslyFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     const updatePopupPosition = () => {
       const nextPosition = calculatePopupPosition(popupElement, popup.anchorX, popup.anchorY);
       setPopupPosition((currentPosition) =>
@@ -99,7 +104,7 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
     };
 
     updatePopupPosition();
-    popupElement.focus({ preventScroll: true });
+    focusFirstElement(popupElement);
 
     window.addEventListener('resize', updatePopupPosition);
 
@@ -110,6 +115,13 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
     return () => {
       window.removeEventListener('resize', updatePopupPosition);
       resizeObserver?.disconnect();
+
+      const previouslyFocusedElement = previouslyFocusedElementRef.current;
+      previouslyFocusedElementRef.current = null;
+
+      if (previouslyFocusedElement?.isConnected) {
+        previouslyFocusedElement.focus({ preventScroll: true });
+      }
     };
   }, [popup]);
 
@@ -118,10 +130,31 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
   const tooltipBackgroundColor = getCssVariable('--chart-tooltip-bg', 'CanvasText');
   const tooltipTextColor = getCssVariable('--chart-tooltip-text', 'Canvas');
 
-  const closePopup = () => {
+  const closePopup = useCallback(() => {
     setPopup(null);
     setPopupPosition(null);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!popup) {
+      return undefined;
+    }
+
+    function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closePopup();
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        trapFocus(event, popupRef.current);
+      }
+    }
+
+    document.addEventListener('keydown', handleDocumentKeyDown);
+    return () => document.removeEventListener('keydown', handleDocumentKeyDown);
+  }, [closePopup, popup]);
 
   const handlePointClick = (event: ChartEvent, elements: ActiveElement[]) => {
     if (!Array.isArray(elements) || elements.length === 0) {
@@ -220,13 +253,6 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
     closePopup();
   };
 
-  const handlePopupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closePopup();
-    }
-  };
-
   return (
     <div className="comparisonChart">
       {chartType === 'line' ? (
@@ -252,12 +278,22 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
               top: popupPosition?.top ?? popup.anchorY,
             }}
             role="dialog"
+            aria-modal="true"
             aria-labelledby={popupTitleId}
             tabIndex={-1}
-            onKeyDown={handlePopupKeyDown}
           >
-            <div id={popupTitleId} className="comparisonPopupTitle">
-              集約された Seed (x={popup.point.x})
+            <div className="comparisonPopupHeader">
+              <div id={popupTitleId} className="comparisonPopupTitle">
+                集約された Seed (x={popup.point.x})
+              </div>
+              <button
+                type="button"
+                className="comparisonPopupClose"
+                aria-label="閉じる"
+                onClick={closePopup}
+              >
+                ×
+              </button>
             </div>
             <div className="comparisonPopupList">
               {popup.point.group?.map((item) => (

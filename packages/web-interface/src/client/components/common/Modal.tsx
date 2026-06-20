@@ -1,5 +1,7 @@
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef } from 'react';
 
+import { focusFirstElement, trapFocus } from './focusScope';
+
 type ModalProps = {
   open: boolean;
   onClose: () => void;
@@ -25,8 +27,7 @@ export function Modal(props: ModalProps) {
 
     const dialog = dialogRef.current;
     if (dialog) {
-      const firstFocusableElement = getFocusableElements(dialog)[0] ?? dialog;
-      firstFocusableElement.focus({ preventScroll: true });
+      focusFirstElement(dialog);
     }
 
     return () => {
@@ -105,102 +106,4 @@ export function Modal(props: ModalProps) {
       </section>
     </div>
   );
-}
-
-const focusableSelector = [
-  'a[href]',
-  'area[href]',
-  'button:not([disabled])',
-  'input:not([disabled]):not([type="hidden"])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  'iframe',
-  'object',
-  'embed',
-  'details > summary:first-of-type',
-  '[contenteditable]:not([contenteditable="false"])',
-  '[tabindex]:not([tabindex^="-"])',
-].join(',');
-
-function trapFocus(event: KeyboardEvent, dialog: HTMLElement | null) {
-  if (!dialog) {
-    return;
-  }
-
-  const focusableElements = getFocusableElements(dialog);
-  if (focusableElements.length === 0) {
-    event.preventDefault();
-    dialog.focus({ preventScroll: true });
-    return;
-  }
-
-  const firstFocusableElement = focusableElements[0];
-  const lastFocusableElement = focusableElements[focusableElements.length - 1];
-  const activeElement = document.activeElement;
-  const activeElementIsDialog = activeElement === dialog;
-  const activeElementIsInsideDialog =
-    activeElement instanceof Node && dialog.contains(activeElement);
-
-  if (event.shiftKey) {
-    if (
-      !activeElementIsInsideDialog ||
-      activeElementIsDialog ||
-      activeElement === firstFocusableElement
-    ) {
-      event.preventDefault();
-      lastFocusableElement.focus({ preventScroll: true });
-    }
-    return;
-  }
-
-  if (
-    !activeElementIsInsideDialog ||
-    activeElementIsDialog ||
-    activeElement === lastFocusableElement
-  ) {
-    event.preventDefault();
-    firstFocusableElement.focus({ preventScroll: true });
-  }
-}
-
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter(isFocusableElement)
-    .sort((left, right) => compareTabOrder(left, right));
-}
-
-function isFocusableElement(element: HTMLElement): boolean {
-  if (element.matches(':disabled') || element.getAttribute('aria-hidden') === 'true') {
-    return false;
-  }
-
-  if (element.closest('[inert]')) {
-    return false;
-  }
-
-  const style = window.getComputedStyle(element);
-  if (style.visibility === 'hidden' || style.display === 'none') {
-    return false;
-  }
-
-  return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
-}
-
-function compareTabOrder(left: HTMLElement, right: HTMLElement): number {
-  const leftTabIndex = left.tabIndex;
-  const rightTabIndex = right.tabIndex;
-
-  if (leftTabIndex === rightTabIndex) {
-    return 0;
-  }
-
-  if (leftTabIndex === 0) {
-    return 1;
-  }
-
-  if (rightTabIndex === 0) {
-    return -1;
-  }
-
-  return leftTabIndex - rightTabIndex;
 }

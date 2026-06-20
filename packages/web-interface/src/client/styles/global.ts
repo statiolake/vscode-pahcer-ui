@@ -918,10 +918,31 @@ label {
   box-shadow: var(--shadow-popover);
   padding: var(--space-2);
 }
-.comparisonPopupTitle {
+.comparisonPopupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
+}
+.comparisonPopupTitle {
+  min-width: 0;
   color: var(--text);
   font-weight: 700;
+}
+.comparisonPopupClose {
+  min-height: var(--control-sm);
+  width: var(--control-sm);
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+}
+.comparisonPopupClose:hover {
+  border-color: transparent;
+  background: var(--surface-muted);
+  color: var(--text);
 }
 .comparisonPopupList {
   display: flex;
