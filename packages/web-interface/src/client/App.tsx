@@ -760,46 +760,36 @@ export function App() {
       ? { file: sourceFileError.file, message: sourceFileError.message }
       : null;
 
-  const isPanelDisabled = useCallback(
-    (panel: Panel): boolean => {
+  const getPanelDisabledReason = useCallback(
+    (panel: Panel): string | undefined => {
       switch (panel) {
         case 'case':
-          return !hasSelectedCase;
+          return hasSelectedCase ? undefined : 'ケースを選択してください';
         case 'source':
-          return !hasSelectedExecution;
+          return hasSelectedExecution ? undefined : '実行を選択してください';
         case 'diff':
-          return selectedCount !== 2;
+          return selectedCount === 2 ? undefined : '実行を 2 件選択してください';
         case 'visualizer':
-          return !hasVisualizer;
+          return hasVisualizer ? undefined : 'ケースを開いてビジュアライザを起動してください';
         case 'comparison':
         case 'run':
         case 'initialize':
-          return false;
+          return undefined;
       }
     },
     [hasSelectedCase, hasSelectedExecution, hasVisualizer, selectedCount],
   );
 
-  function panelDisabledTooltip(panel: Panel): string | undefined {
-    if (!isPanelDisabled(panel)) {
-      return undefined;
-    }
+  const activatePanelTab = useCallback(
+    (panel: Panel) => {
+      if (getPanelDisabledReason(panel) !== undefined) {
+        return;
+      }
 
-    switch (panel) {
-      case 'case':
-        return 'ケースを選択してください';
-      case 'source':
-        return '実行を選択してください';
-      case 'diff':
-        return '実行を 2 件選択してください';
-      case 'visualizer':
-        return 'ケースを開いてビジュアライザを起動してください';
-      case 'comparison':
-      case 'run':
-      case 'initialize':
-        return undefined;
-    }
-  }
+      setActivePanel(panel);
+    },
+    [getPanelDisabledReason],
+  );
 
   function renderPanelTabsActions() {
     switch (activePanel) {
@@ -833,10 +823,10 @@ export function App() {
   }
 
   useEffect(() => {
-    if (isPanelDisabled(activePanel)) {
+    if (getPanelDisabledReason(activePanel) !== undefined) {
       setActivePanel('comparison');
     }
-  }, [activePanel, isPanelDisabled]);
+  }, [activePanel, getPanelDisabledReason]);
 
   const visualizerExecutionTitle = visualizerRequest
     ? findExecutionShortTitle(treeData, visualizerRequest.executionId)
@@ -932,20 +922,28 @@ export function App() {
             <nav className="panelTabs">
               <div className="panelTabsList">
                 {ALL_PANELS.map((panel) => {
-                  const disabled = isPanelDisabled(panel);
-                  const tooltip = panelDisabledTooltip(panel);
+                  const disabledReason = getPanelDisabledReason(panel);
+                  const disabled = disabledReason !== undefined;
+                  const disabledReasonId = disabled
+                    ? `panel-tab-${panel}-disabled-reason`
+                    : undefined;
 
                   return (
                     <button
                       type="button"
                       className={activePanel === panel ? 'active' : ''}
-                      disabled={disabled}
-                      title={tooltip}
-                      aria-disabled={disabled}
-                      onClick={() => setActivePanel(panel)}
+                      title={disabledReason}
+                      aria-disabled={disabled ? 'true' : undefined}
+                      aria-describedby={disabledReasonId}
+                      onClick={() => activatePanelTab(panel)}
                       key={panel}
                     >
                       {panelLabel(panel)}
+                      {disabledReason && (
+                        <span id={disabledReasonId} className="visuallyHidden">
+                          {disabledReason}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

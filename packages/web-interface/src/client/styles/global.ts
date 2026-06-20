@@ -38,6 +38,17 @@ button:focus-visible, .button:focus-visible, input:focus-visible, select:focus-v
   outline: var(--size-focus-ring) solid var(--accent-line);
   outline-offset: var(--size-hairline);
 }
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 button:disabled {
   color: var(--soft);
   background: var(--surface-muted);
@@ -464,7 +475,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   padding: var(--space-1) var(--space-3);
   font-weight: 500;
 }
-.panelTabs button:hover:not(:disabled):not(.active) {
+.panelTabs button:hover:not([aria-disabled="true"]):not(.active) {
   background: var(--surface-muted);
   color: var(--text);
 }
@@ -474,7 +485,7 @@ main { min-height: 100vh; display: flex; flex-direction: column; }
   color: var(--accent-text);
   font-weight: 650;
 }
-.panelTabs button:disabled {
+.panelTabs button[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }
