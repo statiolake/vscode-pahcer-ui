@@ -58,7 +58,7 @@ export const designTokens = `
   --width-sidebar-min: 320px;
   --width-sidebar-max: 400px;
   --width-sort-control: 180px;
-  --height-chart: 600px;
+  --height-chart: clamp(320px, 55vh, 600px);
   --height-popup: 300px;
   --height-empty: 160px;
   --radius-sm: 4px;

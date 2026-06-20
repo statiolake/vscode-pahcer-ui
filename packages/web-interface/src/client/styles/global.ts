@@ -949,12 +949,16 @@ label {
   color: var(--muted);
   font-size: var(--fs-sm);
 }
-.comparisonStatsTable {
-  width: 100%;
-  border-collapse: collapse;
+.comparisonStatsTableViewport {
+  max-width: 100%;
+  overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+}
+.comparisonStatsTable {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
 }
 .comparisonStatsTable th,
 .comparisonStatsTable td {
