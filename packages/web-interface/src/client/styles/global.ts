@@ -1242,20 +1242,6 @@ fieldset.toggleGroup > legend.srOnly {
   animation: modalBackdropEnter 120ms ease-out;
   background: var(--overlay-bg);
 }
-.modalBackdropButton {
-  position: absolute;
-  inset: 0;
-  min-height: 0;
-  width: 100%;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  padding: 0;
-}
-.modalBackdropButton:hover {
-  background: transparent;
-  border-color: transparent;
-}
 .modalDialog {
   position: relative;
   z-index: 1;
