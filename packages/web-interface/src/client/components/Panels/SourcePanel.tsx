@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import type { FileView, SourcePreparation } from '../../types';
 import { sourcePreparationStatusLabel } from '../../utils/labels';
@@ -12,16 +12,17 @@ type SourcePanelProps = {
   sourceView: FileView | null;
   sourceFilePending: string | null;
   sourceFileError: { file: string; message: string } | null;
+  selectedFile: string;
   executionId: string;
   executionLabel: string;
-  onLoadFile: (file: string) => void;
+  onSelectFile: (file: string) => void;
 };
 
 export function SourcePanel(props: SourcePanelProps) {
-  const [selectedFile, setSelectedFile] = useState('');
   const preparation =
     props.preparation?.executionId === props.executionId ? props.preparation : null;
   const files = preparation?.status === 'ready' ? preparation.files : [];
+  const selectedFile = files.includes(props.selectedFile) ? props.selectedFile : '';
   const activeSource = useMemo(() => {
     if (
       !props.sourceView ||
@@ -33,28 +34,8 @@ export function SourcePanel(props: SourcePanelProps) {
     return props.sourceView;
   }, [props.executionId, props.sourceView, selectedFile]);
 
-  useEffect(() => {
-    if (preparation?.status !== 'ready') {
-      setSelectedFile('');
-      return;
-    }
-
-    setSelectedFile((current) => {
-      if (current && preparation.files.includes(current)) {
-        return current;
-      }
-      if (props.sourceView?.title && preparation.files.includes(props.sourceView.title)) {
-        return props.sourceView.title;
-      }
-      return '';
-    });
-  }, [preparation, props.sourceView?.title]);
-
   function selectFile(file: string) {
-    setSelectedFile(file);
-    if (file) {
-      props.onLoadFile(file);
-    }
+    props.onSelectFile(file);
   }
 
   const sourceFileError =

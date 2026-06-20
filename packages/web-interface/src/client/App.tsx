@@ -109,6 +109,7 @@ export function App() {
   const [sourcePreparationError, setSourcePreparationError] =
     useState<LoadError<SourcePreparationTarget> | null>(null);
   const [sourceView, setSourceView] = useState<FileView | null>(null);
+  const [selectedSourceFile, setSelectedSourceFile] = useState<SourceFileTarget | null>(null);
   const [sourceFilePending, setSourceFilePending] = useState<RequestState<SourceFileTarget> | null>(
     null,
   );
@@ -140,6 +141,7 @@ export function App() {
   const diffRequestIdRef = useRef(0);
   const sourcePreparationRequestIdRef = useRef(0);
   const sourceFileRequestIdRef = useRef(0);
+  const lastSourceFileByExecutionIdRef = useRef(new Map<string, string>());
   const visualizerRequestIdRef = useRef(0);
 
   const mode = preferences?.groupingMode ?? 'byExecution';
@@ -565,10 +567,25 @@ export function App() {
       if (sourcePreparationRequestIdRef.current !== requestId || !preparation) {
         return;
       }
+      const preparedSource = { ...preparation, executionId };
       setSourcePreparationError(null);
-      setSourcePreparation({ ...preparation, executionId });
+      setSourcePreparation(preparedSource);
       setSourceView(null);
       setSourceFileError(null);
+      if (preparedSource.status !== 'ready') {
+        setSelectedSourceFile((current) => (current?.executionId === executionId ? null : current));
+        return;
+      }
+
+      const initialFile = selectPreparedSourceFile(
+        preparedSource.files,
+        lastSourceFileByExecutionIdRef.current.get(executionId),
+      );
+      if (initialFile) {
+        void loadSourceFile(executionId, initialFile);
+      } else {
+        setSelectedSourceFile((current) => (current?.executionId === executionId ? null : current));
+      }
     } finally {
       if (sourcePreparationRequestIdRef.current === requestId) {
         setSourcePreparationPending(null);
@@ -578,7 +595,9 @@ export function App() {
 
   async function loadSourceFile(executionId: string, file: string) {
     const requestId = nextUiActionRequestId();
+    lastSourceFileByExecutionIdRef.current.set(executionId, file);
     sourceFileRequestIdRef.current = requestId;
+    setSelectedSourceFile({ executionId, file });
     setSourceFilePending({ requestId, executionId, file });
     setSourceFileError(null);
 
@@ -606,6 +625,14 @@ export function App() {
         setSourceFilePending(null);
       }
     }
+  }
+
+  function selectSourceFile(executionId: string, file: string) {
+    if (!file) {
+      setSelectedSourceFile((current) => (current?.executionId === executionId ? null : current));
+      return;
+    }
+    void loadSourceFile(executionId, file);
   }
 
   function showVisualizerFrame(request: VisualizerRequest, htmlFileName: string) {
@@ -759,6 +786,10 @@ export function App() {
     selectedExecution !== undefined && sourceFileError?.executionId === selectedExecution.id
       ? { file: sourceFileError.file, message: sourceFileError.message }
       : null;
+  const selectedSourceFileForExecution =
+    selectedExecution !== undefined && selectedSourceFile?.executionId === selectedExecution.id
+      ? selectedSourceFile.file
+      : '';
 
   const getPanelDisabledReason = useCallback(
     (panel: Panel): string | undefined => {
@@ -992,11 +1023,12 @@ export function App() {
                 sourceView={sourceView}
                 sourceFilePending={sourceFilePendingForExecution}
                 sourceFileError={sourceFileErrorForExecution}
+                selectedFile={selectedSourceFileForExecution}
                 executionId={selectedExecution.id}
                 executionLabel={
                   selectedExecution.shortTitle ?? shortExecutionId(selectedExecution.id)
                 }
-                onLoadFile={(file) => void loadSourceFile(selectedExecution.id, file)}
+                onSelectFile={(file) => selectSourceFile(selectedExecution.id, file)}
               />
             )}
             {activePanel === 'source' && !selectedExecution && (
@@ -1035,6 +1067,16 @@ function findExecutionShortTitle(
 
 function shortExecutionId(executionId: string): string {
   return executionId.length > 8 ? executionId.slice(0, 8) : executionId;
+}
+
+function selectPreparedSourceFile(
+  files: string[],
+  preferredFile: string | undefined,
+): string | null {
+  if (preferredFile && files.includes(preferredFile)) {
+    return preferredFile;
+  }
+  return files[0] ?? null;
 }
 
 function sameExecutionIds(left: string[], right: string[]): boolean {
