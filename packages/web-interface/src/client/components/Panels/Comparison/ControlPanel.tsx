@@ -1,0 +1,182 @@
+import type { ComparisonExpressionValidation } from './types';
+
+interface Props {
+  featureString: string;
+  xAxis: string;
+  yAxis: string;
+  chartType: 'line' | 'scatter';
+  skipFailed: boolean;
+  filter: string;
+  validation: ComparisonExpressionValidation;
+  onFeatureStringChange: (value: string) => void;
+  onXAxisChange: (value: string) => void;
+  onYAxisChange: (value: string) => void;
+  onChartTypeChange: (value: 'line' | 'scatter') => void;
+  onSkipFailedChange: (value: boolean) => void;
+  onFilterChange: (value: string) => void;
+}
+
+export function ControlPanel({
+  featureString,
+  xAxis,
+  yAxis,
+  chartType,
+  skipFailed,
+  filter,
+  validation,
+  onFeatureStringChange,
+  onXAxisChange,
+  onYAxisChange,
+  onChartTypeChange,
+  onSkipFailedChange,
+  onFilterChange,
+}: Props) {
+  return (
+    <section className="comparisonSection">
+      <div className="comparisonControls">
+        <label>
+          Features:
+          <input
+            type="text"
+            value={featureString}
+            onChange={(event) => onFeatureStringChange(event.target.value)}
+            placeholder="例: N M K"
+          />
+        </label>
+        <label className={validation.filter ? undefined : 'fieldInvalid'}>
+          Filter:
+          <input
+            type="text"
+            value={filter}
+            onChange={(event) => onFilterChange(event.target.value)}
+            placeholder="例: N >= 100"
+            title={validation.filter ? '' : '式が不正です'}
+            aria-invalid={!validation.filter}
+          />
+          {!validation.filter && <span className="fieldError">式が不正です</span>}
+        </label>
+      </div>
+
+      <div className="comparisonControls secondary">
+        <label>
+          <select
+            aria-label="グラフ"
+            value={chartType}
+            onChange={(event) => onChartTypeChange(event.target.value as 'line' | 'scatter')}
+          >
+            <option value="line">折れ線</option>
+            <option value="scatter">散布図</option>
+          </select>
+        </label>
+        <label className={validation.xAxis ? undefined : 'fieldInvalid'}>
+          X軸:
+          <input
+            type="text"
+            value={xAxis}
+            onChange={(event) => onXAxisChange(event.target.value)}
+            placeholder="例: seed, N, log(N)"
+            title={validation.xAxis ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+            aria-invalid={!validation.xAxis}
+          />
+          {!validation.xAxis && (
+            <span className="fieldError">式が不正です（未完成の括弧や演算子があります）</span>
+          )}
+        </label>
+        <label className={validation.yAxis ? undefined : 'fieldInvalid'}>
+          Y軸:
+          <input
+            type="text"
+            value={yAxis}
+            onChange={(event) => onYAxisChange(event.target.value)}
+            placeholder="例: absScore, relScore"
+            title={validation.yAxis ? '' : '式が不正です（未完成の括弧や演算子があります）'}
+            aria-invalid={!validation.yAxis}
+          />
+          {!validation.yAxis && (
+            <span className="fieldError">式が不正です（未完成の括弧や演算子があります）</span>
+          )}
+        </label>
+        <label className="checkLabel comparisonCheck">
+          <input
+            type="checkbox"
+            checked={skipFailed}
+            onChange={(event) => onSkipFailedChange(event.target.checked)}
+          />
+          WA を無視
+        </label>
+      </div>
+
+      <details className="comparisonDetails">
+        <summary>設定の詳細</summary>
+        <div className="comparisonDetailsBody">
+          <p>
+            <strong>Features:</strong> 入力ファイルの先頭行を空白区切りで解釈 (例: N M K)
+          </p>
+          <p>
+            <strong>X軸・Y軸:</strong> 式を使用できます
+          </p>
+          <ul>
+            <li>
+              <code>seed</code> - シード番号
+            </li>
+            <li>
+              <code>absScore</code> - 絶対スコア
+            </li>
+            <li>
+              <code>relScore</code> - 相対スコア (%)
+            </li>
+            <li>
+              <code>msec</code> - 実行時間 (ミリ秒)
+            </li>
+            <li>
+              Features で定義した変数 (例: <code>N</code>, <code>M</code>, <code>K</code>)
+            </li>
+            <li>
+              <code>$varname</code> - 標準エラー出力から抽出した変数 (例: <code>$iter</code>)
+            </li>
+          </ul>
+          <p>
+            <strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>,{' '}
+            <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>,{' '}
+            <code>relScore*100</code>, <code>msec</code>, <code>log($iter)</code>
+          </p>
+          <p>
+            <strong>標準エラー出力の変数:</strong> 標準エラー出力の先頭100行と末尾100行から{' '}
+            <code>$varname = value</code> 形式で抽出
+          </p>
+          <p>
+            <strong>利用可能な関数:</strong>
+          </p>
+          <ul>
+            <li>
+              要素ごと: <code>log(x)</code>, <code>ceil(x)</code>, <code>floor(x)</code>
+            </li>
+            <li>
+              集計: <code>avg(x)</code>, <code>max(x)</code>, <code>min(x)</code>
+            </li>
+            <li>
+              その他: <code>random()</code> - 0以上1未満の乱数
+            </li>
+          </ul>
+          <p>
+            <strong>Filter:</strong>{' '}
+            条件式を指定してデータをフィルタリング（空欄の場合は全データを表示）
+          </p>
+          <ul>
+            <li>
+              比較演算子: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>,{' '}
+              <code>&gt;=</code>, <code>==</code>, <code>!=</code>
+            </li>
+            <li>
+              例: <code>N &gt;= 100</code>, <code>N == 50</code>, <code>N * M &lt;= 1000</code>
+            </li>
+          </ul>
+          <p>
+            <strong>「WA を無視」:</strong>{' '}
+            チェックすると、集計時にスコアが0のケース（WA）を除外します
+          </p>
+        </div>
+      </details>
+    </section>
+  );
+}
