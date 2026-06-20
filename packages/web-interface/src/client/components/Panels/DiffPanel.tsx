@@ -7,10 +7,18 @@ import { IconChevronRight } from '../Tree/icons';
 type DiffPanelProps = {
   diff: DiffView | null;
   selectedCount: number;
+  pending: boolean;
+  loadError: string | null;
 };
 
 export function DiffPanel(props: DiffPanelProps) {
+  if (props.pending) {
+    return <EmptyState text="差分を読み込み中..." hint={`差分対象: ${props.selectedCount}/2 件`} />;
+  }
   if (!props.diff) {
+    if (props.loadError) {
+      return <EmptyState text="差分の読み込みに失敗しました" hint={props.loadError} />;
+    }
     return <EmptyState text={`差分対象: ${props.selectedCount}/2 件`} />;
   }
   if (props.diff.status !== 'shown') {

@@ -49,6 +49,7 @@ export type FileView = {
 
 export type DiffView = {
   status: string;
+  executionIds?: string[];
   files?: Array<{ file: string; patch: string }>;
 };
 

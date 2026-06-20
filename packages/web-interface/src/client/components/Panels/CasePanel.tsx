@@ -9,6 +9,8 @@ import { EmptyState } from '../common/EmptyState';
 type CasePanelProps = {
   selectedCase: SelectedCase;
   fileView: FileView | null;
+  pendingKind: CaseFileKind | null;
+  loadError: { kind: CaseFileKind; message: string } | null;
   onOpenFile: (kind: CaseFileKind) => void;
 };
 
@@ -16,7 +18,6 @@ const caseFileKinds: CaseFileKind[] = ['input', 'output', 'error'];
 
 export function CasePanel(props: CasePanelProps) {
   const [selectedKind, setSelectedKind] = useState<CaseFileKind>('input');
-  const [pendingKind, setPendingKind] = useState<CaseFileKind | null>(null);
   const activeFile = useMemo(() => {
     if (
       props.fileView?.kind !== selectedKind ||
@@ -32,21 +33,16 @@ export function CasePanel(props: CasePanelProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: onOpenFile は親で安定参照
   useEffect(() => {
     setSelectedKind('input');
-    setPendingKind('input');
     props.onOpenFile('input');
   }, [props.selectedCase.executionId, props.selectedCase.seed]);
 
-  useEffect(() => {
-    if (activeFile) {
-      setPendingKind(null);
-    }
-  }, [activeFile]);
-
   function selectKind(kind: CaseFileKind) {
     setSelectedKind(kind);
-    setPendingKind(kind);
     props.onOpenFile(kind);
   }
+
+  const loadError = props.loadError?.kind === selectedKind ? props.loadError.message : null;
+  const pending = props.pendingKind === selectedKind;
 
   return (
     <div className="panelContent">
@@ -66,14 +62,19 @@ export function CasePanel(props: CasePanelProps) {
           </button>
         ))}
       </fieldset>
-      {activeFile ? (
+      {pending ? (
+        <EmptyState text={`${caseFileKindLabel(selectedKind)}を読み込み中...`} />
+      ) : activeFile ? (
         <CodeBlock
           title={caseFileKindLabel(selectedKind)}
           subtitle={activeFile.path}
           content={activeFile.content}
         />
-      ) : pendingKind === selectedKind ? (
-        <EmptyState text="読み込み中" />
+      ) : loadError ? (
+        <EmptyState
+          text={`${caseFileKindLabel(selectedKind)}の読み込みに失敗しました`}
+          hint={loadError}
+        />
       ) : (
         <EmptyState text="ファイルを選択してください" />
       )}

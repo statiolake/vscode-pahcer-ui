@@ -5,6 +5,8 @@ import { IconExternal, IconRefresh } from '../../Tree/icons';
 
 type VisualizerPanelProps = {
   src: string | null;
+  pending: boolean;
+  loadError: string | null;
   title?: {
     seed: number;
     execution?: string;
@@ -13,10 +15,22 @@ type VisualizerPanelProps = {
 };
 
 export function VisualizerPanel(props: VisualizerPanelProps) {
+  if (props.pending) {
+    return (
+      <div className="visualizerPanel">
+        <EmptyState text="ビジュアライザを確認中..." />
+      </div>
+    );
+  }
+
   if (!props.src) {
     return (
       <div className="visualizerPanel">
-        <EmptyState text="ケースを選択してビジュアライザを開いてください" />
+        {props.loadError ? (
+          <EmptyState text="ビジュアライザを開けませんでした" hint={props.loadError} />
+        ) : (
+          <EmptyState text="ケースを選択してビジュアライザを開いてください" />
+        )}
       </div>
     );
   }

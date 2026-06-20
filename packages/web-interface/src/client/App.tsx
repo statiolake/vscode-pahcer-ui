@@ -50,6 +50,39 @@ type VisualizerRequest = {
   executionId: string;
 };
 
+type UiActionOptions = {
+  shouldReportError?: () => boolean;
+  onError?: (message: string) => void;
+  rethrow?: boolean;
+};
+
+type RequestState<T> = T & {
+  requestId: number;
+};
+
+type LoadError<T> = T & {
+  message: string;
+};
+
+type CaseFileTarget = {
+  kind: CaseFileKind;
+  executionId: string;
+  seed: number;
+};
+
+type DiffTarget = {
+  executionIds: string[];
+};
+
+type SourcePreparationTarget = {
+  executionId: string;
+};
+
+type SourceFileTarget = {
+  executionId: string;
+  file: string;
+};
+
 const ALL_PANELS: Panel[] = ['comparison', 'case', 'source', 'diff', 'visualizer', 'run'];
 
 export function App() {
@@ -65,11 +98,26 @@ export function App() {
   const [selectedCase, setSelectedCase] = useState<SelectedCase | null>(null);
   const [comparison, setComparison] = useState<ComparisonData | null>(null);
   const [fileView, setFileView] = useState<FileView | null>(null);
+  const [caseFilePending, setCaseFilePending] = useState<RequestState<CaseFileTarget> | null>(null);
+  const [caseFileError, setCaseFileError] = useState<LoadError<CaseFileTarget> | null>(null);
   const [diffView, setDiffView] = useState<DiffView | null>(null);
+  const [diffPending, setDiffPending] = useState<RequestState<DiffTarget> | null>(null);
+  const [diffError, setDiffError] = useState<LoadError<DiffTarget> | null>(null);
   const [sourcePreparation, setSourcePreparation] = useState<SourcePreparation | null>(null);
+  const [sourcePreparationPending, setSourcePreparationPending] =
+    useState<RequestState<SourcePreparationTarget> | null>(null);
+  const [sourcePreparationError, setSourcePreparationError] =
+    useState<LoadError<SourcePreparationTarget> | null>(null);
   const [sourceView, setSourceView] = useState<FileView | null>(null);
+  const [sourceFilePending, setSourceFilePending] = useState<RequestState<SourceFileTarget> | null>(
+    null,
+  );
+  const [sourceFileError, setSourceFileError] = useState<LoadError<SourceFileTarget> | null>(null);
   const [visualizerSrc, setVisualizerSrc] = useState<string | null>(null);
   const [visualizerRequest, setVisualizerRequest] = useState<VisualizerRequest | null>(null);
+  const [visualizerPending, setVisualizerPending] =
+    useState<RequestState<VisualizerRequest> | null>(null);
+  const [visualizerError, setVisualizerError] = useState<string | null>(null);
   const [visualizerModalOpen, setVisualizerModalOpen] = useState(false);
   const [visualizerDownloading, setVisualizerDownloading] = useState(false);
   const [pendingVisualizerRequest, setPendingVisualizerRequest] =
@@ -80,8 +128,19 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const toastIdRef = useRef(0);
   const comparisonRequestIdRef = useRef(0);
+  const selectedExecutionIdsRef = useRef<string[]>(selectedExecutionIds);
+  const uiActionRequestIdRef = useRef(0);
+  const caseFileRequestIdRef = useRef(0);
+  const diffRequestIdRef = useRef(0);
+  const sourcePreparationRequestIdRef = useRef(0);
+  const sourceFileRequestIdRef = useRef(0);
+  const visualizerRequestIdRef = useRef(0);
 
   const mode = preferences?.groupingMode ?? 'byExecution';
+
+  useEffect(() => {
+    selectedExecutionIdsRef.current = selectedExecutionIds;
+  }, [selectedExecutionIds]);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) =>
@@ -106,13 +165,45 @@ export function App() {
   );
 
   const reportError = useCallback(
-    (caught: unknown) => {
-      const message = toErrorMessage(caught);
+    (caught: unknown, label?: string) => {
+      const detail = toErrorMessage(caught);
+      const message = label ? `${label}: ${detail}` : detail;
       setError(message);
       showToast('error', message);
+      return message;
     },
     [showToast],
   );
+
+  const runUiAction = useCallback(
+    async <T,>(
+      label: string,
+      fn: () => Promise<T>,
+      options: UiActionOptions = {},
+    ): Promise<T | null> => {
+      setError(null);
+      try {
+        return await fn();
+      } catch (caught) {
+        const shouldReport = options.shouldReportError?.() ?? true;
+        if (shouldReport) {
+          const message = reportError(caught, label);
+          options.onError?.(message);
+        }
+        if (options.rethrow) {
+          throw caught;
+        }
+        return null;
+      }
+    },
+    [reportError],
+  );
+
+  function nextUiActionRequestId() {
+    const requestId = uiActionRequestIdRef.current + 1;
+    uiActionRequestIdRef.current = requestId;
+    return requestId;
+  }
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -269,40 +360,142 @@ export function App() {
   }
 
   async function openCaseFile(kind: CaseFileKind, executionId: string, seed: number) {
-    const query = new URLSearchParams({ kind, executionId, seed: String(seed) });
-    const file = await fetchJson<FileView>(`/api/case-file?${query}`);
-    setFileView({
-      ...file,
-      title: caseFileKindLabel(kind),
-      kind,
-      executionId,
-      seed,
-    });
+    const requestId = nextUiActionRequestId();
+    caseFileRequestIdRef.current = requestId;
+    setCaseFilePending({ requestId, kind, executionId, seed });
+    setCaseFileError(null);
     setActivePanel('case');
+
+    const query = new URLSearchParams({ kind, executionId, seed: String(seed) });
+    try {
+      const file = await runUiAction(
+        'ケースファイルの読み込み',
+        () => fetchJson<FileView>(`/api/case-file?${query}`),
+        {
+          shouldReportError: () => caseFileRequestIdRef.current === requestId,
+          onError: (message) => setCaseFileError({ kind, executionId, seed, message }),
+        },
+      );
+      if (caseFileRequestIdRef.current !== requestId || !file) {
+        return;
+      }
+      setCaseFileError(null);
+      setFileView({
+        ...file,
+        title: caseFileKindLabel(kind),
+        kind,
+        executionId,
+        seed,
+      });
+    } finally {
+      if (caseFileRequestIdRef.current === requestId) {
+        setCaseFilePending(null);
+      }
+    }
   }
 
   async function showDiff() {
-    const diff = await fetchJson<DiffView>(
-      `/api/diff?executionIds=${selectedExecutionIds.map(encodeURIComponent).join(',')}`,
-    );
-    setDiffView(diff);
+    const executionIds = selectedExecutionIds.slice();
+    if (executionIds.length !== 2) {
+      reportError('差分を表示するには実行を 2 件選択してください');
+      return;
+    }
+
+    const requestId = nextUiActionRequestId();
+    diffRequestIdRef.current = requestId;
+    setDiffPending({ requestId, executionIds });
+    setDiffError(null);
     setActivePanel('diff');
+
+    const isCurrentRequest = () =>
+      diffRequestIdRef.current === requestId &&
+      sameExecutionIds(selectedExecutionIdsRef.current, executionIds);
+
+    try {
+      const diff = await runUiAction(
+        '差分の読み込み',
+        () =>
+          fetchJson<DiffView>(
+            `/api/diff?executionIds=${executionIds.map(encodeURIComponent).join(',')}`,
+          ),
+        {
+          shouldReportError: isCurrentRequest,
+          onError: (message) => setDiffError({ executionIds, message }),
+        },
+      );
+      if (!isCurrentRequest() || !diff) {
+        return;
+      }
+      setDiffError(null);
+      setDiffView({ ...diff, executionIds });
+    } finally {
+      if (diffRequestIdRef.current === requestId) {
+        setDiffPending(null);
+      }
+    }
   }
 
   async function prepareSource(executionId: string) {
-    const preparation = await fetchJson<SourcePreparation>(
-      `/api/source/${encodeURIComponent(executionId)}/prepare`,
-    );
-    setSourcePreparation({ ...preparation, executionId });
-    setSourceView(null);
+    const requestId = nextUiActionRequestId();
+    sourcePreparationRequestIdRef.current = requestId;
+    setSourcePreparationPending({ requestId, executionId });
+    setSourcePreparationError(null);
     setActivePanel('source');
+
+    try {
+      const preparation = await runUiAction(
+        'ソースファイルの準備',
+        () =>
+          fetchJson<SourcePreparation>(`/api/source/${encodeURIComponent(executionId)}/prepare`),
+        {
+          shouldReportError: () => sourcePreparationRequestIdRef.current === requestId,
+          onError: (message) => setSourcePreparationError({ executionId, message }),
+        },
+      );
+      if (sourcePreparationRequestIdRef.current !== requestId || !preparation) {
+        return;
+      }
+      setSourcePreparationError(null);
+      setSourcePreparation({ ...preparation, executionId });
+      setSourceView(null);
+      setSourceFileError(null);
+    } finally {
+      if (sourcePreparationRequestIdRef.current === requestId) {
+        setSourcePreparationPending(null);
+      }
+    }
   }
 
   async function loadSourceFile(executionId: string, file: string) {
-    const source = await fetchJson<FileView>(
-      `/api/source/${encodeURIComponent(executionId)}/content?file=${encodeURIComponent(file)}`,
-    );
-    setSourceView({ ...source, title: file, executionId });
+    const requestId = nextUiActionRequestId();
+    sourceFileRequestIdRef.current = requestId;
+    setSourceFilePending({ requestId, executionId, file });
+    setSourceFileError(null);
+
+    try {
+      const source = await runUiAction(
+        'ソースファイルの読み込み',
+        () =>
+          fetchJson<FileView>(
+            `/api/source/${encodeURIComponent(executionId)}/content?file=${encodeURIComponent(
+              file,
+            )}`,
+          ),
+        {
+          shouldReportError: () => sourceFileRequestIdRef.current === requestId,
+          onError: (message) => setSourceFileError({ executionId, file, message }),
+        },
+      );
+      if (sourceFileRequestIdRef.current !== requestId || !source) {
+        return;
+      }
+      setSourceFileError(null);
+      setSourceView({ ...source, title: file, executionId });
+    } finally {
+      if (sourceFileRequestIdRef.current === requestId) {
+        setSourceFilePending(null);
+      }
+    }
   }
 
   function showVisualizerFrame(request: VisualizerRequest, htmlFileName: string) {
@@ -313,45 +506,73 @@ export function App() {
     });
     setVisualizerRequest(request);
     setVisualizerSrc(`/api/visualizer/frame?${query}`);
+    setVisualizerError(null);
     setActivePanel('visualizer');
   }
 
   async function openVisualizer(seed: number, executionId: string) {
     const request = { seed, executionId };
-    setError(null);
-    setPendingVisualizerRequest(request);
+    const requestId = nextUiActionRequestId();
+    visualizerRequestIdRef.current = requestId;
+    setVisualizerPending({ ...request, requestId });
+    setVisualizerError(null);
+    setPendingVisualizerRequest(null);
+    setActivePanel('visualizer');
 
     try {
-      const { htmlFileName } = await fetchJson<{ htmlFileName?: string }>('/api/visualizer/status');
-      if (!htmlFileName) {
+      const result = await runUiAction(
+        'ビジュアライザの確認',
+        () => fetchJson<{ htmlFileName?: string }>('/api/visualizer/status'),
+        {
+          shouldReportError: () => visualizerRequestIdRef.current === requestId,
+          onError: setVisualizerError,
+        },
+      );
+      if (visualizerRequestIdRef.current !== requestId || !result) {
+        return;
+      }
+      if (!result.htmlFileName) {
+        setPendingVisualizerRequest(request);
         setVisualizerModalOpen(true);
         return;
       }
 
-      showVisualizerFrame(request, htmlFileName);
+      showVisualizerFrame(request, result.htmlFileName);
       setPendingVisualizerRequest(null);
-    } catch (caught) {
-      setPendingVisualizerRequest(null);
-      reportError(caught);
+    } finally {
+      if (visualizerRequestIdRef.current === requestId) {
+        setVisualizerPending(null);
+      }
     }
   }
 
   async function downloadVisualizer(url: string) {
     const request = pendingVisualizerRequest ?? visualizerRequest ?? selectedCase;
     if (!request) {
-      throw new Error('表示するケースを選択してください');
+      const caught = new Error('表示するケースを選択してください');
+      reportError(caught);
+      throw caught;
     }
 
     setVisualizerDownloading(true);
+    setVisualizerError(null);
     try {
-      const { htmlFileName } = await fetchJson<{ htmlFileName: string }>(
-        '/api/visualizer/download',
+      const result = await runUiAction(
+        'ビジュアライザのダウンロード',
+        () =>
+          fetchJson<{ htmlFileName: string }>('/api/visualizer/download', {
+            method: 'POST',
+            body: JSON.stringify({ url }),
+          }),
         {
-          method: 'POST',
-          body: JSON.stringify({ url }),
+          onError: setVisualizerError,
+          rethrow: true,
         },
       );
-      showVisualizerFrame(request, htmlFileName);
+      if (!result) {
+        return;
+      }
+      showVisualizerFrame(request, result.htmlFileName);
       setPendingVisualizerRequest(null);
       setVisualizerModalOpen(false);
     } finally {
@@ -384,7 +605,50 @@ export function App() {
   )?.execution;
   const hasSelectedCase = selectedCase !== null;
   const hasSelectedExecution = selectedExecution !== undefined;
-  const hasVisualizer = visualizerSrc !== null;
+  const hasVisualizer =
+    visualizerSrc !== null ||
+    visualizerPending !== null ||
+    visualizerError !== null ||
+    visualizerModalOpen;
+  const caseFilePendingKind =
+    selectedCase !== null &&
+    caseFilePending !== null &&
+    caseFilePending?.executionId === selectedCase.executionId &&
+    caseFilePending.seed === selectedCase.seed
+      ? caseFilePending.kind
+      : null;
+  const caseFileLoadError =
+    selectedCase !== null &&
+    caseFileError !== null &&
+    caseFileError?.executionId === selectedCase.executionId &&
+    caseFileError.seed === selectedCase.seed
+      ? { kind: caseFileError.kind, message: caseFileError.message }
+      : null;
+  const diffPendingForSelection =
+    diffPending !== null && sameExecutionIds(diffPending.executionIds, selectedExecutionIds);
+  const diffErrorForSelection =
+    diffError !== null && sameExecutionIds(diffError.executionIds, selectedExecutionIds)
+      ? diffError.message
+      : null;
+  const activeDiffView =
+    diffView?.executionIds && sameExecutionIds(diffView.executionIds, selectedExecutionIds)
+      ? diffView
+      : null;
+  const sourcePreparationPendingForExecution =
+    selectedExecution !== undefined &&
+    sourcePreparationPending?.executionId === selectedExecution.id;
+  const sourcePreparationErrorForExecution =
+    selectedExecution !== undefined && sourcePreparationError?.executionId === selectedExecution.id
+      ? sourcePreparationError.message
+      : null;
+  const sourceFilePendingForExecution =
+    selectedExecution !== undefined && sourceFilePending?.executionId === selectedExecution.id
+      ? sourceFilePending.file
+      : null;
+  const sourceFileErrorForExecution =
+    selectedExecution !== undefined && sourceFileError?.executionId === selectedExecution.id
+      ? { file: sourceFileError.file, message: sourceFileError.message }
+      : null;
 
   const isPanelDisabled = useCallback(
     (panel: Panel): boolean => {
@@ -592,6 +856,8 @@ export function App() {
                 key={`${selectedCase.executionId}:${selectedCase.seed}`}
                 selectedCase={selectedCase}
                 fileView={fileView}
+                pendingKind={caseFilePendingKind}
+                loadError={caseFileLoadError}
                 onOpenFile={(kind) =>
                   void openCaseFile(kind, selectedCase.executionId, selectedCase.seed)
                 }
@@ -601,12 +867,23 @@ export function App() {
               <EmptyState text="ケースを選択してください" />
             )}
 
-            {activePanel === 'diff' && <DiffPanel diff={diffView} selectedCount={selectedCount} />}
+            {activePanel === 'diff' && (
+              <DiffPanel
+                diff={activeDiffView}
+                selectedCount={selectedCount}
+                pending={diffPendingForSelection}
+                loadError={diffErrorForSelection}
+              />
+            )}
 
             {activePanel === 'source' && selectedExecution && (
               <SourcePanel
                 preparation={sourcePreparation}
+                preparationPending={sourcePreparationPendingForExecution}
+                preparationError={sourcePreparationErrorForExecution}
                 sourceView={sourceView}
+                sourceFilePending={sourceFilePendingForExecution}
+                sourceFileError={sourceFileErrorForExecution}
                 executionId={selectedExecution.id}
                 executionLabel={
                   selectedExecution.shortTitle ?? shortExecutionId(selectedExecution.id)
@@ -621,6 +898,8 @@ export function App() {
             {activePanel === 'visualizer' && (
               <VisualizerPanel
                 src={visualizerSrc}
+                pending={visualizerPending !== null}
+                loadError={visualizerError}
                 title={visualizerTitle}
                 onResetVisualizer={resetVisualizer}
               />
@@ -648,4 +927,8 @@ function findExecutionShortTitle(
 
 function shortExecutionId(executionId: string): string {
   return executionId.length > 8 ? executionId.slice(0, 8) : executionId;
+}
+
+function sameExecutionIds(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
 }
