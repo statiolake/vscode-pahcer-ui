@@ -3,8 +3,8 @@ import { type FormEvent, useId, useState } from 'react';
 import type { RunOptions } from '../../types';
 import { Button } from '../common/Button';
 
-const DEFAULT_START_SEED = 0;
-const DEFAULT_END_SEED = 100;
+const MIN_SEED = 0;
+const USE_CONFIG_PLACEHOLDER = '(設定値を使う)';
 
 type RunOptionsPanelProps = {
   onRun: (options: RunOptions) => void;
@@ -27,30 +27,27 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
   const freezeBestScoresId = useId();
   const enableGitIntegrationId = useId();
 
-  const [startSeedInput, setStartSeedInput] = useState(String(DEFAULT_START_SEED));
-  const [endSeedInput, setEndSeedInput] = useState(String(DEFAULT_END_SEED));
+  const [startSeedInput, setStartSeedInput] = useState('');
+  const [endSeedInput, setEndSeedInput] = useState('');
   const [freezeBestScores, setFreezeBestScores] = useState(false);
   const [enableGitIntegration, setEnableGitIntegration] = useState(false);
 
   const startSeedParseResult = parseSeedInput(startSeedInput);
   const endSeedParseResult = parseSeedInput(endSeedInput);
-  const effectiveStartSeed = effectiveSeedValue(
-    correctedSeedValue(startSeedParseResult, DEFAULT_START_SEED),
-    DEFAULT_START_SEED,
-  );
-  const endSeedMin = effectiveStartSeed + 1;
-  const canSubmit =
-    startSeedParseResult.kind !== 'invalid' && endSeedParseResult.kind !== 'invalid';
+  const endSeedMin =
+    startSeedParseResult.kind === 'number' && startSeedParseResult.value >= MIN_SEED
+      ? startSeedParseResult.value + 1
+      : MIN_SEED;
+  const startSeedInvalid = isInvalidStartSeed(startSeedParseResult);
+  const endSeedInvalid = isInvalidEndSeed(startSeedParseResult, endSeedParseResult);
+  const canSubmit = !startSeedInvalid && !endSeedInvalid;
 
   function handleStartSeedBlur() {
-    const normalizedRange = normalizeSeedRange(startSeedInput, endSeedInput);
-    setStartSeedInput(formatSeedInput(normalizedRange.startSeed));
-    setEndSeedInput(formatSeedInput(normalizedRange.endSeed));
+    setStartSeedInput(formatSeedInput(startSeedParseResult));
   }
 
   function handleEndSeedBlur() {
-    const normalizedRange = normalizeSeedRange(startSeedInput, endSeedInput);
-    setEndSeedInput(formatSeedInput(normalizedRange.endSeed));
+    setEndSeedInput(formatSeedInput(endSeedParseResult));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -61,12 +58,12 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
     }
 
     const normalizedRange = normalizeSeedRange(startSeedInput, endSeedInput);
-    setStartSeedInput(formatSeedInput(normalizedRange.startSeed));
-    setEndSeedInput(formatSeedInput(normalizedRange.endSeed));
+    setStartSeedInput(formatSeedValue(normalizedRange.startSeed));
+    setEndSeedInput(formatSeedValue(normalizedRange.endSeed));
 
     props.onRun({
-      startSeed: defaultSeedValue(normalizedRange.startSeed, DEFAULT_START_SEED),
-      endSeed: defaultSeedValue(normalizedRange.endSeed, DEFAULT_END_SEED),
+      startSeed: normalizedRange.startSeed,
+      endSeed: normalizedRange.endSeed,
       freezeBestScores,
       enableGitIntegration,
     });
@@ -81,14 +78,17 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
           <input
             id={startSeedId}
             type="number"
-            min={DEFAULT_START_SEED}
+            min={MIN_SEED}
+            placeholder={USE_CONFIG_PLACEHOLDER}
             step={1}
             value={startSeedInput}
-            aria-invalid={startSeedParseResult.kind === 'invalid'}
+            aria-invalid={startSeedInvalid}
             onBlur={handleStartSeedBlur}
             onChange={(event) => setStartSeedInput(event.target.value)}
           />
-          <div className="fieldHelp">テストケースの開始seed値を指定します。</div>
+          <div className="fieldHelp">
+            テストケースの開始seed値を指定します。空欄なら pahcer config の start_seed を使います。
+          </div>
         </div>
         <div className="formField">
           <label htmlFor={endSeedId}>終了 Seed</label>
@@ -96,15 +96,17 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
             id={endSeedId}
             type="number"
             min={endSeedMin}
+            placeholder={USE_CONFIG_PLACEHOLDER}
             step={1}
             value={endSeedInput}
-            aria-invalid={endSeedParseResult.kind === 'invalid'}
+            aria-invalid={endSeedInvalid}
             onBlur={handleEndSeedBlur}
             onChange={(event) => setEndSeedInput(event.target.value)}
           />
           <div className="fieldHelp">
             テストケースの終了seed値を指定します。[start_seed, end_seed)
-            の半開区間が実行されるため、end_seedは区間に含まれません。
+            の半開区間が実行されるため、end_seedは区間に含まれません。空欄なら pahcer config の
+            end_seed を使います。
           </div>
         </div>
         <div className="formField">
@@ -165,33 +167,43 @@ function parseSeedInput(value: string): SeedInputParseResult {
 }
 
 function normalizeSeedRange(startSeedInput: string, endSeedInput: string): NormalizedSeedRange {
-  const startSeed = correctedSeedValue(parseSeedInput(startSeedInput), DEFAULT_START_SEED);
-  const effectiveStartSeed = effectiveSeedValue(startSeed, DEFAULT_START_SEED);
-  const endSeedMin = effectiveStartSeed + 1;
-  const endSeed = correctedSeedValue(parseSeedInput(endSeedInput), endSeedMin);
-
   return {
-    startSeed,
-    endSeed: effectiveSeedValue(endSeed, DEFAULT_END_SEED) < endSeedMin ? endSeedMin : endSeed,
+    startSeed: parsedSeedValue(parseSeedInput(startSeedInput)),
+    endSeed: parsedSeedValue(parseSeedInput(endSeedInput)),
   };
 }
 
-function correctedSeedValue(parseResult: SeedInputParseResult, min: number): number | undefined {
-  if (parseResult.kind !== 'number') {
-    return undefined;
+function isInvalidStartSeed(parseResult: SeedInputParseResult): boolean {
+  return parseResult.kind === 'invalid' || isNegativeSeed(parseResult);
+}
+
+function isInvalidEndSeed(
+  startSeedParseResult: SeedInputParseResult,
+  endSeedParseResult: SeedInputParseResult,
+): boolean {
+  if (endSeedParseResult.kind === 'invalid' || isNegativeSeed(endSeedParseResult)) {
+    return true;
   }
 
-  return Math.max(parseResult.value, min);
+  if (startSeedParseResult.kind !== 'number' || endSeedParseResult.kind !== 'number') {
+    return false;
+  }
+
+  return endSeedParseResult.value <= startSeedParseResult.value;
 }
 
-function effectiveSeedValue(value: number | undefined, defaultValue: number): number {
-  return value ?? defaultValue;
+function isNegativeSeed(parseResult: SeedInputParseResult): boolean {
+  return parseResult.kind === 'number' && parseResult.value < MIN_SEED;
 }
 
-function formatSeedInput(value: number | undefined): string {
+function parsedSeedValue(parseResult: SeedInputParseResult): number | undefined {
+  return parseResult.kind === 'number' ? parseResult.value : undefined;
+}
+
+function formatSeedInput(parseResult: SeedInputParseResult): string {
+  return formatSeedValue(parsedSeedValue(parseResult));
+}
+
+function formatSeedValue(value: number | undefined): string {
   return value === undefined ? '' : String(value);
-}
-
-function defaultSeedValue(value: number | undefined, defaultValue: number): number | undefined {
-  return value === undefined || value === defaultValue ? undefined : value;
 }
