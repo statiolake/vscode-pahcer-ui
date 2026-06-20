@@ -3,9 +3,22 @@ import { type FormEvent, useId, useState } from 'react';
 import type { RunOptions } from '../../types';
 import { Button } from '../common/Button';
 
+const DEFAULT_START_SEED = 0;
+const DEFAULT_END_SEED = 100;
+
 type RunOptionsPanelProps = {
   onRun: (options: RunOptions) => void;
   onCancel: () => void;
+};
+
+type SeedInputParseResult =
+  | { kind: 'empty' }
+  | { kind: 'invalid' }
+  | { kind: 'number'; value: number };
+
+type NormalizedSeedRange = {
+  startSeed: number | undefined;
+  endSeed: number | undefined;
 };
 
 export function RunOptionsPanel(props: RunOptionsPanelProps) {
@@ -14,26 +27,46 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
   const freezeBestScoresId = useId();
   const enableGitIntegrationId = useId();
 
-  const [startSeed, setStartSeed] = useState(0);
-  const [endSeed, setEndSeed] = useState(100);
+  const [startSeedInput, setStartSeedInput] = useState(String(DEFAULT_START_SEED));
+  const [endSeedInput, setEndSeedInput] = useState(String(DEFAULT_END_SEED));
   const [freezeBestScores, setFreezeBestScores] = useState(false);
   const [enableGitIntegration, setEnableGitIntegration] = useState(false);
 
-  function handleStartSeedChange(value: string) {
-    const nextStartSeed = parseSeedInput(value, startSeed, 0);
-    setStartSeed(nextStartSeed);
-    setEndSeed((current) => Math.max(current, nextStartSeed + 1));
+  const startSeedParseResult = parseSeedInput(startSeedInput);
+  const endSeedParseResult = parseSeedInput(endSeedInput);
+  const effectiveStartSeed = effectiveSeedValue(
+    correctedSeedValue(startSeedParseResult, DEFAULT_START_SEED),
+    DEFAULT_START_SEED,
+  );
+  const endSeedMin = effectiveStartSeed + 1;
+  const canSubmit =
+    startSeedParseResult.kind !== 'invalid' && endSeedParseResult.kind !== 'invalid';
+
+  function handleStartSeedBlur() {
+    const normalizedRange = normalizeSeedRange(startSeedInput, endSeedInput);
+    setStartSeedInput(formatSeedInput(normalizedRange.startSeed));
+    setEndSeedInput(formatSeedInput(normalizedRange.endSeed));
   }
 
-  function handleEndSeedChange(value: string) {
-    setEndSeed(parseSeedInput(value, endSeed, startSeed + 1));
+  function handleEndSeedBlur() {
+    const normalizedRange = normalizeSeedRange(startSeedInput, endSeedInput);
+    setEndSeedInput(formatSeedInput(normalizedRange.endSeed));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!canSubmit) {
+      return;
+    }
+
+    const normalizedRange = normalizeSeedRange(startSeedInput, endSeedInput);
+    setStartSeedInput(formatSeedInput(normalizedRange.startSeed));
+    setEndSeedInput(formatSeedInput(normalizedRange.endSeed));
+
     props.onRun({
-      startSeed: defaultSeedValue(startSeed, 0),
-      endSeed: defaultSeedValue(endSeed, 100),
+      startSeed: defaultSeedValue(normalizedRange.startSeed, DEFAULT_START_SEED),
+      endSeed: defaultSeedValue(normalizedRange.endSeed, DEFAULT_END_SEED),
       freezeBestScores,
       enableGitIntegration,
     });
@@ -42,16 +75,18 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
   return (
     <div className="panelContent narrow">
       <p className="formIntro">実行範囲やオプションを指定してテストを実行します。</p>
-      <form className="form" onSubmit={handleSubmit}>
+      <form className="form" noValidate onSubmit={handleSubmit}>
         <div className="formField">
           <label htmlFor={startSeedId}>開始 Seed</label>
           <input
             id={startSeedId}
             type="number"
-            min={0}
+            min={DEFAULT_START_SEED}
             step={1}
-            value={startSeed}
-            onChange={(event) => handleStartSeedChange(event.target.value)}
+            value={startSeedInput}
+            aria-invalid={startSeedParseResult.kind === 'invalid'}
+            onBlur={handleStartSeedBlur}
+            onChange={(event) => setStartSeedInput(event.target.value)}
           />
           <div className="fieldHelp">テストケースの開始seed値を指定します。</div>
         </div>
@@ -60,10 +95,12 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
           <input
             id={endSeedId}
             type="number"
-            min={startSeed + 1}
+            min={endSeedMin}
             step={1}
-            value={endSeed}
-            onChange={(event) => handleEndSeedChange(event.target.value)}
+            value={endSeedInput}
+            aria-invalid={endSeedParseResult.kind === 'invalid'}
+            onBlur={handleEndSeedBlur}
+            onChange={(event) => setEndSeedInput(event.target.value)}
           />
           <div className="fieldHelp">
             テストケースの終了seed値を指定します。[start_seed, end_seed)
@@ -101,7 +138,7 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
           </div>
         </div>
         <div className="formActions">
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" disabled={!canSubmit}>
             実行
           </Button>
           <Button variant="secondary" onClick={props.onCancel}>
@@ -113,11 +150,48 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
   );
 }
 
-function parseSeedInput(value: string, fallback: number, min: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(parsed, min) : fallback;
+function parseSeedInput(value: string): SeedInputParseResult {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return { kind: 'empty' };
+  }
+
+  const parsedValue = Number(trimmedValue);
+  if (!Number.isFinite(parsedValue)) {
+    return { kind: 'invalid' };
+  }
+
+  return { kind: 'number', value: parsedValue };
 }
 
-function defaultSeedValue(value: number, defaultValue: number): number | undefined {
-  return value === defaultValue ? undefined : value;
+function normalizeSeedRange(startSeedInput: string, endSeedInput: string): NormalizedSeedRange {
+  const startSeed = correctedSeedValue(parseSeedInput(startSeedInput), DEFAULT_START_SEED);
+  const effectiveStartSeed = effectiveSeedValue(startSeed, DEFAULT_START_SEED);
+  const endSeedMin = effectiveStartSeed + 1;
+  const endSeed = correctedSeedValue(parseSeedInput(endSeedInput), endSeedMin);
+
+  return {
+    startSeed,
+    endSeed: effectiveSeedValue(endSeed, DEFAULT_END_SEED) < endSeedMin ? endSeedMin : endSeed,
+  };
+}
+
+function correctedSeedValue(parseResult: SeedInputParseResult, min: number): number | undefined {
+  if (parseResult.kind !== 'number') {
+    return undefined;
+  }
+
+  return Math.max(parseResult.value, min);
+}
+
+function effectiveSeedValue(value: number | undefined, defaultValue: number): number {
+  return value ?? defaultValue;
+}
+
+function formatSeedInput(value: number | undefined): string {
+  return value === undefined ? '' : String(value);
+}
+
+function defaultSeedValue(value: number | undefined, defaultValue: number): number | undefined {
+  return value === undefined || value === defaultValue ? undefined : value;
 }
