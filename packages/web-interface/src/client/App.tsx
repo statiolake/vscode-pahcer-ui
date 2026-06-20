@@ -801,7 +801,9 @@ export function App() {
         case 'diff':
           return selectedCount === 2 ? undefined : '実行を 2 件選択してください';
         case 'visualizer':
-          return hasVisualizer ? undefined : 'ケースを開いてビジュアライザを起動してください';
+          return hasVisualizer
+            ? undefined
+            : 'ケースタブの「ビジュアライザを開く」から起動してください';
         case 'comparison':
         case 'initialize':
           return undefined;
@@ -829,7 +831,7 @@ export function App() {
       case 'case':
         return selectedCase ? (
           <Button
-            variant="secondary"
+            variant="primary"
             onClick={() => void openVisualizer(selectedCase.seed, selectedCase.executionId)}
           >
             ビジュアライザを開く
@@ -925,7 +927,6 @@ export function App() {
           <SideBar
             mode={mode}
             preferences={preferences}
-            selectedCount={selectedCount}
             onUpdatePreferences={(next) => void updatePreferences(next)}
           >
             {mode === 'byExecution' ? (

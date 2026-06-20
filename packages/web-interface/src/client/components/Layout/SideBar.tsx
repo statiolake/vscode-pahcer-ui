@@ -27,7 +27,6 @@ const seedSortOptions: Array<{ value: SeedSortOrder; label: string }> = [
 type SideBarProps = {
   mode: GroupingMode;
   preferences: WebPreferences;
-  selectedCount: number;
   onUpdatePreferences: (next: Partial<WebPreferences>) => void;
   children: ReactNode;
 };
@@ -43,9 +42,6 @@ export function SideBar(props: SideBarProps) {
     <aside className="sideBar">
       <div className="resultHeader">
         <span className="sectionLabel">RESULTS</span>
-        {props.selectedCount > 0 && (
-          <span className="chipBadge">{props.selectedCount} 件選択中</span>
-        )}
       </div>
       <div className="treeToolbar">
         <fieldset className="toggleGroup">

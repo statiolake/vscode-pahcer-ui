@@ -141,17 +141,6 @@ main {
   letter-spacing: 0;
   text-transform: uppercase;
 }
-.chipBadge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: var(--radius-pill);
-  background: var(--surface-muted);
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  padding: var(--space-1) var(--space-2);
-  white-space: nowrap;
-}
 .iconButton {
   min-height: var(--control-md);
   min-width: var(--control-md);
@@ -506,9 +495,6 @@ main {
   cursor: not-allowed;
 }
 .panelTabsActions .button {
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--text);
   padding: var(--space-1) var(--space-3);
 }
 .tree {
@@ -525,9 +511,54 @@ main {
   padding: var(--space-1);
 }
 .treeGroup + .treeGroup { margin-top: var(--space-1); }
-.treeGroup:focus-within, .treeGroup:hover {
+.treeGroup:hover {
   background: var(--surface-muted);
   border-color: var(--line);
+}
+.treeGroup:has(:focus-visible) {
+  border-color: var(--line);
+}
+.executionTreeGroup {
+  --execution-commit-lane-x: calc(
+    var(--space-1) + var(--space-2) + var(--size-icon-md) + var(--space-2) +
+    var(--size-icon-sm) + var(--space-2) + (var(--size-icon-sm) / 2)
+  );
+  --execution-commit-row-center-y: calc(var(--space-1) + (var(--control-md) / 2));
+  position: relative;
+}
+.executionTreeGroup > .treeRow,
+.executionTreeGroup > .children {
+  position: relative;
+  z-index: 1;
+}
+.executionTreeGroup > .children {
+  margin-left: calc(var(--execution-commit-lane-x) + var(--space-2));
+}
+.commitGraphGroup::before,
+.commitGraphGroup::after {
+  content: "";
+  position: absolute;
+  left: var(--execution-commit-lane-x);
+  z-index: 0;
+  width: var(--size-tree-line);
+  transform: translateX(-50%);
+  background: var(--line-strong);
+  pointer-events: none;
+}
+.commitGraphGroup::before {
+  top: var(--space-1);
+  height: calc(var(--control-md) / 2);
+}
+.commitGraphGroup.connectsPrevious::before {
+  top: calc(var(--space-1) * -1);
+  height: calc((var(--space-1) * 2) + (var(--control-md) / 2));
+}
+.commitGraphGroup::after {
+  top: var(--execution-commit-row-center-y);
+  bottom: calc(100% - var(--space-1) - var(--control-md));
+}
+.commitGraphGroup.connectsNext::after {
+  bottom: calc(var(--space-1) * -1);
 }
 .treeRow {
   position: relative;
@@ -598,24 +629,6 @@ main {
 .executionStatusIcon .treeIcon {
   position: relative;
   z-index: 1;
-}
-.commitGraphIcon::before,
-.commitGraphIcon::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  z-index: 0;
-  width: var(--size-tree-line);
-  transform: translateX(-50%);
-  background: var(--line-strong);
-}
-.commitGraphIcon.connectsPrevious::before {
-  top: calc(var(--space-2) * -1);
-  bottom: 50%;
-}
-.commitGraphIcon.connectsNext::after {
-  top: 50%;
-  bottom: calc(var(--space-2) * -1);
 }
 .treeLabel {
   min-width: 0;
@@ -839,38 +852,27 @@ label {
   padding: 0;
   border: 0;
 }
-.comparisonSection {
-  padding-top: var(--space-3);
-  margin-top: var(--space-3);
-  border-top: 1px solid var(--line);
-}
-.comparisonSection:first-child {
-  padding-top: 0;
-  margin-top: 0;
-  border-top: 0;
-}
-.comparisonSection .sectionLabel {
-  margin-bottom: var(--space-2);
-}
-.comparisonSection > .formField + .checkboxControl,
-.comparisonSection > .checkboxControl + .formField {
-  margin-top: var(--space-3);
-}
-.fieldGrid {
+.comparisonControlRows {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.comparisonControlRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
+  align-items: start;
+}
+.comparisonDataRow {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content;
+}
+.comparisonSkipFailed {
+  align-self: end;
+  padding-bottom: var(--space-1);
 }
 .comparisonControlPanel .formField > label {
   color: var(--text);
   font-size: var(--fs-md);
   font-weight: 600;
-}
-.comparisonControlPanel .checkboxField {
-  justify-content: end;
-}
-.comparisonControlPanel .checkboxField .checkLabel {
-  align-items: center;
 }
 .formField.invalid input,
 .formField.invalid select,
@@ -1446,6 +1448,13 @@ fieldset.toggleGroup > legend.srOnly {
   .diffFile summary { align-items: flex-start; }
 }
 @media (max-width: 45rem) {
-  .fieldGrid { grid-template-columns: 1fr; }
+  .comparisonControlRow,
+  .comparisonDataRow {
+    grid-template-columns: 1fr;
+  }
+  .comparisonSkipFailed {
+    align-self: start;
+    padding-bottom: 0;
+  }
 }
 `;

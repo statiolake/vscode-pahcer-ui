@@ -46,33 +46,8 @@ export function ControlPanel({
 
   return (
     <section className="comparisonControlPanel" aria-label="比較設定">
-      <div className="comparisonSection">
-        <div className="sectionLabel">グラフ</div>
-        <div className="formField">
-          <label htmlFor={chartTypeId}>グラフタイプ</label>
-          <select
-            id={chartTypeId}
-            value={chartType}
-            onChange={(event) => onChartTypeChange(event.target.value as 'line' | 'scatter')}
-          >
-            <option value="line">折れ線</option>
-            <option value="scatter">散布図</option>
-          </select>
-        </div>
-        <div className="checkboxControl">
-          <input
-            id={skipFailedId}
-            type="checkbox"
-            checked={skipFailed}
-            onChange={(event) => onSkipFailedChange(event.target.checked)}
-          />
-          <label htmlFor={skipFailedId}>WA を無視</label>
-        </div>
-      </div>
-
-      <div className="comparisonSection">
-        <div className="sectionLabel">軸</div>
-        <div className="fieldGrid">
+      <div className="comparisonControlRows">
+        <div className="comparisonControlRow">
           <div className={validation.xAxis ? 'formField' : 'formField invalid'}>
             <label htmlFor={xAxisId}>X軸</label>
             <input
@@ -109,12 +84,20 @@ export function ControlPanel({
               </span>
             )}
           </div>
+          <div className="formField">
+            <label htmlFor={chartTypeId}>グラフタイプ</label>
+            <select
+              id={chartTypeId}
+              value={chartType}
+              onChange={(event) => onChartTypeChange(event.target.value as 'line' | 'scatter')}
+            >
+              <option value="line">折れ線</option>
+              <option value="scatter">散布図</option>
+            </select>
+          </div>
         </div>
-      </div>
 
-      <div className="comparisonSection">
-        <div className="sectionLabel">データ</div>
-        <div className="fieldGrid">
+        <div className="comparisonControlRow comparisonDataRow">
           <div className="formField">
             <label htmlFor={featureStringId}>Features</label>
             <input
@@ -142,6 +125,15 @@ export function ControlPanel({
                 式が不正です
               </span>
             )}
+          </div>
+          <div className="checkboxControl comparisonSkipFailed">
+            <input
+              id={skipFailedId}
+              type="checkbox"
+              checked={skipFailed}
+              onChange={(event) => onSkipFailedChange(event.target.checked)}
+            />
+            <label htmlFor={skipFailedId}>WA を無視</label>
           </div>
         </div>
       </div>

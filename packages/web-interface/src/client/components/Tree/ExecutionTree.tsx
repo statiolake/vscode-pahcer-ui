@@ -73,7 +73,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
 
   return (
     <>
-      <ul className="tree" aria-label="実行結果">
+      <ul className="tree executionTree" aria-label="実行結果">
         {props.stats.map((stats, index) => {
           const description = executionDescription(stats.execution);
           const isOpen = props.openExecutionId === stats.execution.id;
@@ -86,7 +86,11 @@ export function ExecutionTree(props: ExecutionTreeProps) {
           };
 
           return (
-            <li className="treeGroup" key={stats.execution.id} aria-label={rowLabel}>
+            <li
+              className={executionGroupClassName(hasCommitHash, commitGraphConnections)}
+              key={stats.execution.id}
+              aria-label={rowLabel}
+            >
               <div className="treeRow executionRow">
                 <button
                   type="button"
@@ -104,7 +108,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
                   onChange={() => props.onToggleExecution(stats.execution.id)}
                   aria-label={`${stats.execution.shortTitle} を比較対象にする`}
                 />
-                {executionIcon(stats, commitGraphConnections)}
+                {executionIcon(stats)}
                 <button
                   type="button"
                   className="treeLabel"
@@ -181,21 +185,27 @@ export function ExecutionTree(props: ExecutionTreeProps) {
   );
 }
 
-function executionIcon(stats: TreeExecutionStats, commitGraphConnections: CommitGraphConnections) {
+function executionGroupClassName(
+  hasCommitHash: boolean,
+  commitGraphConnections: CommitGraphConnections,
+): string {
+  return [
+    'treeGroup',
+    'executionTreeGroup',
+    hasCommitHash ? 'commitGraphGroup' : '',
+    commitGraphConnections.connectsPrevious ? 'connectsPrevious' : '',
+    commitGraphConnections.connectsNext ? 'connectsNext' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function executionIcon(stats: TreeExecutionStats) {
   const color = stats.waSeeds.length === 0 ? 'success' : stats.acCount > 0 ? 'warning' : 'danger';
 
   if (stats.execution.commitHash) {
     return (
-      <span
-        className={[
-          'executionStatusIcon',
-          'commitGraphIcon',
-          commitGraphConnections.connectsPrevious ? 'connectsPrevious' : '',
-          commitGraphConnections.connectsNext ? 'connectsNext' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
+      <span className="executionStatusIcon commitGraphIcon">
         <IconGitCommit color={color} />
       </span>
     );
