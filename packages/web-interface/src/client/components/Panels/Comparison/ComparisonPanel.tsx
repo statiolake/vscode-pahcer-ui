@@ -6,7 +6,11 @@ import { EmptyState } from '../../common/EmptyState';
 import { ComparisonChart } from './ComparisonChart';
 import { ControlPanel } from './ControlPanel';
 import { StatsTable } from './StatsTable';
-import type { ComparisonData, ComparisonViewOptions } from './types';
+import type {
+  ComparisonData,
+  ComparisonExpressionValidation,
+  ComparisonViewOptions,
+} from './types';
 
 type ComparisonPanelProps = {
   data: ComparisonData | null;
@@ -15,64 +19,59 @@ type ComparisonPanelProps = {
 };
 
 export function ComparisonPanel(props: ComparisonPanelProps) {
-  const [featureString, setFeatureString] = useState('N M K');
-  const [xAxis, setXAxis] = useState('seed');
-  const [yAxis, setYAxis] = useState('avg(absScore)');
-  const [chartType, setChartType] = useState<'line' | 'scatter'>('line');
-  const [filter, setFilter] = useState('');
-  const [skipFailed, setSkipFailed] = useState(true);
+  const [draftConfig, setDraftConfig] = useState<ComparisonViewOptions>(DEFAULT_COMPARISON_CONFIG);
+  const [lastValidConfig, setLastValidConfig] = useState<ComparisonViewOptions | null>(null);
   const readModelService = useMemo(() => new ComparisonViewReadModelService(), []);
 
   useEffect(() => {
     if (!props.data) {
       return;
     }
-    setFeatureString(props.data.config.featureString);
-    setXAxis(props.data.config.xAxis);
-    setYAxis(props.data.config.yAxis);
-    setChartType(props.data.config.chartType);
-    setSkipFailed(props.data.config.skipFailed ?? true);
-    setFilter(props.data.config.filter);
+
+    setDraftConfig(toComparisonViewOptions(props.data.config));
+    setLastValidConfig(null);
   }, [props.data]);
 
+  const viewOptions = draftConfig;
+
+  const readModel = useMemo(
+    () => (props.data ? readModelService.build(props.data, viewOptions) : null),
+    [props.data, readModelService, viewOptions],
+  );
+
+  const draftConfigIsValid = readModel ? isComparisonConfigValid(readModel.validation) : false;
+
   useEffect(() => {
-    if (!props.data) {
+    if (!props.data || !draftConfigIsValid) {
+      return;
+    }
+
+    setLastValidConfig(viewOptions);
+  }, [draftConfigIsValid, props.data, viewOptions]);
+
+  useEffect(() => {
+    if (
+      !props.data ||
+      !lastValidConfig ||
+      !draftConfigIsValid ||
+      !comparisonViewOptionsEqual(viewOptions, lastValidConfig)
+    ) {
       return;
     }
 
     const timeout = window.setTimeout(() => {
       void fetchJson('/api/comparison/config', {
         method: 'POST',
-        body: JSON.stringify({
-          featureString,
-          xAxis,
-          yAxis,
-          chartType,
-          skipFailed,
-          filter,
-        }),
+        body: JSON.stringify(lastValidConfig),
       }).catch(console.error);
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [chartType, featureString, filter, props.data, skipFailed, xAxis, yAxis]);
+  }, [draftConfigIsValid, lastValidConfig, props.data, viewOptions]);
 
-  const viewOptions: ComparisonViewOptions = useMemo(
-    () => ({
-      featureString,
-      xAxis,
-      yAxis,
-      chartType,
-      skipFailed,
-      filter,
-    }),
-    [chartType, featureString, filter, skipFailed, xAxis, yAxis],
-  );
-
-  const readModel = useMemo(
-    () => (props.data ? readModelService.build(props.data, viewOptions) : null),
-    [props.data, readModelService, viewOptions],
-  );
+  function updateDraftConfig(patch: Partial<ComparisonViewOptions>) {
+    setDraftConfig((current) => ({ ...current, ...patch }));
+  }
 
   return (
     <div className="panelContent">
@@ -91,30 +90,71 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
       {props.data && readModel && (
         <>
           <ControlPanel
-            featureString={featureString}
-            xAxis={xAxis}
-            yAxis={yAxis}
-            chartType={chartType}
-            skipFailed={skipFailed}
-            filter={filter}
+            featureString={draftConfig.featureString}
+            xAxis={draftConfig.xAxis}
+            yAxis={draftConfig.yAxis}
+            chartType={draftConfig.chartType}
+            skipFailed={draftConfig.skipFailed}
+            filter={draftConfig.filter}
             validation={readModel.validation}
-            onFeatureStringChange={setFeatureString}
-            onXAxisChange={setXAxis}
-            onYAxisChange={setYAxis}
-            onChartTypeChange={setChartType}
-            onSkipFailedChange={setSkipFailed}
-            onFilterChange={setFilter}
+            onFeatureStringChange={(featureString) => updateDraftConfig({ featureString })}
+            onXAxisChange={(xAxis) => updateDraftConfig({ xAxis })}
+            onYAxisChange={(yAxis) => updateDraftConfig({ yAxis })}
+            onChartTypeChange={(chartType) => updateDraftConfig({ chartType })}
+            onSkipFailedChange={(skipFailed) => updateDraftConfig({ skipFailed })}
+            onFilterChange={(filter) => updateDraftConfig({ filter })}
           />
 
           <ComparisonChart
             chart={readModel.chart}
-            chartType={chartType}
+            chartType={draftConfig.chartType}
             onShowVisualizer={props.onShowVisualizer}
           />
 
-          <StatsTable stats={readModel.stats} showsFilteredCount={filter.trim() !== ''} />
+          <StatsTable
+            stats={readModel.stats}
+            showsFilteredCount={draftConfig.filter.trim() !== ''}
+          />
         </>
       )}
     </div>
+  );
+}
+
+const DEFAULT_COMPARISON_CONFIG: ComparisonViewOptions = {
+  featureString: 'N M K',
+  xAxis: 'seed',
+  yAxis: 'avg(absScore)',
+  chartType: 'line',
+  skipFailed: true,
+  filter: '',
+};
+
+function toComparisonViewOptions(config: ComparisonData['config']): ComparisonViewOptions {
+  return {
+    featureString: config.featureString,
+    xAxis: config.xAxis,
+    yAxis: config.yAxis,
+    chartType: config.chartType,
+    skipFailed: config.skipFailed ?? true,
+    filter: config.filter,
+  };
+}
+
+function isComparisonConfigValid(validation: ComparisonExpressionValidation): boolean {
+  return validation.xAxis && validation.yAxis && validation.filter;
+}
+
+function comparisonViewOptionsEqual(
+  left: ComparisonViewOptions,
+  right: ComparisonViewOptions,
+): boolean {
+  return (
+    left.featureString === right.featureString &&
+    left.xAxis === right.xAxis &&
+    left.yAxis === right.yAxis &&
+    left.chartType === right.chartType &&
+    left.skipFailed === right.skipFailed &&
+    left.filter === right.filter
   );
 }
