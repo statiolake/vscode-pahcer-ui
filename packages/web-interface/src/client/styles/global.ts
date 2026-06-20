@@ -909,14 +909,14 @@ label {
 .comparisonPopup {
   position: fixed;
   z-index: var(--z-modal);
-  max-height: var(--height-popup);
+  max-width: calc(100vw - var(--space-4));
+  max-height: min(var(--height-popup), calc(100vh - var(--space-4)));
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
   box-shadow: var(--shadow-popover);
   padding: var(--space-2);
-  transform: translate(var(--space-3), var(--space-3));
 }
 .comparisonPopupTitle {
   margin-bottom: var(--space-2);

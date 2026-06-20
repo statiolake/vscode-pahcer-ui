@@ -13,7 +13,7 @@ import {
   Tooltip,
   type TooltipItem,
 } from 'chart.js';
-import { useMemo, useState } from 'react';
+import { type KeyboardEvent, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Line, Scatter } from 'react-chartjs-2';
 
 import type { ChartDataPoint, ComparisonViewReadModel } from './types';
@@ -27,9 +27,14 @@ interface Props {
 }
 
 interface PopupState {
-  x: number;
-  y: number;
+  anchorX: number;
+  anchorY: number;
   point: ChartDataPoint;
+}
+
+interface PopupPosition {
+  left: number;
+  top: number;
 }
 
 interface DatasetStyle {
@@ -51,6 +56,9 @@ const COMPARISON_DATASET_STYLES = [
 
 export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
   const [popup, setPopup] = useState<PopupState | null>(null);
+  const [popupPosition, setPopupPosition] = useState<PopupPosition | null>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const popupTitleId = useId();
 
   const chartData = useMemo(
     () => ({
@@ -71,10 +79,49 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
     [chart, chartType],
   );
 
+  useLayoutEffect(() => {
+    if (!popup) {
+      return undefined;
+    }
+
+    const popupElement = popupRef.current;
+    if (!popupElement) {
+      return undefined;
+    }
+
+    const updatePopupPosition = () => {
+      const nextPosition = calculatePopupPosition(popupElement, popup.anchorX, popup.anchorY);
+      setPopupPosition((currentPosition) =>
+        currentPosition?.left === nextPosition.left && currentPosition.top === nextPosition.top
+          ? currentPosition
+          : nextPosition,
+      );
+    };
+
+    updatePopupPosition();
+    popupElement.focus({ preventScroll: true });
+
+    window.addEventListener('resize', updatePopupPosition);
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updatePopupPosition);
+    resizeObserver?.observe(popupElement);
+
+    return () => {
+      window.removeEventListener('resize', updatePopupPosition);
+      resizeObserver?.disconnect();
+    };
+  }, [popup]);
+
   const textColor = getCssVariable('--text', 'CanvasText');
   const gridColor = getCssVariable('--line', 'ButtonBorder');
   const tooltipBackgroundColor = getCssVariable('--chart-tooltip-bg', 'CanvasText');
   const tooltipTextColor = getCssVariable('--chart-tooltip-text', 'Canvas');
+
+  const closePopup = () => {
+    setPopup(null);
+    setPopupPosition(null);
+  };
 
   const handlePointClick = (event: ChartEvent, elements: ActiveElement[]) => {
     if (!Array.isArray(elements) || elements.length === 0) {
@@ -88,9 +135,10 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
     }
 
     if (point.group && point.group.length > 1) {
+      setPopupPosition(null);
       setPopup({
-        x: event.native.clientX,
-        y: event.native.clientY,
+        anchorX: event.native.clientX,
+        anchorY: event.native.clientY,
         point,
       });
       return;
@@ -169,7 +217,14 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
 
   const handleSeedClick = (resultId: string, seed: number) => {
     onShowVisualizer(resultId, seed);
-    setPopup(null);
+    closePopup();
+  };
+
+  const handlePopupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closePopup();
+    }
   };
 
   return (
@@ -185,11 +240,25 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
           <button
             type="button"
             className="comparisonPopupBackdrop"
-            onClick={() => setPopup(null)}
-            aria-label="Close popup"
+            onClick={closePopup}
+            aria-label="ポップアップを閉じる"
+            tabIndex={-1}
           />
-          <div className="comparisonPopup" style={{ left: popup.x, top: popup.y }}>
-            <div className="comparisonPopupTitle">集約された Seed (x={popup.point.x})</div>
+          <div
+            ref={popupRef}
+            className="comparisonPopup"
+            style={{
+              left: popupPosition?.left ?? popup.anchorX,
+              top: popupPosition?.top ?? popup.anchorY,
+            }}
+            role="dialog"
+            aria-labelledby={popupTitleId}
+            tabIndex={-1}
+            onKeyDown={handlePopupKeyDown}
+          >
+            <div id={popupTitleId} className="comparisonPopupTitle">
+              集約された Seed (x={popup.point.x})
+            </div>
             <div className="comparisonPopupList">
               {popup.point.group?.map((item) => (
                 <button
@@ -211,6 +280,32 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
 
 function getDatasetStyle(datasetIndex: number): DatasetStyle {
   return COMPARISON_DATASET_STYLES[datasetIndex % COMPARISON_DATASET_STYLES.length];
+}
+
+function calculatePopupPosition(
+  popupElement: HTMLElement,
+  anchorX: number,
+  anchorY: number,
+): PopupPosition {
+  const popupRect = popupElement.getBoundingClientRect();
+  const popupOffset = getCssPixelVariable('--space-3', 12);
+  const viewportMargin = getCssPixelVariable('--space-2', 8);
+  const maxLeft = window.innerWidth - popupRect.width - viewportMargin;
+  const maxTop = window.innerHeight - popupRect.height - viewportMargin;
+
+  return {
+    left: clamp(anchorX + popupOffset, viewportMargin, Math.max(viewportMargin, maxLeft)),
+    top: clamp(anchorY + popupOffset, viewportMargin, Math.max(viewportMargin, maxTop)),
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getCssPixelVariable(name: string, fallback: number): number {
+  const value = Number.parseFloat(getCssVariable(name, `${fallback}px`));
+  return Number.isFinite(value) ? value : fallback;
 }
 
 function getCssVariable(name: string, fallback: string): string {
