@@ -79,6 +79,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const toastIdRef = useRef(0);
+  const comparisonRequestIdRef = useRef(0);
 
   const mode = preferences?.groupingMode ?? 'byExecution';
 
@@ -148,15 +149,32 @@ export function App() {
   }, [reload]);
 
   useEffect(() => {
+    const requestId = comparisonRequestIdRef.current + 1;
+    comparisonRequestIdRef.current = requestId;
+
     if (!treeData || selectedExecutionIds.length === 0) {
       setComparison(null);
       return;
     }
-    void fetchJson<ComparisonData>(
-      `/api/comparison?executionIds=${selectedExecutionIds.map(encodeURIComponent).join(',')}`,
-    )
-      .then(setComparison)
-      .catch(reportError);
+
+    const controller = new AbortController();
+    const executionIds = selectedExecutionIds.map(encodeURIComponent).join(',');
+
+    void fetchJson<ComparisonData>(`/api/comparison?executionIds=${executionIds}`, {
+      signal: controller.signal,
+    })
+      .then((nextComparison) => {
+        if (comparisonRequestIdRef.current === requestId && !controller.signal.aborted) {
+          setComparison(nextComparison);
+        }
+      })
+      .catch((caught) => {
+        if (comparisonRequestIdRef.current === requestId && !controller.signal.aborted) {
+          reportError(caught);
+        }
+      });
+
+    return () => controller.abort();
   }, [reportError, selectedExecutionIds, treeData]);
 
   async function updatePreferences(next: Partial<WebPreferences>) {
