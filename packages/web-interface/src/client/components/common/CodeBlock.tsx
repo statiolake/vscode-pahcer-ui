@@ -21,6 +21,7 @@ export function CodeBlock({
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [wrap, setWrap] = useState(defaultWrap);
+  const copyLabel = copied ? 'コピー済み' : 'クリップボードにコピー';
   const visibleContent = content.length > 0 ? content : '(空)';
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export function CodeBlock({
         <div className="codeBlockActions">
           <IconButton
             icon={copied ? <IconCheck color="success" /> : <IconCopy />}
-            label="クリップボードにコピー"
+            label={copyLabel}
             size="sm"
             variant="ghost"
             active={copied}
