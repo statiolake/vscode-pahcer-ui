@@ -67,14 +67,18 @@ export function Modal(props: ModalProps) {
   }
 
   return (
-    <div
-      className="modalBackdrop"
-      onClick={(event) => {
-        if (dismissible && event.target === event.currentTarget) {
-          props.onClose();
-        }
-      }}
-    >
+    <div className="modalLayer">
+      {dismissible ? (
+        <button
+          type="button"
+          className="modalBackdrop"
+          aria-label="閉じる"
+          tabIndex={-1}
+          onClick={props.onClose}
+        />
+      ) : (
+        <div className="modalBackdrop" aria-hidden="true" />
+      )}
       <section
         className="modalDialog"
         ref={dialogRef}

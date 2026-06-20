@@ -1232,14 +1232,29 @@ fieldset.toggleGroup > legend.srOnly {
 .visualizerUrlError {
   margin-top: var(--space-1);
 }
-.modalBackdrop {
+.modalLayer {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
   display: grid;
   place-items: center;
   padding: var(--space-4);
+}
+.modalBackdrop {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: var(--overlay-bg);
   animation: modalBackdropEnter 120ms ease-out;
+}
+.modalBackdrop:hover {
+  border-color: transparent;
   background: var(--overlay-bg);
 }
 .modalDialog {
