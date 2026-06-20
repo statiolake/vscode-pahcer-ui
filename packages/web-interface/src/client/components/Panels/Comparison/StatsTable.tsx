@@ -7,7 +7,7 @@ interface Props {
 
 export function StatsTable({ stats, showsFilteredCount }: Props) {
   return (
-    <section className="comparisonSection">
+    <section className="comparisonStatsSection">
       <div className="comparisonSectionTitle">統計情報</div>
       <table className="comparisonStatsTable">
         <thead>

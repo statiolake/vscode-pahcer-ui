@@ -51,8 +51,10 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
     [chart, chartType],
   );
 
-  const textColor = getCssVariable('--text', '#1a221d');
-  const gridColor = getCssVariable('--line', '#e1e5e2');
+  const textColor = getCssVariable('--text', 'CanvasText');
+  const gridColor = getCssVariable('--line', 'ButtonBorder');
+  const tooltipBackgroundColor = getCssVariable('--chart-tooltip-bg', 'CanvasText');
+  const tooltipTextColor = getCssVariable('--chart-tooltip-text', 'Canvas');
 
   const handlePointClick = (event: ChartEvent, elements: ActiveElement[]) => {
     if (!Array.isArray(elements) || elements.length === 0) {
@@ -89,9 +91,9 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
         },
       },
       tooltip: {
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        titleColor: '#ffffff',
-        bodyColor: '#ffffff',
+        backgroundColor: tooltipBackgroundColor,
+        titleColor: tooltipTextColor,
+        bodyColor: tooltipTextColor,
         borderColor: gridColor,
         borderWidth: 1,
         callbacks: {
@@ -166,7 +168,7 @@ export function ComparisonChart({ chart, chartType, onShowVisualizer }: Props) {
             onClick={() => setPopup(null)}
             aria-label="Close popup"
           />
-          <div className="comparisonPopup" style={{ left: popup.x + 10, top: popup.y + 10 }}>
+          <div className="comparisonPopup" style={{ left: popup.x, top: popup.y }}>
             <div className="comparisonPopupTitle">集約された Seed (x={popup.point.x})</div>
             <div className="comparisonPopupList">
               {popup.point.group?.map((item) => (

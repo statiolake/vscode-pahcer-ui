@@ -1,3 +1,6 @@
+import { useId } from 'react';
+
+import { IconChevronDown } from '../../Tree/icons';
 import type { ComparisonExpressionValidation } from './types';
 
 interface Props {
@@ -31,83 +34,123 @@ export function ControlPanel({
   onSkipFailedChange,
   onFilterChange,
 }: Props) {
-  return (
-    <section className="comparisonSection">
-      <div className="comparisonControls">
-        <label>
-          Features:
-          <input
-            type="text"
-            value={featureString}
-            onChange={(event) => onFeatureStringChange(event.target.value)}
-            placeholder="例: N M K"
-          />
-        </label>
-        <label className={validation.filter ? undefined : 'fieldInvalid'}>
-          Filter:
-          <input
-            type="text"
-            value={filter}
-            onChange={(event) => onFilterChange(event.target.value)}
-            placeholder="例: N >= 100"
-            title={validation.filter ? '' : '式が不正です'}
-            aria-invalid={!validation.filter}
-          />
-          {!validation.filter && <span className="fieldError">式が不正です</span>}
-        </label>
-      </div>
+  const chartTypeId = useId();
+  const skipFailedId = useId();
+  const xAxisId = useId();
+  const xAxisErrorId = useId();
+  const yAxisId = useId();
+  const yAxisErrorId = useId();
+  const featureStringId = useId();
+  const filterId = useId();
+  const filterErrorId = useId();
 
-      <div className="comparisonControls secondary">
-        <label>
+  return (
+    <section className="comparisonControlPanel" aria-label="比較設定">
+      <div className="comparisonSection">
+        <div className="sectionLabel">グラフ</div>
+        <div className="formField">
+          <label htmlFor={chartTypeId}>グラフタイプ</label>
           <select
-            aria-label="グラフ"
+            id={chartTypeId}
             value={chartType}
             onChange={(event) => onChartTypeChange(event.target.value as 'line' | 'scatter')}
           >
             <option value="line">折れ線</option>
             <option value="scatter">散布図</option>
           </select>
-        </label>
-        <label className={validation.xAxis ? undefined : 'fieldInvalid'}>
-          X軸:
+        </div>
+        <div className="checkboxControl">
           <input
-            type="text"
-            value={xAxis}
-            onChange={(event) => onXAxisChange(event.target.value)}
-            placeholder="例: seed, N, log(N)"
-            title={validation.xAxis ? '' : '式が不正です（未完成の括弧や演算子があります）'}
-            aria-invalid={!validation.xAxis}
-          />
-          {!validation.xAxis && (
-            <span className="fieldError">式が不正です（未完成の括弧や演算子があります）</span>
-          )}
-        </label>
-        <label className={validation.yAxis ? undefined : 'fieldInvalid'}>
-          Y軸:
-          <input
-            type="text"
-            value={yAxis}
-            onChange={(event) => onYAxisChange(event.target.value)}
-            placeholder="例: absScore, relScore"
-            title={validation.yAxis ? '' : '式が不正です（未完成の括弧や演算子があります）'}
-            aria-invalid={!validation.yAxis}
-          />
-          {!validation.yAxis && (
-            <span className="fieldError">式が不正です（未完成の括弧や演算子があります）</span>
-          )}
-        </label>
-        <label className="checkLabel comparisonCheck">
-          <input
+            id={skipFailedId}
             type="checkbox"
             checked={skipFailed}
             onChange={(event) => onSkipFailedChange(event.target.checked)}
           />
-          WA を無視
-        </label>
+          <label htmlFor={skipFailedId}>WA を無視</label>
+        </div>
+      </div>
+
+      <div className="comparisonSection">
+        <div className="sectionLabel">軸</div>
+        <div className="fieldGrid">
+          <div className={validation.xAxis ? 'formField' : 'formField invalid'}>
+            <label htmlFor={xAxisId}>X軸</label>
+            <input
+              id={xAxisId}
+              type="text"
+              value={xAxis}
+              onChange={(event) => onXAxisChange(event.target.value)}
+              placeholder="例: seed, N, log(N)"
+              title={validation.xAxis ? '' : '式が不正です'}
+              aria-invalid={!validation.xAxis}
+              aria-describedby={validation.xAxis ? undefined : xAxisErrorId}
+            />
+            {!validation.xAxis && (
+              <span className="fieldError" id={xAxisErrorId}>
+                式が不正です
+              </span>
+            )}
+          </div>
+          <div className={validation.yAxis ? 'formField' : 'formField invalid'}>
+            <label htmlFor={yAxisId}>Y軸</label>
+            <input
+              id={yAxisId}
+              type="text"
+              value={yAxis}
+              onChange={(event) => onYAxisChange(event.target.value)}
+              placeholder="例: absScore, relScore"
+              title={validation.yAxis ? '' : '式が不正です'}
+              aria-invalid={!validation.yAxis}
+              aria-describedby={validation.yAxis ? undefined : yAxisErrorId}
+            />
+            {!validation.yAxis && (
+              <span className="fieldError" id={yAxisErrorId}>
+                式が不正です
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="comparisonSection">
+        <div className="sectionLabel">データ</div>
+        <div className="fieldGrid">
+          <div className="formField">
+            <label htmlFor={featureStringId}>Features</label>
+            <input
+              id={featureStringId}
+              type="text"
+              value={featureString}
+              onChange={(event) => onFeatureStringChange(event.target.value)}
+              placeholder="例: N M K"
+            />
+          </div>
+          <div className={validation.filter ? 'formField' : 'formField invalid'}>
+            <label htmlFor={filterId}>Filter</label>
+            <input
+              id={filterId}
+              type="text"
+              value={filter}
+              onChange={(event) => onFilterChange(event.target.value)}
+              placeholder="例: N >= 100"
+              title={validation.filter ? '' : '式が不正です'}
+              aria-invalid={!validation.filter}
+              aria-describedby={validation.filter ? undefined : filterErrorId}
+            />
+            {!validation.filter && (
+              <span className="fieldError" id={filterErrorId}>
+                式が不正です
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <details className="comparisonDetails">
-        <summary>設定の詳細</summary>
+        <summary>
+          <IconChevronDown className="chevronIcon" />
+          設定の詳細
+        </summary>
         <div className="comparisonDetailsBody">
           <p>
             <strong>Features:</strong> 入力ファイルの先頭行を空白区切りで解釈 (例: N M K)

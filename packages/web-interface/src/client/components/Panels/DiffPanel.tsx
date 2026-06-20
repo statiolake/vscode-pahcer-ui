@@ -2,6 +2,7 @@ import type { DiffView } from '../../types';
 import { diffStatusLabel } from '../../utils/labels';
 import { CodeBlock } from '../common/CodeBlock';
 import { EmptyState } from '../common/EmptyState';
+import { IconChevronRight } from '../Tree/icons';
 
 type DiffPanelProps = {
   diff: DiffView | null;
@@ -20,22 +21,30 @@ export function DiffPanel(props: DiffPanelProps) {
   }
   return (
     <div className="panelContent diffList">
-      {props.diff.files.map((file, index) => (
-        <details className="diffFile" key={file.file} open={index < 3}>
-          <summary>
-            <span>{file.file}</span>
-            <span className="diffStats">{formatDiffStats(file.patch)}</span>
-          </summary>
-          <CodeBlock title="Patch" subtitle={file.file} content={file.patch} language="diff" />
-        </details>
-      ))}
+      {props.diff.files.map((file, index) => {
+        const { added, removed } = diffCounts(file.patch);
+
+        return (
+          <details className="diffFile" key={file.file} open={index < 3}>
+            <summary>
+              <IconChevronRight className="chevronIcon" />
+              <span>{file.file}</span>
+              <span className="diffStats">
+                {added > 0 && <span className="diffAdded">+{added}</span>}
+                {removed > 0 && <span className="diffRemoved">−{removed}</span>}
+              </span>
+            </summary>
+            <CodeBlock title="Patch" subtitle={file.file} content={file.patch} language="diff" />
+          </details>
+        );
+      })}
     </div>
   );
 }
 
-function formatDiffStats(patch: string): string {
+function diffCounts(patch: string): { added: number; removed: number } {
   const lines = patch.split('\n');
   const added = lines.filter((line) => line.startsWith('+') && !line.startsWith('+++')).length;
   const removed = lines.filter((line) => line.startsWith('-') && !line.startsWith('---')).length;
-  return `+${added} / -${removed}`;
+  return { added, removed };
 }

@@ -147,6 +147,114 @@ export function IconWrap(props: IconProps) {
   );
 }
 
+export function IconExternal(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M5.2 2.5H3.5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V8.8" />
+      <path d="M8 2.5h3.5V6" />
+      <path d="m7 7 4.5-4.5" />
+    </IconSvg>
+  );
+}
+
+export function IconRefresh(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M11.5 5.1A4.7 4.7 0 0 0 3.2 3.4L2 4.8" />
+      <path d="M2.1 2.2v2.6h2.6" />
+      <path d="M2.5 8.9a4.7 4.7 0 0 0 8.3 1.7L12 9.2" />
+      <path d="M11.9 11.8V9.2H9.3" />
+    </IconSvg>
+  );
+}
+
+export function IconPlay(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M4.5 2.8v8.4L10.6 7z" fill="currentColor" stroke="none" />
+    </IconSvg>
+  );
+}
+
+export function IconSettings(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <circle cx="7" cy="7" r="1.8" />
+      <path d="M7 1.8v1.4" />
+      <path d="M7 10.8v1.4" />
+      <path d="m3.3 3.3 1 1" />
+      <path d="m9.7 9.7 1 1" />
+      <path d="M1.8 7h1.4" />
+      <path d="M10.8 7h1.4" />
+      <path d="m3.3 10.7 1-1" />
+      <path d="m9.7 4.3 1-1" />
+    </IconSvg>
+  );
+}
+
+export function IconList(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M5 3.5h7" />
+      <path d="M5 7h7" />
+      <path d="M5 10.5h7" />
+      <path d="M2.2 3.5h.01" />
+      <path d="M2.2 7h.01" />
+      <path d="M2.2 10.5h.01" />
+    </IconSvg>
+  );
+}
+
+export function IconTree(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M2.5 2.5v9" />
+      <path d="M2.5 4.5H5" />
+      <path d="M2.5 9.5H5" />
+      <path d="M5 2.8h6.5" />
+      <path d="M5 6.5h5" />
+      <path d="M5 10.2h6.5" />
+    </IconSvg>
+  );
+}
+
+export function IconSortAsc(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M4 11.5V2.5" />
+      <path d="m1.8 4.7 2.2-2.2 2.2 2.2" />
+      <path d="M8 4h4" />
+      <path d="M8 7h3" />
+      <path d="M8 10h2" />
+    </IconSvg>
+  );
+}
+
+export function IconSortDesc(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <path d="M4 2.5v9" />
+      <path d="m1.8 9.3 2.2 2.2 2.2-2.2" />
+      <path d="M8 4h2" />
+      <path d="M8 7h3" />
+      <path d="M8 10h4" />
+    </IconSvg>
+  );
+}
+
+export function IconGroup(props: IconProps) {
+  return (
+    <IconSvg {...props}>
+      <circle cx="3.2" cy="3.5" r="1.2" />
+      <circle cx="10.8" cy="3.5" r="1.2" />
+      <circle cx="7" cy="10.5" r="1.2" />
+      <path d="M4.3 4.4 6.1 8.9" />
+      <path d="M9.7 4.4 7.9 8.9" />
+      <path d="M4.4 3.5h5.2" />
+    </IconSvg>
+  );
+}
+
 export function IconChevronRight(props: IconProps) {
   return (
     <IconSvg {...props}>

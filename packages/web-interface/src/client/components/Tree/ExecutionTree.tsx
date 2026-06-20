@@ -7,6 +7,7 @@ import { type FormEvent, useState } from 'react';
 import { executionDescription, executionTreeLabel } from '../../utils/format';
 import { Button } from '../common/Button';
 import { EmptyState } from '../common/EmptyState';
+import { IconButton } from '../common/IconButton';
 import { Modal } from '../common/Modal';
 import { CaseRow } from './CaseRow';
 import { IconCheck, IconCopy, IconCross, IconGitCommit, IconPencil, IconWarning } from './icons';
@@ -103,22 +104,20 @@ export function ExecutionTree(props: ExecutionTreeProps) {
                 </span>
               )}
               <span className="rowActions">
-                <button
-                  type="button"
-                  aria-label={`${stats.execution.shortTitle} のコメントを編集`}
-                  title="コメント"
+                <IconButton
+                  icon={<IconPencil />}
+                  label="コメントを編集"
+                  size="sm"
+                  variant="ghost"
                   onClick={() => openCommentEditor(stats)}
-                >
-                  <IconPencil />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${stats.execution.shortTitle} のソースを準備`}
-                  title="ソース"
+                />
+                <IconButton
+                  icon={<IconCopy />}
+                  label="この時点のソースをコピー"
+                  size="sm"
+                  variant="ghost"
                   onClick={() => props.onPrepareSource(stats.execution.id)}
-                >
-                  <IconCopy />
-                </button>
+                />
               </span>
             </div>
             {isOpen && props.cases && (

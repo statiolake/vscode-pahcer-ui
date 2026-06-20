@@ -72,16 +72,3 @@ export function diffStatusLabel(status: string): string {
       return status;
   }
 }
-
-export function comparisonHint(selectedCount: number): string {
-  if (selectedCount === 0) {
-    return '比較する実行を左の一覧から選択してください';
-  }
-  if (selectedCount === 1) {
-    return 'もう 1 件以上選ぶと比較できます';
-  }
-  if (selectedCount === 2) {
-    return '2 件選択中。差分も確認できます';
-  }
-  return `${selectedCount} 件選択中`;
-}

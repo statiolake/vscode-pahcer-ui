@@ -1,5 +1,7 @@
 import { formatSeed } from '../../../utils/format';
 import { EmptyState } from '../../common/EmptyState';
+import { IconButton } from '../../common/IconButton';
+import { IconExternal, IconRefresh } from '../../Tree/icons';
 
 type VisualizerPanelProps = {
   src: string | null;
@@ -39,12 +41,18 @@ export function VisualizerPanel(props: VisualizerPanelProps) {
           {props.title?.execution && <span>実行: {props.title.execution}</span>}
         </div>
         <div className="visualizerActions">
-          <button type="button" onClick={props.onResetVisualizer}>
-            再ダウンロード
-          </button>
-          <button type="button" onClick={openExternal}>
-            外部で開く
-          </button>
+          <IconButton
+            icon={<IconRefresh />}
+            label="再ダウンロード"
+            size="sm"
+            onClick={props.onResetVisualizer}
+          />
+          <IconButton
+            icon={<IconExternal />}
+            label="新しいタブで開く"
+            size="sm"
+            onClick={openExternal}
+          />
         </div>
       </div>
       <iframe className="visualizer" src={props.src} title="ビジュアライザ" />

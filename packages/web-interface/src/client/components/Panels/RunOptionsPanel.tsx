@@ -41,7 +41,7 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
 
   return (
     <div className="panelContent narrow">
-      <h2>詳細実行オプション</h2>
+      <p className="formIntro">実行範囲やオプションを指定してテストを実行します。</p>
       <form className="form" onSubmit={handleSubmit}>
         <div className="formField">
           <label htmlFor={startSeedId}>開始 Seed</label>

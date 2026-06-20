@@ -2,7 +2,6 @@ import { ComparisonViewReadModelService } from '@pahcer/core/application/service
 import { useEffect, useMemo, useState } from 'react';
 
 import { fetchJson } from '../../../api';
-import { comparisonHint } from '../../../utils/labels';
 import { EmptyState } from '../../common/EmptyState';
 import { ComparisonChart } from './ComparisonChart';
 import { ControlPanel } from './ControlPanel';
@@ -12,7 +11,6 @@ import type { ComparisonData, ComparisonViewOptions } from './types';
 type ComparisonPanelProps = {
   data: ComparisonData | null;
   selectedCount: number;
-  onShowDiff: () => void;
   onShowVisualizer: (resultId: string, seed: number) => void;
 };
 
@@ -76,19 +74,18 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
 
   return (
     <div className="panelContent">
-      <div className="panelHeader">
-        <div>
-          <h2>比較</h2>
-          <p>{comparisonHint(props.selectedCount)}</p>
-        </div>
-        {props.selectedCount === 2 && (
-          <button type="button" onClick={props.onShowDiff}>
-            差分を表示
-          </button>
-        )}
-      </div>
-
-      {!props.data && <EmptyState text={`比較対象: ${props.selectedCount} 件`} />}
+      {!props.data &&
+        (props.selectedCount === 0 ? (
+          <EmptyState
+            text="比較する実行を選択してください"
+            hint="左の一覧の実行行のチェックボックスを 2 件以上 ON にすると、ここに比較グラフが表示されます。"
+          />
+        ) : (
+          <EmptyState
+            text="あと 1 件以上選んでください"
+            hint="2 件以上の実行を比較できます。差分タブも有効になります。"
+          />
+        ))}
       {props.data && readModel && (
         <>
           <ControlPanel

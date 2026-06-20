@@ -6,7 +6,7 @@ import type {
 import type { ReactNode } from 'react';
 
 import type { WebPreferences } from '../../types';
-import { Button } from '../common/Button';
+import { IconHash, IconSortAsc, IconTree } from '../Tree/icons';
 
 const executionSortOptions: Array<{ value: ExecutionSortOrder; label: string }> = [
   { value: 'seedAsc', label: 'シードの昇順' },
@@ -28,9 +28,6 @@ type SideBarProps = {
   mode: GroupingMode;
   preferences: WebPreferences;
   selectedCount: number;
-  onRun: () => void;
-  onOpenRunOptions: () => void;
-  onReload: () => void;
   onUpdatePreferences: (next: Partial<WebPreferences>) => void;
   children: ReactNode;
 };
@@ -45,49 +42,53 @@ export function SideBar(props: SideBarProps) {
   return (
     <aside className="sideBar">
       <div className="resultHeader">
-        <div>
-          <h2>Pahcer Results</h2>
-          <p>{props.selectedCount} 件を選択中</p>
-        </div>
-        <div className="contextActions">
-          <Button variant="primary" onClick={props.onRun}>
-            実行
-          </Button>
-          <Button onClick={props.onOpenRunOptions}>条件指定</Button>
-          <Button onClick={props.onReload}>更新</Button>
-        </div>
+        <span className="sectionLabel">RESULTS</span>
+        {props.selectedCount > 0 && (
+          <span className="chipBadge">{props.selectedCount} 件選択中</span>
+        )}
       </div>
       <div className="treeToolbar">
-        <button
-          type="button"
-          className={props.mode === 'byExecution' ? 'active' : ''}
-          onClick={() => props.onUpdatePreferences({ groupingMode: 'byExecution' })}
-        >
-          実行
-        </button>
-        <button
-          type="button"
-          className={props.mode === 'bySeed' ? 'active' : ''}
-          onClick={() => props.onUpdatePreferences({ groupingMode: 'bySeed' })}
-        >
-          Seed
-        </button>
-        <select
-          value={sortValue}
-          onChange={(event) =>
-            props.onUpdatePreferences(
-              props.mode === 'byExecution'
-                ? { executionSortOrder: event.target.value as ExecutionSortOrder }
-                : { seedSortOrder: event.target.value as SeedSortOrder },
-            )
-          }
-        >
-          {sortOptions.map((option) => (
-            <option value={option.value} key={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <fieldset className="toggleGroup">
+          <legend className="srOnly">表示モード</legend>
+          <button
+            type="button"
+            className={props.mode === 'byExecution' ? 'active' : ''}
+            aria-pressed={props.mode === 'byExecution'}
+            onClick={() => props.onUpdatePreferences({ groupingMode: 'byExecution' })}
+          >
+            <IconTree />
+            <span>実行</span>
+          </button>
+          <button
+            type="button"
+            className={props.mode === 'bySeed' ? 'active' : ''}
+            aria-pressed={props.mode === 'bySeed'}
+            onClick={() => props.onUpdatePreferences({ groupingMode: 'bySeed' })}
+          >
+            <IconHash />
+            <span>Seed</span>
+          </button>
+        </fieldset>
+        <div className="sortControl">
+          <IconSortAsc />
+          <select
+            aria-label="並び順"
+            value={sortValue}
+            onChange={(event) =>
+              props.onUpdatePreferences(
+                props.mode === 'byExecution'
+                  ? { executionSortOrder: event.target.value as ExecutionSortOrder }
+                  : { seedSortOrder: event.target.value as SeedSortOrder },
+              )
+            }
+          >
+            {sortOptions.map((option) => (
+              <option value={option.value} key={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       {props.children}
     </aside>

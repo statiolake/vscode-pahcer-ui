@@ -1,13 +1,13 @@
 import type { ComparisonData } from '@pahcer/core/application/dtos/comparisonData';
 import type {
   TreeExecutionCases,
-  TreeExecutionStats,
   TreeSeedExecution,
   TreeSeedStats,
 } from '@pahcer/core/application/dtos/pahcerTreeData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { fetchJson } from './api';
+import { Button } from './components/common/Button';
 import { EmptyState } from './components/common/EmptyState';
 import {
   ToastContainer,
@@ -49,6 +49,8 @@ type VisualizerRequest = {
   seed: number;
   executionId: string;
 };
+
+const ALL_PANELS: Panel[] = ['comparison', 'case', 'source', 'diff', 'visualizer', 'run'];
 
 export function App() {
   const [status, setStatus] = useState<StatusResponse | null>(null);
@@ -358,9 +360,92 @@ export function App() {
     setVisualizerModalOpen(true);
   }
 
+  const selectedCount = selectedExecutionIds.length;
   const selectedExecution = treeData?.executionStatsList.find(
     (stats) => stats.execution.id === selectedExecutionIds[selectedExecutionIds.length - 1],
   )?.execution;
+  const hasSelectedCase = selectedCase !== null;
+  const hasSelectedExecution = selectedExecution !== undefined;
+  const hasVisualizer = visualizerSrc !== null;
+
+  const isPanelDisabled = useCallback(
+    (panel: Panel): boolean => {
+      switch (panel) {
+        case 'case':
+          return !hasSelectedCase;
+        case 'source':
+          return !hasSelectedExecution;
+        case 'diff':
+          return selectedCount !== 2;
+        case 'visualizer':
+          return !hasVisualizer;
+        case 'comparison':
+        case 'run':
+        case 'initialize':
+          return false;
+      }
+    },
+    [hasSelectedCase, hasSelectedExecution, hasVisualizer, selectedCount],
+  );
+
+  function panelDisabledTooltip(panel: Panel): string | undefined {
+    if (!isPanelDisabled(panel)) {
+      return undefined;
+    }
+
+    switch (panel) {
+      case 'case':
+        return 'ケースを選択してください';
+      case 'source':
+        return '実行を選択してください';
+      case 'diff':
+        return '実行を 2 件選択してください';
+      case 'visualizer':
+        return 'ケースを開いてビジュアライザを起動してください';
+      case 'comparison':
+      case 'run':
+      case 'initialize':
+        return undefined;
+    }
+  }
+
+  function renderPanelTabsActions() {
+    switch (activePanel) {
+      case 'comparison':
+        return selectedCount === 2 ? (
+          <Button variant="secondary" onClick={() => void showDiff()}>
+            差分を表示
+          </Button>
+        ) : null;
+      case 'case':
+        return selectedCase ? (
+          <Button
+            variant="secondary"
+            onClick={() => void openVisualizer(selectedCase.seed, selectedCase.executionId)}
+          >
+            ビジュアライザを開く
+          </Button>
+        ) : null;
+      case 'source':
+        return selectedExecution ? (
+          <Button variant="secondary" onClick={() => void prepareSource(selectedExecution.id)}>
+            ファイルを読み込む
+          </Button>
+        ) : null;
+      case 'diff':
+      case 'visualizer':
+      case 'run':
+      case 'initialize':
+        return null;
+    }
+  }
+
+  useEffect(() => {
+    if (isPanelDisabled(activePanel)) {
+      setActivePanel('comparison');
+    }
+  }, [activePanel, isPanelDisabled]);
+
   const visualizerExecutionTitle = visualizerRequest
     ? findExecutionShortTitle(treeData, visualizerRequest.executionId)
     : undefined;
@@ -374,7 +459,12 @@ export function App() {
   return (
     <main data-last-error={error ? 'present' : undefined}>
       <style>{globalStyles}</style>
-      <TopBar status={status?.status} workspaceRoot={status?.workspaceRoot ?? ''} />
+      <TopBar
+        status={status?.status}
+        workspaceRoot={status?.workspaceRoot ?? ''}
+        onRun={() => void runPahcer({ freezeBestScores: false })}
+        onReload={() => void reload()}
+      />
 
       {loading && <div className="globalLoading" role="progressbar" aria-label="処理中" />}
       <ToastContainer toasts={toasts} onClose={dismissToast} />
@@ -412,10 +502,7 @@ export function App() {
           <SideBar
             mode={mode}
             preferences={preferences}
-            selectedCount={selectedExecutionIds.length}
-            onRun={() => void runPahcer({ freezeBestScores: false })}
-            onOpenRunOptions={() => setActivePanel('run')}
-            onReload={() => void reload()}
+            selectedCount={selectedCount}
             onUpdatePreferences={(next) => void updatePreferences(next)}
           >
             {mode === 'byExecution' ? (
@@ -451,31 +538,33 @@ export function App() {
 
           <section className="mainPanel">
             <nav className="panelTabs">
-              {visiblePanels({
-                activePanel,
-                selectedCase,
-                selectedExecution,
-                diffView,
-                sourcePreparation,
-                sourceView,
-                visualizerSrc,
-              }).map((panel) => (
-                <button
-                  type="button"
-                  className={activePanel === panel ? 'active' : ''}
-                  onClick={() => setActivePanel(panel)}
-                  key={panel}
-                >
-                  {panelLabel(panel)}
-                </button>
-              ))}
+              <div className="panelTabsList">
+                {ALL_PANELS.map((panel) => {
+                  const disabled = isPanelDisabled(panel);
+                  const tooltip = panelDisabledTooltip(panel);
+
+                  return (
+                    <button
+                      type="button"
+                      className={activePanel === panel ? 'active' : ''}
+                      disabled={disabled}
+                      title={tooltip}
+                      aria-disabled={disabled}
+                      onClick={() => setActivePanel(panel)}
+                      key={panel}
+                    >
+                      {panelLabel(panel)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="panelTabsActions">{renderPanelTabsActions()}</div>
             </nav>
 
             {activePanel === 'comparison' && (
               <ComparisonPanel
                 data={comparison}
-                selectedCount={selectedExecutionIds.length}
-                onShowDiff={() => void showDiff()}
+                selectedCount={selectedCount}
                 onShowVisualizer={(resultId, seed) => void openVisualizer(seed, resultId)}
               />
             )}
@@ -488,18 +577,13 @@ export function App() {
                 onOpenFile={(kind) =>
                   void openCaseFile(kind, selectedCase.executionId, selectedCase.seed)
                 }
-                onVisualizer={() =>
-                  void openVisualizer(selectedCase.seed, selectedCase.executionId)
-                }
               />
             )}
             {activePanel === 'case' && !selectedCase && (
               <EmptyState text="ケースを選択してください" />
             )}
 
-            {activePanel === 'diff' && (
-              <DiffPanel diff={diffView} selectedCount={selectedExecutionIds.length} />
-            )}
+            {activePanel === 'diff' && <DiffPanel diff={diffView} selectedCount={selectedCount} />}
 
             {activePanel === 'source' && selectedExecution && (
               <SourcePanel
@@ -509,7 +593,6 @@ export function App() {
                 executionLabel={
                   selectedExecution.shortTitle ?? shortExecutionId(selectedExecution.id)
                 }
-                onPrepare={() => void prepareSource(selectedExecution.id)}
                 onLoadFile={(file) => void loadSourceFile(selectedExecution.id, file)}
               />
             )}
@@ -536,34 +619,6 @@ export function App() {
       )}
     </main>
   );
-}
-
-function visiblePanels(input: {
-  activePanel: Panel;
-  selectedCase: SelectedCase | null;
-  selectedExecution: TreeExecutionStats['execution'] | undefined;
-  diffView: DiffView | null;
-  sourcePreparation: SourcePreparation | null;
-  sourceView: FileView | null;
-  visualizerSrc: string | null;
-}): Panel[] {
-  const panels: Panel[] = ['comparison'];
-  if (input.selectedCase) {
-    panels.push('case');
-  }
-  if (input.diffView || input.activePanel === 'diff') {
-    panels.push('diff');
-  }
-  if (input.selectedExecution || input.sourcePreparation || input.sourceView) {
-    panels.push('source');
-  }
-  if (input.visualizerSrc) {
-    panels.push('visualizer');
-  }
-  if (input.activePanel === 'run') {
-    panels.push('run');
-  }
-  return panels;
 }
 
 function findExecutionShortTitle(

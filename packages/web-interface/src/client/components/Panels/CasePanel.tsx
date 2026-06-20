@@ -10,7 +10,6 @@ type CasePanelProps = {
   selectedCase: SelectedCase;
   fileView: FileView | null;
   onOpenFile: (kind: CaseFileKind) => void;
-  onVisualizer: () => void;
 };
 
 const caseFileKinds: CaseFileKind[] = ['input', 'output', 'error'];
@@ -29,6 +28,14 @@ export function CasePanel(props: CasePanelProps) {
     return props.fileView;
   }, [props.fileView, props.selectedCase.executionId, props.selectedCase.seed, selectedKind]);
 
+  // ケースが変わったら入力を自動ロード
+  // biome-ignore lint/correctness/useExhaustiveDependencies: onOpenFile は親で安定参照
+  useEffect(() => {
+    setSelectedKind('input');
+    setPendingKind('input');
+    props.onOpenFile('input');
+  }, [props.selectedCase.executionId, props.selectedCase.seed]);
+
   useEffect(() => {
     if (activeFile) {
       setPendingKind(null);
@@ -45,11 +52,6 @@ export function CasePanel(props: CasePanelProps) {
     <div className="panelContent">
       <div className="panelHeader">
         <h2>Seed {formatSeed(props.selectedCase.seed)}</h2>
-        <div className="commands">
-          <button type="button" onClick={props.onVisualizer}>
-            ビジュアライザ
-          </button>
-        </div>
       </div>
       <fieldset className="toggleGroup">
         <legend className="srOnly">ケースファイル</legend>

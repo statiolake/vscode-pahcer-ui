@@ -10,7 +10,6 @@ type SourcePanelProps = {
   sourceView: FileView | null;
   executionId: string;
   executionLabel: string;
-  onPrepare: () => void;
   onLoadFile: (file: string) => void;
 };
 
@@ -58,9 +57,6 @@ export function SourcePanel(props: SourcePanelProps) {
     <div className="panelContent">
       <div className="panelHeader">
         <h2>ソース ({props.executionLabel})</h2>
-        <button type="button" onClick={props.onPrepare}>
-          ファイルを読み込む
-        </button>
       </div>
       {preparation && preparation.status !== 'ready' && (
         <EmptyState text={sourcePreparationStatusLabel(preparation.status)} />

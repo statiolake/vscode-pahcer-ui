@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-
-import { IconCopy, IconWrap } from '../Tree/icons';
+import { IconCheck, IconCopy, IconWrap } from '../Tree/icons';
+import { IconButton } from './IconButton';
 
 type CodeBlockProps = {
   title?: string;
@@ -48,37 +48,36 @@ export function CodeBlock({
   return (
     <section className="codeBlock">
       <div className="codeBlockHeader">
-        <div className="codeBlockTitle">
-          {title && <h3>{title}</h3>}
-          {subtitle && <p>{subtitle}</p>}
-        </div>
+        {title ? <h3 className="codeBlockTitle">{title}</h3> : <span className="codeBlockTitle" />}
         <div className="codeBlockActions">
-          <button
-            type="button"
-            className="codeBlockAction"
+          <IconButton
+            icon={copied ? <IconCheck color="success" /> : <IconCopy />}
+            label="クリップボードにコピー"
+            size="sm"
+            variant="ghost"
+            active={copied}
             onClick={() => void copyContent()}
-            title="内容をコピー"
-          >
-            <IconCopy />
-            <span>{copied ? 'コピー済み' : 'コピー'}</span>
-          </button>
-          <button
-            type="button"
-            className="codeBlockAction"
-            aria-pressed={wrap}
+          />
+          <IconButton
+            icon={<IconWrap />}
+            label="折り返しを切替"
+            size="sm"
+            variant="ghost"
+            active={wrap}
             onClick={() => setWrap((current) => !current)}
-            title="折り返しを切り替え"
-          >
-            <IconWrap />
-            <span>折り返し</span>
-          </button>
+          />
         </div>
       </div>
+      {subtitle && (
+        <div className="codeBlockSubtitle" title={subtitle}>
+          {subtitle}
+        </div>
+      )}
       <pre
-        className={['codeBlockPre', wrap ? 'wrap' : '', language === 'diff' ? 'diffPre' : '']
+        className={[wrap ? 'wrap' : '', language === 'diff' ? 'diffPre' : '']
           .filter(Boolean)
           .join(' ')}
-        style={maxHeight ? { maxHeight: `${maxHeight}px` } : undefined}
+        style={maxHeight ? { maxHeight } : undefined}
       >
         {language === 'diff' ? renderDiffContent(visibleContent) : visibleContent}
       </pre>
