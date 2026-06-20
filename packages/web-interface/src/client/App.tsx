@@ -129,6 +129,12 @@ export function App() {
   const toastIdRef = useRef(0);
   const comparisonRequestIdRef = useRef(0);
   const selectedExecutionIdsRef = useRef<string[]>(selectedExecutionIds);
+  const openExecutionIdRef = useRef<string | null>(openExecutionId);
+  const openSeedRef = useRef<number | null>(openSeed);
+  const executionCasesRequestIdRef = useRef(0);
+  const seedExecutionsRequestIdRef = useRef(0);
+  const executionCasesAbortControllerRef = useRef<AbortController | null>(null);
+  const seedExecutionsAbortControllerRef = useRef<AbortController | null>(null);
   const uiActionRequestIdRef = useRef(0);
   const caseFileRequestIdRef = useRef(0);
   const diffRequestIdRef = useRef(0);
@@ -141,6 +147,21 @@ export function App() {
   useEffect(() => {
     selectedExecutionIdsRef.current = selectedExecutionIds;
   }, [selectedExecutionIds]);
+
+  useEffect(() => {
+    openExecutionIdRef.current = openExecutionId;
+  }, [openExecutionId]);
+
+  useEffect(() => {
+    openSeedRef.current = openSeed;
+  }, [openSeed]);
+
+  useEffect(() => {
+    return () => {
+      executionCasesAbortControllerRef.current?.abort();
+      seedExecutionsAbortControllerRef.current?.abort();
+    };
+  }, []);
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) =>
@@ -202,6 +223,22 @@ export function App() {
   function nextUiActionRequestId() {
     const requestId = uiActionRequestIdRef.current + 1;
     uiActionRequestIdRef.current = requestId;
+    return requestId;
+  }
+
+  function invalidateExecutionCasesRequest() {
+    const requestId = executionCasesRequestIdRef.current + 1;
+    executionCasesRequestIdRef.current = requestId;
+    executionCasesAbortControllerRef.current?.abort();
+    executionCasesAbortControllerRef.current = null;
+    return requestId;
+  }
+
+  function invalidateSeedExecutionsRequest() {
+    const requestId = seedExecutionsRequestIdRef.current + 1;
+    seedExecutionsRequestIdRef.current = requestId;
+    seedExecutionsAbortControllerRef.current?.abort();
+    seedExecutionsAbortControllerRef.current = null;
     return requestId;
   }
 
@@ -280,30 +317,103 @@ export function App() {
   }
 
   async function openExecution(executionId: string) {
-    setOpenExecutionId((current) => (current === executionId ? null : executionId));
+    const nextOpenExecutionId = openExecutionIdRef.current === executionId ? null : executionId;
+    const requestId = invalidateExecutionCasesRequest();
+    invalidateSeedExecutionsRequest();
+
+    openExecutionIdRef.current = nextOpenExecutionId;
+    openSeedRef.current = null;
+    setOpenExecutionId(nextOpenExecutionId);
     setOpenSeed(null);
     setSelectedCase(null);
-    if (openExecutionId !== executionId) {
-      setExecutionCases(
-        await fetchJson<TreeExecutionCases>(
-          `/api/executions/${encodeURIComponent(executionId)}/cases?sort=${
-            preferences?.executionSortOrder ?? 'seedAsc'
-          }`,
-        ),
+    setExecutionCases(null);
+    setSeedExecutions([]);
+
+    if (nextOpenExecutionId === null) {
+      return;
+    }
+
+    const controller = new AbortController();
+    executionCasesAbortControllerRef.current = controller;
+
+    const isCurrentRequest = () =>
+      executionCasesRequestIdRef.current === requestId &&
+      openExecutionIdRef.current === executionId &&
+      !controller.signal.aborted;
+
+    try {
+      const cases = await runUiAction(
+        'ケース一覧の読み込み',
+        () =>
+          fetchJson<TreeExecutionCases>(
+            `/api/executions/${encodeURIComponent(executionId)}/cases?sort=${
+              preferences?.executionSortOrder ?? 'seedAsc'
+            }`,
+            { signal: controller.signal },
+          ),
+        { shouldReportError: isCurrentRequest },
       );
+
+      if (!isCurrentRequest() || !cases || cases.executionStats.execution.id !== executionId) {
+        return;
+      }
+
+      setExecutionCases(cases);
+    } finally {
+      if (executionCasesAbortControllerRef.current === controller) {
+        executionCasesAbortControllerRef.current = null;
+      }
     }
   }
 
   async function openSeedExecutions(seed: number) {
-    setOpenSeed((current) => (current === seed ? null : seed));
+    const nextOpenSeed = openSeedRef.current === seed ? null : seed;
+    const requestId = invalidateSeedExecutionsRequest();
+    invalidateExecutionCasesRequest();
+
+    openSeedRef.current = nextOpenSeed;
+    openExecutionIdRef.current = null;
+    setOpenSeed(nextOpenSeed);
     setOpenExecutionId(null);
     setSelectedCase(null);
-    if (openSeed !== seed) {
-      setSeedExecutions(
-        await fetchJson<TreeSeedExecution[]>(
-          `/api/seeds/${seed}/executions?sort=${preferences?.seedSortOrder ?? 'executionAsc'}`,
-        ),
+    setSeedExecutions([]);
+    setExecutionCases(null);
+
+    if (nextOpenSeed === null) {
+      return;
+    }
+
+    const controller = new AbortController();
+    seedExecutionsAbortControllerRef.current = controller;
+
+    const isCurrentRequest = () =>
+      seedExecutionsRequestIdRef.current === requestId &&
+      openSeedRef.current === seed &&
+      !controller.signal.aborted;
+
+    try {
+      const executions = await runUiAction(
+        'Seed 実行一覧の読み込み',
+        () =>
+          fetchJson<TreeSeedExecution[]>(
+            `/api/seeds/${seed}/executions?sort=${preferences?.seedSortOrder ?? 'executionAsc'}`,
+            { signal: controller.signal },
+          ),
+        { shouldReportError: isCurrentRequest },
       );
+
+      if (
+        !isCurrentRequest() ||
+        !executions?.every((execution) => execution.testCase.seed === seed)
+      ) {
+        return;
+      }
+
+      setSeedExecutions(executions);
+    } finally {
+      if (seedExecutionsAbortControllerRef.current === controller) {
+        seedExecutionsAbortControllerRef.current = null;
+      }
     }
   }
 
