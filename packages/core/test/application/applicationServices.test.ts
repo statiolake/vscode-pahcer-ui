@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { ComparisonConfig } from '../../src/application/dtos/comparisonConfig';
 import type {
   ComparisonData,
-  ComparisonViewOptions,
+  ComparisonViewReadModelOptions,
 } from '../../src/application/dtos/comparisonData';
 import { PahcerTreeData } from '../../src/application/dtos/pahcerTreeData';
 import {
@@ -81,7 +81,6 @@ describe('application services', () => {
       featureString: 'N M',
       xAxis: 'N',
       yAxis: 'avg(absScore)',
-      chartType: 'line',
       skipFailed: true,
       filter: '$width >= 10',
     });
@@ -133,12 +132,11 @@ describe('application services', () => {
   });
 });
 
-function defaultOptions(): ComparisonViewOptions {
+function defaultOptions(): ComparisonViewReadModelOptions {
   return {
     featureString: 'N M',
     xAxis: 'seed',
     yAxis: 'absScore',
-    chartType: 'line',
     skipFailed: false,
     filter: '',
   };

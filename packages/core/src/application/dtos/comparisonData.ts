@@ -30,6 +30,8 @@ export interface ComparisonViewOptions {
   filter: string;
 }
 
+export type ComparisonViewReadModelOptions = Omit<ComparisonViewOptions, 'chartType'>;
+
 export interface ComparisonChartPoint {
   x: number;
   y: number;

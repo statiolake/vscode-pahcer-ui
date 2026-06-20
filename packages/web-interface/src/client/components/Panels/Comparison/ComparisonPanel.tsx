@@ -10,6 +10,7 @@ import type {
   ComparisonData,
   ComparisonExpressionValidation,
   ComparisonViewOptions,
+  ComparisonViewReadModelOptions,
 } from './types';
 
 type ComparisonPanelProps = {
@@ -18,43 +19,156 @@ type ComparisonPanelProps = {
   onShowVisualizer: (resultId: string, seed: number) => void;
 };
 
+type ReadModelInput = {
+  data: ComparisonData;
+  options: ComparisonViewReadModelOptions;
+};
+
 export function ComparisonPanel(props: ComparisonPanelProps) {
-  const [draftConfig, setDraftConfig] = useState<ComparisonViewOptions>(DEFAULT_COMPARISON_CONFIG);
+  const [draftConfig, setDraftConfig] = useState<ComparisonViewOptions>(() =>
+    props.data ? toComparisonViewOptions(props.data.config) : DEFAULT_COMPARISON_CONFIG,
+  );
   const [lastValidConfig, setLastValidConfig] = useState<ComparisonViewOptions | null>(null);
+  const [readModelInput, setReadModelInput] = useState<ReadModelInput | null>(() =>
+    props.data
+      ? {
+          data: props.data,
+          options: toComparisonViewReadModelOptions(toComparisonViewOptions(props.data.config)),
+        }
+      : null,
+  );
   const readModelService = useMemo(() => new ComparisonViewReadModelService(), []);
 
-  useEffect(() => {
-    if (!props.data) {
-      return;
-    }
-
-    setDraftConfig(toComparisonViewOptions(props.data.config));
-    setLastValidConfig(null);
-  }, [props.data]);
-
-  const viewOptions = draftConfig;
-
-  const readModel = useMemo(
-    () => (props.data ? readModelService.build(props.data, viewOptions) : null),
-    [props.data, readModelService, viewOptions],
+  const draftValidation = useMemo(
+    () =>
+      readModelService.validateOptions({
+        xAxis: draftConfig.xAxis,
+        yAxis: draftConfig.yAxis,
+        filter: draftConfig.filter,
+      }),
+    [draftConfig.filter, draftConfig.xAxis, draftConfig.yAxis, readModelService],
   );
 
-  const draftConfigIsValid = readModel ? isComparisonConfigValid(readModel.validation) : false;
+  const draftConfigIsValid = isComparisonConfigValid(draftValidation);
 
   useEffect(() => {
     if (!props.data || !draftConfigIsValid) {
       return;
     }
 
-    setLastValidConfig(viewOptions);
-  }, [draftConfigIsValid, props.data, viewOptions]);
+    setLastValidConfig((current) =>
+      current && comparisonViewOptionsEqual(current, draftConfig) ? current : draftConfig,
+    );
+  }, [draftConfig, draftConfigIsValid, props.data]);
+
+  useEffect(() => {
+    if (!props.data) {
+      setLastValidConfig(null);
+      setReadModelInput(null);
+      return;
+    }
+
+    const nextConfig = toComparisonViewOptions(props.data.config);
+    setDraftConfig(nextConfig);
+    setLastValidConfig(nextConfig);
+    setReadModelInput({
+      data: props.data,
+      options: toComparisonViewReadModelOptions(nextConfig),
+    });
+  }, [props.data]);
+
+  const lastValidFeatureString = lastValidConfig?.featureString;
+  const lastValidXAxis = lastValidConfig?.xAxis;
+  const lastValidYAxis = lastValidConfig?.yAxis;
+  const lastValidSkipFailed = lastValidConfig?.skipFailed;
+  const lastValidFilter = lastValidConfig?.filter;
+
+  useEffect(() => {
+    const data = props.data;
+    if (
+      !data ||
+      lastValidFeatureString === undefined ||
+      lastValidXAxis === undefined ||
+      lastValidYAxis === undefined ||
+      lastValidSkipFailed === undefined ||
+      lastValidFilter === undefined
+    ) {
+      return;
+    }
+
+    const nextOptions: ComparisonViewReadModelOptions = {
+      featureString: lastValidFeatureString,
+      xAxis: lastValidXAxis,
+      yAxis: lastValidYAxis,
+      skipFailed: lastValidSkipFailed,
+      filter: lastValidFilter,
+    };
+    const timeout = window.setTimeout(() => {
+      setReadModelInput((current) =>
+        current?.data === data && comparisonViewReadModelOptionsEqual(current.options, nextOptions)
+          ? current
+          : {
+              data,
+              options: nextOptions,
+            },
+      );
+    }, READ_MODEL_UPDATE_DELAY_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    lastValidFeatureString,
+    lastValidFilter,
+    lastValidSkipFailed,
+    lastValidXAxis,
+    lastValidYAxis,
+    props.data,
+  ]);
+
+  const readModelData = readModelInput?.data ?? null;
+  const readModelFeatureString = readModelInput?.options.featureString;
+  const readModelXAxis = readModelInput?.options.xAxis;
+  const readModelYAxis = readModelInput?.options.yAxis;
+  const readModelSkipFailed = readModelInput?.options.skipFailed;
+  const readModelFilter = readModelInput?.options.filter;
+
+  const readModel = useMemo(() => {
+    if (
+      !readModelData ||
+      readModelFeatureString === undefined ||
+      readModelXAxis === undefined ||
+      readModelYAxis === undefined ||
+      readModelSkipFailed === undefined ||
+      readModelFilter === undefined
+    ) {
+      return null;
+    }
+
+    return readModelService.build(readModelData, {
+      featureString: readModelFeatureString,
+      xAxis: readModelXAxis,
+      yAxis: readModelYAxis,
+      skipFailed: readModelSkipFailed,
+      filter: readModelFilter,
+    });
+  }, [
+    readModelData,
+    readModelFeatureString,
+    readModelFilter,
+    readModelSkipFailed,
+    readModelXAxis,
+    readModelYAxis,
+    readModelService,
+  ]);
+
+  const activeReadModel = readModelData === props.data ? readModel : null;
+  const activeReadModelFilter = readModelData === props.data ? readModelFilter : undefined;
 
   useEffect(() => {
     if (
       !props.data ||
       !lastValidConfig ||
       !draftConfigIsValid ||
-      !comparisonViewOptionsEqual(viewOptions, lastValidConfig)
+      !comparisonViewOptionsEqual(draftConfig, lastValidConfig)
     ) {
       return;
     }
@@ -67,7 +181,7 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [draftConfigIsValid, lastValidConfig, props.data, viewOptions]);
+  }, [draftConfig, draftConfigIsValid, lastValidConfig, props.data]);
 
   function updateDraftConfig(patch: Partial<ComparisonViewOptions>) {
     setDraftConfig((current) => ({ ...current, ...patch }));
@@ -87,7 +201,7 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
             hint="2 件以上の実行を比較できます。差分タブも有効になります。"
           />
         ))}
-      {props.data && readModel && (
+      {props.data && activeReadModel && activeReadModelFilter !== undefined && (
         <>
           <ControlPanel
             featureString={draftConfig.featureString}
@@ -96,7 +210,7 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
             chartType={draftConfig.chartType}
             skipFailed={draftConfig.skipFailed}
             filter={draftConfig.filter}
-            validation={readModel.validation}
+            validation={draftValidation}
             onFeatureStringChange={(featureString) => updateDraftConfig({ featureString })}
             onXAxisChange={(xAxis) => updateDraftConfig({ xAxis })}
             onYAxisChange={(yAxis) => updateDraftConfig({ yAxis })}
@@ -106,14 +220,14 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
           />
 
           <ComparisonChart
-            chart={readModel.chart}
+            chart={activeReadModel.chart}
             chartType={draftConfig.chartType}
             onShowVisualizer={props.onShowVisualizer}
           />
 
           <StatsTable
-            stats={readModel.stats}
-            showsFilteredCount={draftConfig.filter.trim() !== ''}
+            stats={activeReadModel.stats}
+            showsFilteredCount={activeReadModelFilter.trim() !== ''}
           />
         </>
       )}
@@ -130,6 +244,8 @@ const DEFAULT_COMPARISON_CONFIG: ComparisonViewOptions = {
   filter: '',
 };
 
+const READ_MODEL_UPDATE_DELAY_MS = 120;
+
 function toComparisonViewOptions(config: ComparisonData['config']): ComparisonViewOptions {
   return {
     featureString: config.featureString,
@@ -138,6 +254,18 @@ function toComparisonViewOptions(config: ComparisonData['config']): ComparisonVi
     chartType: config.chartType,
     skipFailed: config.skipFailed ?? true,
     filter: config.filter,
+  };
+}
+
+function toComparisonViewReadModelOptions(
+  options: ComparisonViewOptions,
+): ComparisonViewReadModelOptions {
+  return {
+    featureString: options.featureString,
+    xAxis: options.xAxis,
+    yAxis: options.yAxis,
+    skipFailed: options.skipFailed,
+    filter: options.filter,
   };
 }
 
@@ -154,6 +282,19 @@ function comparisonViewOptionsEqual(
     left.xAxis === right.xAxis &&
     left.yAxis === right.yAxis &&
     left.chartType === right.chartType &&
+    left.skipFailed === right.skipFailed &&
+    left.filter === right.filter
+  );
+}
+
+function comparisonViewReadModelOptionsEqual(
+  left: ComparisonViewReadModelOptions,
+  right: ComparisonViewReadModelOptions,
+): boolean {
+  return (
+    left.featureString === right.featureString &&
+    left.xAxis === right.xAxis &&
+    left.yAxis === right.yAxis &&
     left.skipFailed === right.skipFailed &&
     left.filter === right.filter
   );

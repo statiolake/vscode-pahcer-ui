@@ -4,7 +4,7 @@ import { postMessage } from '../shared/utils/vscode';
 import { ComparisonChart } from './components/ComparisonChart';
 import { ControlPanel } from './components/ControlPanel';
 import { StatsTable } from './components/StatsTable';
-import type { ComparisonData, ComparisonViewOptions } from './types';
+import type { ComparisonData, ComparisonViewReadModelOptions } from './types';
 
 interface Props {
   initialData: ComparisonData;
@@ -19,20 +19,19 @@ export function ComparisonView({ initialData }: Props) {
   const [filter, setFilter] = useState(initialData.config.filter);
   const [skipFailed, setSkipFailed] = useState(initialData.config.skipFailed ?? true);
   const readModelService = useMemo(() => new ComparisonViewReadModelService(), []);
-  const viewOptions: ComparisonViewOptions = useMemo(
+  const readModelOptions: ComparisonViewReadModelOptions = useMemo(
     () => ({
       featureString,
       xAxis,
       yAxis,
-      chartType,
       skipFailed,
       filter,
     }),
-    [featureString, xAxis, yAxis, chartType, skipFailed, filter],
+    [featureString, xAxis, yAxis, skipFailed, filter],
   );
   const readModel = useMemo(
-    () => readModelService.build(data, viewOptions),
-    [data, readModelService, viewOptions],
+    () => readModelService.build(data, readModelOptions),
+    [data, readModelOptions, readModelService],
   );
 
   // Listen for data updates from extension

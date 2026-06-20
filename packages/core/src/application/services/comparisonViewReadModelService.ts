@@ -5,8 +5,9 @@ import type {
   ComparisonStatsRow,
   ComparisonViewOptions,
   ComparisonViewReadModel,
+  ComparisonViewReadModelOptions,
 } from '../dtos/comparisonData';
-import { evaluateExpression, isValidExpression } from './comparisonExpressionService';
+import { evaluateAst, isValidExpression, parseExpression } from './comparisonExpressionService';
 import { parseFeatures } from './featureParser';
 
 type ComparisonCase = ComparisonData['results'][number]['cases'][number];
@@ -15,8 +16,26 @@ interface SeedData {
   seed: number;
   xValue: number;
   testCase: ComparisonCase;
-  inputLine: string;
+  inputFeatureValues: string[];
+  stderrVars: Record<string, number>;
 }
+
+interface ComparisonResultIndex {
+  result: ComparisonData['results'][number];
+  casesBySeed: Map<number, ComparisonCase>;
+  stderrBySeed: Record<number, Record<string, number>>;
+}
+
+interface ComparisonDataIndex {
+  seeds: number[];
+  inputFeatureValuesBySeed: Map<number, string[]>;
+  results: ComparisonResultIndex[];
+  bestScoreBySeed: Map<number, number>;
+  bestScoreCountBySeed: Map<number, number>;
+}
+
+type ExpressionEvaluator = (variables: Record<string, number[]>) => number[];
+type FilterMatcher = (variables: Record<string, number[]>) => boolean;
 
 /**
  * 比較 WebView に渡す派生 read model を生成する application service。
@@ -25,71 +44,83 @@ interface SeedData {
  * React コンポーネントではなくここで一元的に扱う。
  */
 export class ComparisonViewReadModelService {
-  build(data: ComparisonData, options: ComparisonViewOptions): ComparisonViewReadModel {
+  private readonly indexesByData = new WeakMap<ComparisonData, ComparisonDataIndex>();
+
+  build(data: ComparisonData, options: ComparisonViewReadModelOptions): ComparisonViewReadModel {
+    const index = this.getIndex(data);
+
     return {
-      chart: this.buildChart(data, options),
-      stats: this.calculateStats(data, options.featureString, options.filter),
-      validation: {
-        xAxis: isValidExpression(options.xAxis),
-        yAxis: isValidExpression(options.yAxis),
-        filter: options.filter.trim() === '' || isValidExpression(options.filter),
-      },
+      chart: this.buildChart(index, options),
+      stats: this.calculateStats(index, options.featureString, options.filter),
+      validation: this.validateOptions(options),
+    };
+  }
+
+  validateOptions(
+    options: Pick<ComparisonViewOptions, 'xAxis' | 'yAxis' | 'filter'>,
+  ): ComparisonViewReadModel['validation'] {
+    return {
+      xAxis: isValidExpression(options.xAxis),
+      yAxis: isValidExpression(options.yAxis),
+      filter: options.filter.trim() === '' || isValidExpression(options.filter),
     };
   }
 
   private buildChart(
-    data: ComparisonData,
-    options: ComparisonViewOptions,
+    index: ComparisonDataIndex,
+    options: ComparisonViewReadModelOptions,
   ): ComparisonChartReadModel {
-    const features = parseFeatures(options.featureString);
-    const { results, seeds, inputData, stderrData } = data;
+    const featureNames = parseFeatures(options.featureString);
+    const filterMatches = this.createFilterMatcher(options.filter);
+    const xAxisEvaluator = this.createExpressionEvaluator(options.xAxis);
+    const yAxisEvaluator = this.createExpressionEvaluator(options.yAxis);
 
-    const datasets = results.map((result) => {
-      const filteredSeeds = seeds.filter((seed) => {
-        if (!options.skipFailed) {
-          return true;
-        }
-        const testCase = result.cases.find((c) => c.seed === seed);
-        return testCase !== undefined && testCase.score > 0;
-      });
+    const datasets = index.results.map(({ result, casesBySeed, stderrBySeed }) => {
+      const seedDataList: SeedData[] = [];
 
-      const seedDataList: SeedData[] = filteredSeeds
-        .map((seed) => {
-          const testCase = result.cases.find((c) => c.seed === seed);
-          if (!testCase) {
-            return undefined;
+      if (xAxisEvaluator && yAxisEvaluator) {
+        for (const seed of index.seeds) {
+          const testCase = casesBySeed.get(seed);
+          if (!testCase || (options.skipFailed && testCase.score <= 0)) {
+            continue;
           }
 
-          const inputLine = inputData[seed] || '';
+          const inputFeatureValues = index.inputFeatureValuesBySeed.get(seed) ?? [];
+          const stderrVars = stderrBySeed[seed] || {};
           const variables = this.buildVariables({
             seed,
             testCase,
-            inputLine,
-            featureNames: features,
-            stderrVars: stderrData[result.id]?.[seed] || {},
+            inputFeatureValues,
+            featureNames,
+            stderrVars,
           });
 
-          if (!this.matchesFilter(options.filter, variables)) {
-            return undefined;
+          if (!filterMatches(variables)) {
+            continue;
           }
 
           try {
-            const xResult = evaluateExpression(options.xAxis, variables);
-            return { seed, xValue: xResult[0], testCase, inputLine };
-          } catch {
-            return undefined;
-          }
-        })
-        .filter((value): value is SeedData => value !== undefined);
+            const xResult = xAxisEvaluator(variables);
+            seedDataList.push({
+              seed,
+              xValue: xResult[0],
+              testCase,
+              inputFeatureValues,
+              stderrVars,
+            });
+          } catch {}
+        }
+      }
 
-      const groupedByX = this.groupByX(seedDataList);
-      const chartData = this.buildChartPoints({
-        groups: groupedByX,
-        resultId: result.id,
-        yAxis: options.yAxis,
-        featureNames: features,
-        stderrData: stderrData[result.id] || {},
-      });
+      const chartData =
+        yAxisEvaluator === null
+          ? []
+          : this.buildChartPoints({
+              groups: this.groupByX(seedDataList),
+              resultId: result.id,
+              yAxisEvaluator,
+              featureNames,
+            });
 
       chartData.sort((a, b) => a.x - b.x);
 
@@ -107,26 +138,118 @@ export class ComparisonViewReadModelService {
     };
   }
 
+  private getIndex(data: ComparisonData): ComparisonDataIndex {
+    const existing = this.indexesByData.get(data);
+    if (existing) {
+      return existing;
+    }
+
+    const index = this.createIndex(data);
+    this.indexesByData.set(data, index);
+    return index;
+  }
+
+  private createIndex(data: ComparisonData): ComparisonDataIndex {
+    const inputFeatureValuesBySeed = new Map<number, string[]>();
+    for (const seed of data.seeds) {
+      inputFeatureValuesBySeed.set(seed, parseFeatures(data.inputData[seed] || ''));
+    }
+
+    const results = data.results.map((result): ComparisonResultIndex => {
+      const casesBySeed = new Map<number, ComparisonCase>();
+      for (const testCase of result.cases) {
+        if (!casesBySeed.has(testCase.seed)) {
+          casesBySeed.set(testCase.seed, testCase);
+        }
+      }
+
+      return {
+        result,
+        casesBySeed,
+        stderrBySeed: data.stderrData[result.id] || {},
+      };
+    });
+
+    const bestScoreBySeed = new Map<number, number>();
+    const bestScoreCountBySeed = new Map<number, number>();
+    for (const seed of data.seeds) {
+      let bestScore = 0;
+      let bestScoreCount = 0;
+
+      for (const result of results) {
+        const score = result.casesBySeed.get(seed)?.score;
+        if (score === undefined) {
+          continue;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestScoreCount = 1;
+        } else if (score === bestScore) {
+          bestScoreCount++;
+        }
+      }
+
+      bestScoreBySeed.set(seed, bestScore);
+      bestScoreCountBySeed.set(seed, bestScoreCount);
+    }
+
+    return {
+      seeds: data.seeds,
+      inputFeatureValuesBySeed,
+      results,
+      bestScoreBySeed,
+      bestScoreCountBySeed,
+    };
+  }
+
+  private createExpressionEvaluator(expression: string): ExpressionEvaluator | null {
+    try {
+      const ast = parseExpression(expression);
+      return (variables) => evaluateAst(ast, variables);
+    } catch {
+      return null;
+    }
+  }
+
+  private createFilterMatcher(filter: string): FilterMatcher {
+    if (filter.trim() === '') {
+      return () => true;
+    }
+
+    const evaluator = this.createExpressionEvaluator(filter);
+    if (!evaluator) {
+      return () => false;
+    }
+
+    return (variables) => {
+      try {
+        const filterResult = evaluator(variables);
+        return filterResult[0] === 1;
+      } catch {
+        return false;
+      }
+    };
+  }
+
   private buildChartPoints({
     groups,
     resultId,
-    yAxis,
+    yAxisEvaluator,
     featureNames,
-    stderrData,
   }: {
     groups: Map<number, SeedData[]>;
     resultId: string;
-    yAxis: string;
+    yAxisEvaluator: ExpressionEvaluator;
     featureNames: string[];
-    stderrData: Record<number, Record<string, number>>;
   }): ComparisonChartPoint[] {
     const chartData: ComparisonChartPoint[] = [];
 
     for (const [xValue, group] of groups.entries()) {
-      const variables = this.buildGroupVariables(group, featureNames, stderrData);
+      const variables = this.buildGroupVariables(group, featureNames);
 
       try {
-        const yResult = evaluateExpression(yAxis, variables);
+        const yResult = yAxisEvaluator(variables);
 
         if (yResult.length === group.length) {
           for (let i = 0; i < group.length; i++) {
@@ -151,7 +274,7 @@ export class ComparisonViewReadModelService {
             variables: {},
             group: group.map((g) => ({
               seed: g.seed,
-              y: this.evaluateSingleSeedY(g, yAxis, featureNames, stderrData[g.seed] || {}),
+              y: this.evaluateSingleSeedY(g, yAxisEvaluator, featureNames),
             })),
           });
         }
@@ -162,21 +285,21 @@ export class ComparisonViewReadModelService {
   }
 
   private calculateStats(
-    data: ComparisonData,
+    index: ComparisonDataIndex,
     featuresStr: string,
     filter: string,
   ): ComparisonStatsRow[] {
     const stats: ComparisonStatsRow[] = [];
-    const { results, seeds, inputData, stderrData } = data;
-    const features = parseFeatures(featuresStr);
+    const featureNames = parseFeatures(featuresStr);
+    const filterMatches = this.createFilterMatcher(filter);
 
-    for (const result of results) {
-      const filteredSeeds = seeds.filter((seed) => {
+    for (const { result, casesBySeed, stderrBySeed } of index.results) {
+      const filteredSeeds = index.seeds.filter((seed) => {
         if (filter.trim() === '') {
           return true;
         }
 
-        const testCase = result.cases.find((c) => c.seed === seed);
+        const testCase = casesBySeed.get(seed);
         if (!testCase) {
           return false;
         }
@@ -184,15 +307,14 @@ export class ComparisonViewReadModelService {
         const variables = this.buildVariables({
           seed,
           testCase,
-          inputLine: inputData[seed] || '',
-          featureNames: features,
-          stderrVars: stderrData[result.id]?.[seed] || {},
+          inputFeatureValues: index.inputFeatureValuesBySeed.get(seed) ?? [],
+          featureNames,
+          stderrVars: stderrBySeed[seed] || {},
         });
 
-        return this.matchesFilter(filter, variables);
+        return filterMatches(variables);
       });
 
-      const bests = this.calculateBestScoresForFilteredSeeds(data, filteredSeeds);
       const scores: number[] = [];
       let totalScore = 0;
       let bestCount = 0;
@@ -200,18 +322,15 @@ export class ComparisonViewReadModelService {
       let failCount = 0;
 
       for (const seed of filteredSeeds) {
-        const testCase = result.cases.find((c) => c.seed === seed);
+        const testCase = casesBySeed.get(seed);
         if (testCase && testCase.score > 0) {
           scores.push(testCase.score);
           totalScore += testCase.score;
 
-          if (testCase.score === bests[seed] && bests[seed] > 0) {
+          const bestScore = index.bestScoreBySeed.get(seed) ?? 0;
+          if (testCase.score === bestScore && bestScore > 0) {
             bestCount++;
-            const othersWithSameScore = results.filter((r) => {
-              const tc = r.cases.find((c) => c.seed === seed);
-              return tc !== undefined && tc.score === bests[seed];
-            }).length;
-            if (othersWithSameScore === 1) {
+            if ((index.bestScoreCountBySeed.get(seed) ?? 0) === 1) {
               uniqueBestCount++;
             }
           }
@@ -235,7 +354,7 @@ export class ComparisonViewReadModelService {
         uniqueBestCount,
         failCount,
         filteredCount: filteredSeeds.length,
-        totalCount: seeds.length,
+        totalCount: index.seeds.length,
       });
     }
 
@@ -245,13 +364,13 @@ export class ComparisonViewReadModelService {
   private buildVariables({
     seed,
     testCase,
-    inputLine,
+    inputFeatureValues,
     featureNames,
     stderrVars,
   }: {
     seed: number;
     testCase: ComparisonCase;
-    inputLine: string;
+    inputFeatureValues: string[];
     featureNames: string[];
     stderrVars: Record<string, number>;
   }): Record<string, number[]> {
@@ -262,9 +381,8 @@ export class ComparisonViewReadModelService {
       msec: [testCase.executionTime * 1000],
     };
 
-    const featureValues = parseFeatures(inputLine);
-    for (let i = 0; i < featureNames.length && i < featureValues.length; i++) {
-      variables[featureNames[i]] = [Number(featureValues[i]) || 0];
+    for (let i = 0; i < featureNames.length && i < inputFeatureValues.length; i++) {
+      variables[featureNames[i]] = [toNumber(inputFeatureValues[i])];
     }
 
     for (const [varName, value] of Object.entries(stderrVars)) {
@@ -274,11 +392,7 @@ export class ComparisonViewReadModelService {
     return variables;
   }
 
-  private buildGroupVariables(
-    group: SeedData[],
-    featureNames: string[],
-    stderrData: Record<number, Record<string, number>>,
-  ): Record<string, number[]> {
+  private buildGroupVariables(group: SeedData[], featureNames: string[]): Record<string, number[]> {
     const variables: Record<string, number[]> = {
       seed: group.map((d) => d.seed),
       absScore: group.map((d) => d.testCase.score),
@@ -286,23 +400,19 @@ export class ComparisonViewReadModelService {
       msec: group.map((d) => d.testCase.executionTime * 1000),
     };
 
-    for (const featureName of featureNames) {
-      variables[featureName] = group.map((d) => {
-        const featureValues = parseFeatures(d.inputLine);
-        const featureIndex = featureNames.indexOf(featureName);
-        return Number(featureValues[featureIndex]) || 0;
-      });
+    for (let i = 0; i < featureNames.length; i++) {
+      variables[featureNames[i]] = group.map((d) => toNumber(d.inputFeatureValues[i]));
     }
 
     const allStderrVarNames = new Set<string>();
     for (const d of group) {
-      for (const varName of Object.keys(stderrData[d.seed] || {})) {
+      for (const varName of Object.keys(d.stderrVars)) {
         allStderrVarNames.add(varName);
       }
     }
 
     for (const varName of allStderrVarNames) {
-      variables[`$${varName}`] = group.map((d) => stderrData[d.seed]?.[varName] || 0);
+      variables[`$${varName}`] = group.map((d) => d.stderrVars[varName] || 0);
     }
 
     return variables;
@@ -320,56 +430,28 @@ export class ComparisonViewReadModelService {
     return groupedByX;
   }
 
-  private matchesFilter(filter: string, variables: Record<string, number[]>): boolean {
-    if (filter.trim() === '') {
-      return true;
-    }
-
-    try {
-      const filterResult = evaluateExpression(filter, variables);
-      return filterResult[0] === 1;
-    } catch {
-      return false;
-    }
-  }
-
   private evaluateSingleSeedY(
     seedData: SeedData,
-    yAxis: string,
+    yAxisEvaluator: ExpressionEvaluator,
     featureNames: string[],
-    stderrVars: Record<string, number>,
   ): number {
     const singleVars = this.buildVariables({
       seed: seedData.seed,
       testCase: seedData.testCase,
-      inputLine: seedData.inputLine,
+      inputFeatureValues: seedData.inputFeatureValues,
       featureNames,
-      stderrVars,
+      stderrVars: seedData.stderrVars,
     });
 
     try {
-      const singleY = evaluateExpression(yAxis, singleVars);
+      const singleY = yAxisEvaluator(singleVars);
       return singleY[0];
     } catch {
       return seedData.testCase.score;
     }
   }
+}
 
-  private calculateBestScoresForFilteredSeeds(
-    data: ComparisonData,
-    filteredSeeds: number[],
-  ): Record<number, number> {
-    const bests: Record<number, number> = {};
-    for (const seed of filteredSeeds) {
-      let maxScore = 0;
-      for (const result of data.results) {
-        const testCase = result.cases.find((c) => c.seed === seed);
-        if (testCase && testCase.score > maxScore) {
-          maxScore = testCase.score;
-        }
-      }
-      bests[seed] = maxScore;
-    }
-    return bests;
-  }
+function toNumber(value: string | undefined): number {
+  return Number(value) || 0;
 }
