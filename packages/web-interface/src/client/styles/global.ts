@@ -524,6 +524,8 @@ main {
     var(--size-icon-sm) + var(--space-2) + (var(--size-icon-sm) / 2)
   );
   --execution-commit-row-center-y: calc(var(--space-1) + (var(--control-md) / 2));
+  --execution-commit-dot-size: 10px;
+  --execution-commit-dot-color: var(--accent);
   position: relative;
 }
 .executionTreeGroup > .treeRow,
@@ -534,15 +536,37 @@ main {
 .executionTreeGroup > .children {
   margin-left: calc(var(--execution-commit-lane-x) + var(--space-2));
 }
+.commitGraphGroup > .commitGraphDot {
+  position: absolute;
+  left: var(--execution-commit-lane-x);
+  top: var(--execution-commit-row-center-y);
+  z-index: 3;
+  width: var(--execution-commit-dot-size);
+  height: var(--execution-commit-dot-size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--execution-commit-dot-color);
+  border: var(--size-hairline) solid var(--surface);
+  pointer-events: none;
+}
+.commitGraphGroup.commitGraphStatus-success {
+  --execution-commit-dot-color: var(--success);
+}
+.commitGraphGroup.commitGraphStatus-warning {
+  --execution-commit-dot-color: var(--warn);
+}
+.commitGraphGroup.commitGraphStatus-danger {
+  --execution-commit-dot-color: var(--danger);
+}
 .commitGraphGroup::before,
 .commitGraphGroup::after {
   content: "";
   position: absolute;
   left: var(--execution-commit-lane-x);
-  z-index: 0;
+  z-index: 2;
   width: var(--size-tree-line);
   transform: translateX(-50%);
-  background: var(--line-strong);
+  background: var(--execution-commit-dot-color);
   pointer-events: none;
 }
 .commitGraphGroup::before {

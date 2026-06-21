@@ -552,7 +552,6 @@ export function App() {
     sourcePreparationRequestIdRef.current = requestId;
     setSourcePreparationPending({ requestId, executionId });
     setSourcePreparationError(null);
-    setActivePanel('source');
 
     try {
       const preparation = await runUiAction(
@@ -791,6 +790,31 @@ export function App() {
       ? selectedSourceFile.file
       : '';
 
+  // source パネル表示中、選択実行のソース準備が未ロードなら自動で読み込む
+  const prepareSourceRef = useRef(prepareSource);
+  prepareSourceRef.current = prepareSource;
+  useEffect(() => {
+    if (activePanel !== 'source' || !hasSelectedExecution || !selectedExecution) {
+      return;
+    }
+    const executionId = selectedExecution.id;
+    const alreadyPrepared =
+      sourcePreparation?.executionId === executionId ||
+      sourcePreparationPending?.executionId === executionId ||
+      sourcePreparationError?.executionId === executionId;
+    if (alreadyPrepared) {
+      return;
+    }
+    void prepareSourceRef.current(executionId);
+  }, [
+    activePanel,
+    hasSelectedExecution,
+    selectedExecution,
+    sourcePreparation,
+    sourcePreparationError,
+    sourcePreparationPending,
+  ]);
+
   const getPanelDisabledReason = useCallback(
     (panel: Panel): string | undefined => {
       switch (panel) {
@@ -838,11 +862,7 @@ export function App() {
           </Button>
         ) : null;
       case 'source':
-        return selectedExecution ? (
-          <Button variant="secondary" onClick={() => void prepareSource(selectedExecution.id)}>
-            ファイルを読み込む
-          </Button>
-        ) : null;
+        return null;
       case 'comparison':
       case 'diff':
       case 'visualizer':
@@ -942,7 +962,6 @@ export function App() {
                   setActivePanel('case');
                 }}
                 onSaveComment={(executionId, comment) => void saveComment(executionId, comment)}
-                onPrepareSource={(executionId) => void prepareSource(executionId)}
               />
             ) : (
               <SeedTree

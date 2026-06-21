@@ -10,7 +10,7 @@ import { EmptyState } from '../common/EmptyState';
 import { IconButton } from '../common/IconButton';
 import { Modal } from '../common/Modal';
 import { CaseRow } from './CaseRow';
-import { IconCheck, IconCopy, IconCross, IconGitCommit, IconPencil, IconWarning } from './icons';
+import { IconCheck, IconCross, IconPencil, IconWarning } from './icons';
 import { SummaryRow } from './SummaryRow';
 
 type ExecutionTreeProps = {
@@ -22,7 +22,6 @@ type ExecutionTreeProps = {
   onOpenExecution: (executionId: string) => void;
   onSelectCase: (executionId: string, seed: number) => void;
   onSaveComment: (executionId: string, comment: string) => void;
-  onPrepareSource: (executionId: string) => void;
 };
 
 type EditingExecution = {
@@ -78,6 +77,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
           const description = executionDescription(stats.execution);
           const isOpen = props.openExecutionId === stats.execution.id;
           const rowLabel = executionTreeLabel(stats);
+          const status = executionStatusKind(stats);
           const hasCommitHash = Boolean(stats.execution.commitHash);
           const commitGraphConnections = {
             connectsPrevious:
@@ -87,10 +87,11 @@ export function ExecutionTree(props: ExecutionTreeProps) {
 
           return (
             <li
-              className={executionGroupClassName(hasCommitHash, commitGraphConnections)}
+              className={executionGroupClassName(status, hasCommitHash, commitGraphConnections)}
               key={stats.execution.id}
               aria-label={rowLabel}
             >
+              {hasCommitHash && <span className="commitGraphDot" aria-hidden="true" />}
               <div className="treeRow executionRow">
                 <button
                   type="button"
@@ -130,13 +131,6 @@ export function ExecutionTree(props: ExecutionTreeProps) {
                     size="sm"
                     variant="ghost"
                     onClick={() => openCommentEditor(stats)}
-                  />
-                  <IconButton
-                    icon={<IconCopy />}
-                    label="この時点のソースをコピー"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => props.onPrepareSource(stats.execution.id)}
                   />
                 </span>
               </div>
@@ -186,6 +180,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
 }
 
 function executionGroupClassName(
+  status: ExecutionStatusKind,
   hasCommitHash: boolean,
   commitGraphConnections: CommitGraphConnections,
 ): string {
@@ -193,6 +188,7 @@ function executionGroupClassName(
     'treeGroup',
     'executionTreeGroup',
     hasCommitHash ? 'commitGraphGroup' : '',
+    hasCommitHash ? `commitGraphStatus-${status}` : '',
     commitGraphConnections.connectsPrevious ? 'connectsPrevious' : '',
     commitGraphConnections.connectsNext ? 'connectsNext' : '',
   ]
@@ -200,15 +196,21 @@ function executionGroupClassName(
     .join(' ');
 }
 
-function executionIcon(stats: TreeExecutionStats) {
-  const color = stats.waSeeds.length === 0 ? 'success' : stats.acCount > 0 ? 'warning' : 'danger';
+type ExecutionStatusKind = 'success' | 'warning' | 'danger';
 
+function executionStatusKind(stats: TreeExecutionStats): ExecutionStatusKind {
+  if (stats.waSeeds.length === 0) {
+    return 'success';
+  }
+  if (stats.acCount > 0) {
+    return 'warning';
+  }
+  return 'danger';
+}
+
+function executionIcon(stats: TreeExecutionStats) {
   if (stats.execution.commitHash) {
-    return (
-      <span className="executionStatusIcon commitGraphIcon">
-        <IconGitCommit color={color} />
-      </span>
-    );
+    return null;
   }
 
   if (stats.waSeeds.length === 0) {

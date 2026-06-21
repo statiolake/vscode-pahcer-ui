@@ -98,16 +98,6 @@ export function IconInfo(props: IconProps) {
   );
 }
 
-export function IconGitCommit(props: IconProps) {
-  return (
-    <IconSvg {...props}>
-      <path d="M7 1v3" />
-      <circle cx="7" cy="7" r="3" />
-      <path d="M7 10v3" />
-    </IconSvg>
-  );
-}
-
 export function IconHash(props: IconProps) {
   return (
     <IconSvg {...props}>

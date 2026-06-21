@@ -51,6 +51,9 @@ export function SourcePanel(props: SourcePanelProps) {
       {!props.preparationPending && !preparation && props.preparationError && (
         <EmptyState text="ソースファイルの読み込みに失敗しました" hint={props.preparationError} />
       )}
+      {!props.preparationPending && !preparation && !props.preparationError && (
+        <EmptyState text="ソースファイルを読み込み中..." />
+      )}
       {!props.preparationPending && preparation && preparation.status !== 'ready' && (
         <EmptyState text={sourcePreparationStatusLabel(preparation.status)} />
       )}
@@ -83,9 +86,6 @@ export function SourcePanel(props: SourcePanelProps) {
             <EmptyState text="ファイルを選択してください" />
           )}
         </>
-      )}
-      {!props.preparationPending && !preparation && !props.preparationError && (
-        <EmptyState text="ソースファイルを読み込んでください" />
       )}
     </div>
   );
