@@ -959,7 +959,7 @@ export function App() {
                 onOpenExecution={(executionId) => void openExecution(executionId)}
                 onSelectCase={(executionId, seed) => {
                   setSelectedCase({ executionId, seed });
-                  setActivePanel('case');
+                  void openVisualizer(seed, executionId);
                 }}
                 onSaveComment={(executionId, comment) => void saveComment(executionId, comment)}
               />
@@ -973,7 +973,7 @@ export function App() {
                 onToggleExecution={toggleSelectedExecution}
                 onSelectCase={(executionId, seed) => {
                   setSelectedCase({ executionId, seed });
-                  setActivePanel('case');
+                  void openVisualizer(seed, executionId);
                 }}
               />
             )}
