@@ -1,19 +1,19 @@
-.vscode/**
-.vscode-test/**
-out/**
-node_modules/**
-src/**
-.gitignore
-.yarnrc
-esbuild.js
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
-**/*.map
-**/*.ts
-**/.vscode-test.*
-biome.json
-esbuild.*.js
-.claude/
-.husky/
-pahcer/
+# Whitelist approach: ignore everything by default, then re-include only what's needed.
+# vsce always bundles package.json regardless of ignore rules; README.md, LICENSE,
+# and CHANGELOG.md are also auto-recognized by vsce, but re-include them for clarity.
+
+# Ignore everything
+*
+
+# Re-include essential metadata
+!package.json
+!README.md
+!LICENSE
+!CHANGELOG.md
+
+# Re-include built extension bundles (only what esbuild actually generates)
+!dist/
+!dist/extension.js
+!dist/comparison.js
+!dist/runOptions.js
+!dist/initialization.js
