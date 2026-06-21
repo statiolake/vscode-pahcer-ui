@@ -188,6 +188,7 @@ function initializeControllers(
     context,
     adapters.executionRepository,
     adapters.testCaseRepository,
+    adapters.testCaseSummaryQueryService,
     adapters.uiConfigRepository,
     adapters.pahcerConfigRepository,
   );

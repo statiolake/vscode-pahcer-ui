@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { IExecutionRepository } from '../../domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from '../../domain/interfaces/IPahcerConfigRepository';
 import type { ITestCaseRepository } from '../../domain/interfaces/ITestCaseRepository';
+import type { ITestCaseSummaryQueryService } from '../../domain/interfaces/ITestCaseSummaryQueryService';
 import type { IUIConfigRepository } from '../../domain/interfaces/IUIConfigRepository';
 import type { Execution } from '../../domain/models/execution';
 import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
@@ -27,6 +28,7 @@ export class ComparisonViewController {
     private context: vscode.ExtensionContext,
     private executionRepository: IExecutionRepository,
     private testCaseRepository: ITestCaseRepository,
+    private testCaseSummaryQueryService: ITestCaseSummaryQueryService,
     private uiConfigRepository: IUIConfigRepository,
     private pahcerConfigRepository: IPahcerConfigRepository,
   ) {}
@@ -128,8 +130,16 @@ export class ComparisonViewController {
       throw new Error('pahcer設定が見つかりません');
     }
 
-    // Calculate best scores
-    const bestScores = BestScoreCalculator.calculate(testCases, pahcerConfig.objective);
+    // Calculate best scores across ALL executions (not only selected ones)
+    // so that relative scores remain comparable regardless of selection.
+    const allExecutions = await this.executionRepository.findAll();
+    const allSummaryTestCases = await Promise.all(
+      allExecutions.map((exec) => this.testCaseSummaryQueryService.findByExecutionId(exec.id)),
+    );
+    const bestScores = BestScoreCalculator.calculate(
+      allSummaryTestCases.flat(),
+      pahcerConfig.objective,
+    );
 
     // Collect all seeds for selected executions
     const allSeeds = new Set<number>();
