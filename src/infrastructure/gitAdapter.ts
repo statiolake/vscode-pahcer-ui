@@ -1,4 +1,5 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
+import * as readline from 'node:readline';
 import * as vscode from 'vscode';
 import type { IGitAdapter } from '../domain/interfaces/IGitAdapter';
 import { CommandExecutionError } from './exceptions';
@@ -7,6 +8,28 @@ import { CommandExecutionError } from './exceptions';
  * 差分を開くとき、最大で開くファイルの数
  */
 const MAX_FILES = 3;
+
+/**
+ * Whether the given path should be excluded from the source-file picker.
+ *
+ * Exclusion rules (shared by `showDiff` and `getSourceFilesAtCommit`):
+ *   - files under `tools/`
+ *   - any path component starting with `.` ( Covers .gitignore, .vscode/,
+ *     .pahcer-ui/, nested dot-files like sub/deep/.hidden.rs, etc. )
+ *   - extensions: .txt, .json, .html
+ */
+function isExcludedSourceFile(filePath: string): boolean {
+  if (filePath.startsWith('tools/')) {
+    return true;
+  }
+  for (const part of filePath.split('/')) {
+    if (part.startsWith('.')) {
+      return true;
+    }
+  }
+  const ext = filePath.toLowerCase().split('.').pop();
+  return ext === 'txt' || ext === 'json' || ext === 'html';
+}
 
 /**
  * Git操作を抽象化するアダプター
@@ -90,22 +113,7 @@ export class GitAdapter implements IGitAdapter {
         })
         .filter((f) => !f.isBinary) // Exclude binary files
         .map((f) => f.filename)
-        .filter((f) => {
-          // Filter out files in tools/ directory
-          if (f.startsWith('tools/')) {
-            return false;
-          }
-          // Filter out files in directories starting with . (like .vscode/, .pahcer-ui/)
-          const pathParts = f.split('/');
-          for (const part of pathParts) {
-            if (part.startsWith('.')) {
-              return false;
-            }
-          }
-          // Filter out .txt, .json, and .html files
-          const ext = f.toLowerCase().split('.').pop();
-          return ext !== 'txt' && ext !== 'json' && ext !== 'html';
-        });
+        .filter((f) => !isExcludedSourceFile(f));
 
       if (files.length === 0) {
         vscode.window.showInformationMessage('表示対象の変更ファイルはありません');
@@ -162,45 +170,44 @@ export class GitAdapter implements IGitAdapter {
    * showDiff と同じフィルタリングを適用
    */
   async getSourceFilesAtCommit(commitHash: string): Promise<string[]> {
-    try {
-      // Get list of files at the commit.
-      // A large `maxBuffer` is required because `git ls-tree -r` can output
-      // a huge number of files on large repositories, which overflows Node's
-      // default 1 MB buffer and raises ENOBUF (see issue #5).
-      const output = execSync(`git ls-tree -r --name-only ${commitHash}`, {
+    // Stream `git ls-tree` output line-by-line so we never load the entire
+    // tree into memory at once. This avoids ENOBUF on large repositories
+    // (see issue #5) without relying on a fixed `maxBuffer` cap, and works
+    // cross-platform without shell pipes / grep.
+    return new Promise<string[]>((resolve, reject) => {
+      const child = spawn('git', ['ls-tree', '-r', '--name-only', commitHash], {
         cwd: this.workspaceRoot,
-        maxBuffer: 100 * 1024 * 1024, // 100 MB
-      })
-        .toString()
-        .trim();
+      });
 
-      if (!output) {
-        return [];
-      }
+      const rl = readline.createInterface({ input: child.stdout });
+      const files: string[] = [];
 
-      return output
-        .split('\n')
-        .filter((line) => line.trim())
-        .filter((f) => {
-          // Filter out files in tools/ directory
-          if (f.startsWith('tools/')) {
-            return false;
-          }
-          // Filter out files in directories starting with . (like .vscode/, .pahcer-ui/)
-          const pathParts = f.split('/');
-          for (const part of pathParts) {
-            if (part.startsWith('.')) {
-              return false;
-            }
-          }
-          // Filter out .txt, .json, and .html files
-          const ext = f.toLowerCase().split('.').pop();
-          return ext !== 'txt' && ext !== 'json' && ext !== 'html';
-        });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new CommandExecutionError('git ls-tree', message);
-    }
+      rl.on('line', (line) => {
+        const f = line.trim();
+        if (!f || isExcludedSourceFile(f)) {
+          return;
+        }
+        files.push(f);
+      });
+
+      let stderr = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+
+      child.on('error', (err) => {
+        reject(new CommandExecutionError('git ls-tree', err.message));
+      });
+
+      child.on('close', (code) => {
+        if (code !== 0) {
+          const message = stderr.trim() || `git ls-tree exited with code ${code}`;
+          reject(new CommandExecutionError('git ls-tree', message));
+          return;
+        }
+        resolve(files);
+      });
+    });
   }
 
   /**
