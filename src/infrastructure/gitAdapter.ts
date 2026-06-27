@@ -163,9 +163,13 @@ export class GitAdapter implements IGitAdapter {
    */
   async getSourceFilesAtCommit(commitHash: string): Promise<string[]> {
     try {
-      // Get list of files at the commit
+      // Get list of files at the commit.
+      // A large `maxBuffer` is required because `git ls-tree -r` can output
+      // a huge number of files on large repositories, which overflows Node's
+      // default 1 MB buffer and raises ENOBUF (see issue #5).
       const output = execSync(`git ls-tree -r --name-only ${commitHash}`, {
         cwd: this.workspaceRoot,
+        maxBuffer: 100 * 1024 * 1024, // 100 MB
       })
         .toString()
         .trim();
