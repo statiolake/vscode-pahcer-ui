@@ -1,19 +1,21 @@
-# Whitelist approach: ignore everything by default, then re-include only what's needed.
-# vsce always bundles package.json regardless of ignore rules; README.md, LICENSE,
-# and CHANGELOG.md are also auto-recognized by vsce, but re-include them for clarity.
+# Whitelist approach: ignore everything by default, then re-include only the
+# files the packaged extension actually needs at runtime.
+#
+# Note: vsce uses gitignore-style globs where `*` does NOT match dotfiles or
+# recurse into subdirectories (shell glob semantics). Use `**` to match
+# everything recursively.
 
-# Ignore everything
-*
+# === Ignore everything recursively ===
+**
 
-# Re-include essential metadata
+# === Essential metadata ===
 !package.json
 !README.md
 !LICENSE
 !CHANGELOG.md
 
-# Re-include built extension bundles (only what esbuild actually generates)
-!dist/
-!dist/extension.js
-!dist/comparison.js
-!dist/runOptions.js
-!dist/initialization.js
+# === Built extension bundles ===
+# Only the exact files produced by esbuild (see esbuild.js / esbuild.webview.js).
+# Source maps, stale outputs (cli.js, http-server.js, *a.js), and the dist/web/
+# and dist/test/ leftovers are intentionally NOT included.
+!dist/**/*.js
