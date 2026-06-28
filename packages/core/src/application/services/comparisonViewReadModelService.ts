@@ -172,17 +172,27 @@ export class ComparisonViewReadModelService {
 
     const bestScoreBySeed = new Map<number, number>();
     const bestScoreCountBySeed = new Map<number, number>();
+    const isMinimization = data.objective === 'min';
+
     for (const seed of data.seeds) {
       let bestScore = 0;
       let bestScoreCount = 0;
+      let foundValid = false;
 
       for (const result of results) {
         const score = result.casesBySeed.get(seed)?.score;
-        if (score === undefined) {
+        if (score === undefined || score <= 0) {
           continue;
         }
 
-        if (score > bestScore) {
+        if (!foundValid) {
+          bestScore = score;
+          bestScoreCount = 1;
+          foundValid = true;
+          continue;
+        }
+
+        if (isMinimization ? score < bestScore : score > bestScore) {
           bestScore = score;
           bestScoreCount = 1;
         } else if (score === bestScore) {

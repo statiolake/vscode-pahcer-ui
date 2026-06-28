@@ -1,19 +1,20 @@
-.vscode/**
-.vscode-test/**
-out/**
-node_modules/**
-src/**
-.gitignore
-.yarnrc
-esbuild.js
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
-**/*.map
-**/*.ts
-**/.vscode-test.*
-biome.json
-esbuild.*.js
-.claude/
-.husky/
-pahcer/
+# Whitelist approach: ignore everything by default, then re-include only the
+# files the packaged extension actually needs at runtime.
+#
+# Note: vsce uses gitignore-style globs where `*` does NOT match dotfiles or
+# recurse into subdirectories (shell glob semantics). Use `**` to match
+# everything recursively.
+
+# === Ignore everything recursively ===
+**
+
+# === Essential metadata ===
+!package.json
+!README.md
+!LICENSE
+!CHANGELOG.md
+
+# === Built extension bundles ===
+# Only the exact files produced by esbuild (see esbuild.js / esbuild.webview.js).
+# Source maps, stale outputs, and dist/web/ or dist/test/ leftovers are excluded.
+!dist/**/*.js

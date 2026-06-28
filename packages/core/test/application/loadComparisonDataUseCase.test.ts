@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import dayjs from 'dayjs';
 import { ComparisonConfig } from '../../src/application/dtos/comparisonConfig';
+import type { TreeViewTestCaseSummary } from '../../src/application/dtos/pahcerTreeData';
 import { LoadComparisonDataUseCase } from '../../src/application/loadComparisonDataUseCase';
+import type { ITestCaseSummaryQueryService } from '../../src/application/queryServices/testCaseSummaryQueryService';
 import type { IComparisonConfigRepository } from '../../src/application/repositories/IComparisonConfigRepository';
 import type { IExecutionRepository } from '../../src/domain/interfaces/IExecutionRepository';
 import type { IPahcerConfigRepository } from '../../src/domain/interfaces/IPahcerConfigRepository';
@@ -28,6 +30,7 @@ describe('LoadComparisonDataUseCase', () => {
     const useCase = new LoadComparisonDataUseCase(
       new InMemoryExecutionRepository(executions),
       new InMemoryTestCaseRepository(testCases),
+      new InMemoryTestCaseSummaryQueryService(testCases),
       new InMemoryComparisonConfigRepository(config),
       new FixedPahcerConfigRepository('max'),
     );
@@ -43,12 +46,40 @@ describe('LoadComparisonDataUseCase', () => {
     assert.equal(data.results[0].cases[0].relativeScore, 100);
     assert.equal(data.results[1].cases[0].relativeScore, 50);
     assert.equal(data.results[1].cases[1].relativeScore, 0);
+    assert.equal(data.objective, 'max');
+  });
+
+  it('calculates relative scores from all executions, not only selected ones', async () => {
+    const executions = [
+      new Execution('20260101010101', dayjs('2026-01-01T01:01:01'), 'base', null),
+      new Execution('20260102020202', dayjs('2026-01-02T02:02:02'), 'next', null),
+      new Execution('20260103030303', dayjs('2026-01-03T03:03:03'), 'best', null),
+    ];
+    const testCases = [
+      testCase('20260101010101', 0, 10, 1.2, 'N=1', {}),
+      testCase('20260102020202', 0, 20, 1.1, 'N=1', {}),
+      testCase('20260103030303', 0, 30, 1.0, 'N=1', {}),
+    ];
+    const useCase = new LoadComparisonDataUseCase(
+      new InMemoryExecutionRepository(executions),
+      new InMemoryTestCaseRepository(testCases),
+      new InMemoryTestCaseSummaryQueryService(testCases),
+      new InMemoryComparisonConfigRepository(new ComparisonConfig()),
+      new FixedPahcerConfigRepository('max'),
+    );
+
+    const data = await useCase.load(['20260101010101', '20260102020202']);
+
+    assert.ok(data);
+    assert.equal(Math.round(data.results[0].cases[0].relativeScore), 33);
+    assert.equal(Math.round(data.results[1].cases[0].relativeScore), 67);
   });
 
   it('returns undefined when no execution can be loaded', async () => {
     const useCase = new LoadComparisonDataUseCase(
       new InMemoryExecutionRepository([]),
       new InMemoryTestCaseRepository([]),
+      new InMemoryTestCaseSummaryQueryService([]),
       new InMemoryComparisonConfigRepository(new ComparisonConfig()),
       new FixedPahcerConfigRepository('max'),
     );
@@ -61,6 +92,7 @@ describe('LoadComparisonDataUseCase', () => {
     const useCase = new LoadComparisonDataUseCase(
       new InMemoryExecutionRepository([]),
       new InMemoryTestCaseRepository([]),
+      new InMemoryTestCaseSummaryQueryService([]),
       repository,
       new FixedPahcerConfigRepository('max'),
     );
@@ -77,6 +109,7 @@ describe('LoadComparisonDataUseCase', () => {
         new Execution('20260101010101', dayjs('2026-01-01T01:01:01'), 'base', null),
       ]),
       new InMemoryTestCaseRepository([]),
+      new InMemoryTestCaseSummaryQueryService([]),
       new InMemoryComparisonConfigRepository(new ComparisonConfig()),
       new MissingPahcerConfigRepository(),
     );
@@ -132,6 +165,22 @@ class InMemoryTestCaseRepository implements ITestCaseRepository {
   }
 
   async upsert(_testCase: TestCase): Promise<void> {}
+}
+
+class InMemoryTestCaseSummaryQueryService implements ITestCaseSummaryQueryService {
+  constructor(private readonly testCases: TestCase[]) {}
+
+  async findByExecutionId(executionId: string): Promise<TreeViewTestCaseSummary[]> {
+    return this.testCases
+      .filter((testCase) => testCase.id.executionId === executionId)
+      .map((testCase) => ({
+        executionId: testCase.id.executionId,
+        seed: testCase.id.seed,
+        score: testCase.score,
+        executionTime: testCase.executionTime,
+        errorMessage: testCase.errorMessage,
+      }));
+  }
 }
 
 class InMemoryComparisonConfigRepository implements IComparisonConfigRepository {

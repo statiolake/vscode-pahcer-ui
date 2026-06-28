@@ -83,6 +83,7 @@ function createUseCases() {
     comparison: new LoadComparisonDataUseCase(
       executionRepository,
       testCaseRepository,
+      testCaseSummaryQueryService,
       comparisonConfigRepository,
       pahcerConfigRepository,
     ),

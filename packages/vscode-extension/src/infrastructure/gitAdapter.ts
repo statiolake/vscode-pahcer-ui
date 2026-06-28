@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process';
 import type { IGitAdapter } from '@pahcer/core/domain/interfaces/IGitAdapter';
+import { isExcludedSourceFile } from '@pahcer/node-adapters/util/gitSourceFileFilter';
+import { streamGitSourceFilesAtCommit } from '@pahcer/node-adapters/util/streamGitLsTree';
 import * as vscode from 'vscode';
 import { VSCodeCommandExecutionError } from './exceptions';
 
@@ -90,22 +92,7 @@ export class GitAdapter implements IGitAdapter {
         })
         .filter((f) => !f.isBinary) // Exclude binary files
         .map((f) => f.filename)
-        .filter((f) => {
-          // Filter out files in tools/ directory
-          if (f.startsWith('tools/')) {
-            return false;
-          }
-          // Filter out files in directories starting with . (like .vscode/, .pahcer-ui/)
-          const pathParts = f.split('/');
-          for (const part of pathParts) {
-            if (part.startsWith('.')) {
-              return false;
-            }
-          }
-          // Filter out .txt, .json, and .html files
-          const ext = f.toLowerCase().split('.').pop();
-          return ext !== 'txt' && ext !== 'json' && ext !== 'html';
-        });
+        .filter((f) => !isExcludedSourceFile(f));
 
       if (files.length === 0) {
         vscode.window.showInformationMessage('表示対象の変更ファイルはありません');
@@ -163,36 +150,7 @@ export class GitAdapter implements IGitAdapter {
    */
   async getSourceFilesAtCommit(commitHash: string): Promise<string[]> {
     try {
-      // Get list of files at the commit
-      const output = execSync(`git ls-tree -r --name-only ${commitHash}`, {
-        cwd: this.workspaceRoot,
-      })
-        .toString()
-        .trim();
-
-      if (!output) {
-        return [];
-      }
-
-      return output
-        .split('\n')
-        .filter((line) => line.trim())
-        .filter((f) => {
-          // Filter out files in tools/ directory
-          if (f.startsWith('tools/')) {
-            return false;
-          }
-          // Filter out files in directories starting with . (like .vscode/, .pahcer-ui/)
-          const pathParts = f.split('/');
-          for (const part of pathParts) {
-            if (part.startsWith('.')) {
-              return false;
-            }
-          }
-          // Filter out .txt, .json, and .html files
-          const ext = f.toLowerCase().split('.').pop();
-          return ext !== 'txt' && ext !== 'json' && ext !== 'html';
-        });
+      return await streamGitSourceFilesAtCommit(this.workspaceRoot, commitHash);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new VSCodeCommandExecutionError('git ls-tree', message);

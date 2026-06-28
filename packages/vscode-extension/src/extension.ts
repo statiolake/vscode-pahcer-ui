@@ -162,6 +162,7 @@ function initializeUseCases(
   const loadComparisonDataUseCase = new LoadComparisonDataUseCase(
     adapters.executionRepository,
     adapters.testCaseRepository,
+    adapters.testCaseSummaryQueryService,
     adapters.comparisonConfigRepository,
     adapters.pahcerConfigRepository,
   );

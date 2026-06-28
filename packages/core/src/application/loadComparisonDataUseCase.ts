@@ -5,6 +5,8 @@ import { BestScoreCalculator } from '../domain/services/bestScoreCalculator';
 import { RelativeScoreCalculator } from '../domain/services/relativeScoreCalculator';
 import type { ComparisonConfig } from './dtos/comparisonConfig';
 import type { ComparisonData } from './dtos/comparisonData';
+import type { TreeViewTestCaseSummary } from './dtos/pahcerTreeData';
+import type { ITestCaseSummaryQueryService } from './queryServices/testCaseSummaryQueryService';
 import type { IComparisonConfigRepository } from './repositories/IComparisonConfigRepository';
 
 /**
@@ -14,6 +16,7 @@ export class LoadComparisonDataUseCase {
   constructor(
     private executionRepository: IExecutionRepository,
     private testCaseRepository: ITestCaseRepository,
+    private testCaseSummaryQueryService: ITestCaseSummaryQueryService,
     private comparisonConfigRepository: IComparisonConfigRepository,
     private pahcerConfigRepository: IPahcerConfigRepository,
   ) {}
@@ -46,7 +49,18 @@ export class LoadComparisonDataUseCase {
       throw new Error('pahcer設定が見つかりません');
     }
 
-    const bestScores = BestScoreCalculator.calculate(testCases, pahcerConfig.objective);
+    // Calculate best scores across ALL executions (not only selected ones)
+    // so that relative scores remain comparable regardless of selection.
+    const allExecutions = await this.executionRepository.findAll();
+    const allSummaryTestCases = await Promise.all(
+      allExecutions.map((execution) =>
+        this.testCaseSummaryQueryService.findByExecutionId(execution.id),
+      ),
+    );
+    const bestScores = BestScoreCalculator.calculate(
+      allSummaryTestCases.flat().map((testCase) => this.toCaseLike(testCase)),
+      pahcerConfig.objective,
+    );
     const seeds = Array.from(new Set(testCases.map((testCase) => testCase.id.seed))).sort(
       (a, b) => a - b,
     );
@@ -96,6 +110,14 @@ export class LoadComparisonDataUseCase {
       inputData,
       stderrData,
       config,
+      objective: pahcerConfig.objective,
+    };
+  }
+
+  private toCaseLike(testCase: TreeViewTestCaseSummary): BestScoreCalculator.CaseLike {
+    return {
+      id: { seed: testCase.seed },
+      score: testCase.score,
     };
   }
 

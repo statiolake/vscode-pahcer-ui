@@ -1,6 +1,8 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { IGitAdapter } from '@pahcer/core/domain/interfaces/IGitAdapter';
+import { isExcludedSourceFile } from '@pahcer/node-adapters/util/gitSourceFileFilter';
+import { streamGitSourceFilesAtCommit } from '@pahcer/node-adapters/util/streamGitLsTree';
 
 const execFileAsync = promisify(execFile);
 const MAX_DIFF_FILES = 3;
@@ -40,12 +42,7 @@ export class WebGitAdapter implements IGitAdapter {
   }
 
   async getSourceFilesAtCommit(commitHash: string): Promise<string[]> {
-    const output = await this.git(['ls-tree', '-r', '--name-only', commitHash]);
-    return output
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .filter(isSourceFile);
+    return streamGitSourceFilesAtCommit(this.workspaceRoot, commitHash);
   }
 
   async getFileContentAtCommit(commitHash: string, filePath: string): Promise<string> {
@@ -82,7 +79,7 @@ export class WebGitAdapter implements IGitAdapter {
       .filter((parts) => parts.length >= 3 && !(parts[0] === '-' && parts[1] === '-'))
       .map((parts) => parts.slice(2).join('\t').trim())
       .filter(Boolean)
-      .filter(isSourceFile);
+      .filter((filePath) => !isExcludedSourceFile(filePath));
   }
 
   private async git(args: string[]): Promise<string> {
@@ -92,15 +89,4 @@ export class WebGitAdapter implements IGitAdapter {
     });
     return stdout;
   }
-}
-
-function isSourceFile(filePath: string): boolean {
-  if (filePath.startsWith('tools/')) {
-    return false;
-  }
-  if (filePath.split('/').some((part) => part.startsWith('.'))) {
-    return false;
-  }
-  const ext = filePath.toLowerCase().split('.').pop();
-  return ext !== 'txt' && ext !== 'json' && ext !== 'html';
 }

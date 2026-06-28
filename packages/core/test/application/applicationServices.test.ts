@@ -130,6 +130,44 @@ describe('application services', () => {
     assert.deepEqual(readModel.chart.datasets[0].data, []);
     assert.equal(readModel.stats[0].filteredCount, 0);
   });
+
+  it('counts #Best using min objective when lower scores are better', () => {
+    const readModel = new ComparisonViewReadModelService().build(
+      {
+        ...comparisonData(),
+        objective: 'min',
+        results: [
+          {
+            id: 'e1',
+            time: 'base',
+            cases: [
+              { seed: 0, score: 20, relativeScore: 100, executionTime: 1 },
+              { seed: 1, score: 10, relativeScore: 100, executionTime: 2 },
+            ],
+          },
+          {
+            id: 'e2',
+            time: 'next',
+            cases: [
+              { seed: 0, score: 10, relativeScore: 100, executionTime: 1 },
+              { seed: 1, score: 20, relativeScore: 100, executionTime: 2 },
+            ],
+          },
+        ],
+        seeds: [0, 1],
+      },
+      {
+        featureString: 'N M',
+        xAxis: 'seed',
+        yAxis: 'absScore',
+        skipFailed: false,
+        filter: '',
+      },
+    );
+
+    assert.equal(readModel.stats[0].bestCount, 1);
+    assert.equal(readModel.stats[1].bestCount, 1);
+  });
 });
 
 function defaultOptions(): ComparisonViewReadModelOptions {
@@ -190,5 +228,6 @@ function comparisonData(): ComparisonData {
       skipFailed: true,
       filter: '',
     },
+    objective: 'max',
   };
 }
