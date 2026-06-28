@@ -207,13 +207,23 @@ export class ComparisonViewController {
         }),
     }));
 
+    const rankingPool = allExecutions.map((execution, index) => ({
+      id: execution.id,
+      comment: execution.comment,
+      cases: allSummaryTestCases[index].map((tc) => ({
+        seed: tc.id.seed,
+        score: tc.score,
+      })),
+    }));
+
     return {
       results,
       seeds,
       inputData: inputDataObj,
       stderrData,
-      config,
+      rankingPool,
       objective: pahcerConfig.objective,
+      config,
     };
   }
 

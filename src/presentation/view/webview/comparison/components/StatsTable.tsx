@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { BestRankingCalculator } from '../../../../../domain/services/bestRankingCalculator';
+import { BestScoreCalculator } from '../../../../../domain/services/bestScoreCalculator';
 import { buildChartVariables } from '../../shared/utils/chartVariables';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
@@ -8,12 +10,24 @@ interface Props {
   data: ComparisonData;
   featureString: string;
   filter: string;
+  bestRankingInclude: string;
+  bestRankingExclude: string;
+  onBestRankingIncludeChange: (value: string) => void;
+  onBestRankingExcludeChange: (value: string) => void;
 }
 
-export function StatsTable({ data, featureString, filter }: Props) {
+export function StatsTable({
+  data,
+  featureString,
+  filter,
+  bestRankingInclude,
+  bestRankingExclude,
+  onBestRankingIncludeChange,
+  onBestRankingExcludeChange,
+}: Props) {
   const stats = useMemo(
-    () => calculateStats(data, featureString, filter),
-    [data, featureString, filter],
+    () => calculateStats(data, featureString, filter, bestRankingInclude, bestRankingExclude),
+    [data, featureString, filter, bestRankingInclude, bestRankingExclude],
   );
 
   const sectionStyle = {
@@ -38,6 +52,27 @@ export function StatsTable({ data, featureString, filter }: Props) {
     fontWeight: 'bold' as const,
   };
 
+  const inputStyle = {
+    padding: '4px 8px',
+    backgroundColor: 'var(--vscode-input-background)',
+    color: 'var(--vscode-input-foreground)',
+    border: '1px solid var(--vscode-input-border)',
+  };
+
+  const labelStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '0.9em',
+  };
+
+  const controlsStyle = {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap' as const,
+    marginBottom: '10px',
+  };
+
   return (
     <div style={sectionStyle}>
       <div
@@ -48,6 +83,28 @@ export function StatsTable({ data, featureString, filter }: Props) {
         }}
       >
         統計情報
+      </div>
+      <div style={controlsStyle}>
+        <label style={labelStyle}>
+          Best対象:
+          <input
+            type="text"
+            value={bestRankingInclude}
+            onChange={(e) => onBestRankingIncludeChange(e.target.value)}
+            placeholder="コメント部分一致（空欄=全提出）"
+            style={{ ...inputStyle, width: '220px' }}
+          />
+        </label>
+        <label style={labelStyle}>
+          Best除外:
+          <input
+            type="text"
+            value={bestRankingExclude}
+            onChange={(e) => onBestRankingExcludeChange(e.target.value)}
+            placeholder="コメント部分一致"
+            style={{ ...inputStyle, width: '220px' }}
+          />
+        </label>
       </div>
       <table style={tableStyle}>
         <thead>
@@ -85,11 +142,30 @@ export function StatsTable({ data, featureString, filter }: Props) {
   );
 }
 
-function calculateStats(data: ComparisonData, featuresStr: string, filter: string): StatsRow[] {
+function calculateStats(
+  data: ComparisonData,
+  featuresStr: string,
+  filter: string,
+  bestRankingInclude: string,
+  bestRankingExclude: string,
+): StatsRow[] {
   const stats: StatsRow[] = [];
-  const { results, seeds, inputData, stderrData, objective } = data;
+  const { results, seeds, inputData, stderrData, rankingPool, objective } = data;
   const features = parseFeatures(featuresStr);
-  const isMinimization = objective === 'min';
+
+  const filteredRankingPool = BestRankingCalculator.filterByComment(
+    rankingPool,
+    bestRankingInclude,
+    bestRankingExclude,
+  );
+  const bestScores = BestScoreCalculator.calculate(
+    BestRankingCalculator.toFlatTestCases(filteredRankingPool),
+    objective,
+  );
+  const bestAchieverCounts = BestRankingCalculator.countBestAchieversPerSeed(
+    filteredRankingPool,
+    bestScores,
+  );
 
   for (const result of results) {
     // Apply filter for this specific result
@@ -121,25 +197,6 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
       }
     });
 
-    // Calculate best scores for each filtered seed (across all results)
-    // Select the best direction based on the problem objective (max / min)
-    const bests: Record<number, number> = {};
-    for (const seed of filteredSeeds) {
-      let bestScore = 0;
-      let foundValid = false;
-      for (const r of results) {
-        const testCase = r.cases.find((c) => c.seed === seed);
-        if (!testCase || testCase.score <= 0) continue;
-        if (!foundValid) {
-          bestScore = testCase.score;
-          foundValid = true;
-        } else if (isMinimization ? testCase.score < bestScore : testCase.score > bestScore) {
-          bestScore = testCase.score;
-        }
-      }
-      bests[seed] = bestScore;
-    }
-
     // Calculate stats for this result with its filtered seeds
     const scores: number[] = [];
     let totalScore = 0;
@@ -154,14 +211,10 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
           scores.push(testCase.score);
           totalScore += testCase.score;
 
-          if (testCase.score === bests[seed] && bests[seed] > 0) {
+          const bestScore = bestScores.get(seed);
+          if (bestScore !== undefined && testCase.score === bestScore) {
             bestCount++;
-            // Check if this is unique best
-            const othersWithSameScore = results.filter((r) => {
-              const tc = r.cases.find((c) => c.seed === seed);
-              return tc && tc.score === bests[seed];
-            }).length;
-            if (othersWithSameScore === 1) {
+            if (bestAchieverCounts.get(seed) === 1) {
               uniqueBestCount++;
             }
           }
