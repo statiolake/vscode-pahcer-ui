@@ -428,6 +428,8 @@ function toComparisonConfig(value: unknown): ComparisonConfig {
     input.chartType === 'scatter' ? 'scatter' : 'line',
     booleanOrDefault(input.skipFailed, true),
     stringOrDefault(input.filter, ''),
+    stringOrDefault(input.bestRankingInclude, ''),
+    stringOrDefault(input.bestRankingExclude, ''),
   );
 }
 

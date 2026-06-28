@@ -104,12 +104,22 @@ export class LoadComparisonDataUseCase {
         }),
     }));
 
+    const rankingPool = allExecutions.map((execution, index) => ({
+      id: execution.id,
+      comment: execution.comment,
+      cases: allSummaryTestCases[index].map((testCase) => ({
+        seed: testCase.seed,
+        score: testCase.score,
+      })),
+    }));
+
     return {
       results,
       seeds,
       inputData,
       stderrData,
       config,
+      rankingPool,
       objective: pahcerConfig.objective,
     };
   }

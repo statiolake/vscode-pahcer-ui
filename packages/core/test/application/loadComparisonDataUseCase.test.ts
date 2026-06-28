@@ -47,6 +47,7 @@ describe('LoadComparisonDataUseCase', () => {
     assert.equal(data.results[1].cases[0].relativeScore, 50);
     assert.equal(data.results[1].cases[1].relativeScore, 0);
     assert.equal(data.objective, 'max');
+    assert.equal(data.rankingPool.length, 2);
   });
 
   it('calculates relative scores from all executions, not only selected ones', async () => {

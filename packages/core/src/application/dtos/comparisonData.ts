@@ -13,12 +13,22 @@ export interface ComparisonResultData {
   cases: ComparisonTestCaseData[];
 }
 
+export interface ComparisonRankingPoolEntry {
+  id: string;
+  comment: string;
+  cases: { seed: number; score: number }[];
+}
+
 export interface ComparisonData {
   results: ComparisonResultData[];
   seeds: number[];
   inputData: Record<number, string>;
   stderrData: Record<string, Record<number, Record<string, number>>>;
   config: ComparisonConfig;
+  /**
+   * All executions used for #Best / #Unique ranking.
+   */
+  rankingPool: ComparisonRankingPoolEntry[];
   /**
    * Optimization direction of the score ('max' = maximize, 'min' = minimize).
    * Used to determine #Best / #Unique in the stats table.
@@ -33,6 +43,8 @@ export interface ComparisonViewOptions {
   chartType: 'line' | 'scatter';
   skipFailed: boolean;
   filter: string;
+  bestRankingInclude: string;
+  bestRankingExclude: string;
 }
 
 export type ComparisonViewReadModelOptions = Omit<ComparisonViewOptions, 'chartType'>;

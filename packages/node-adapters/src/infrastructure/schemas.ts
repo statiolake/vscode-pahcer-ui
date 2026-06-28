@@ -54,4 +54,6 @@ export const ComparisonConfigSchema = z.object({
   chartType: z.enum(['line', 'scatter']).optional(),
   skipFailed: z.boolean().optional(),
   filter: z.string().optional(),
+  bestRankingInclude: z.string().optional(),
+  bestRankingExclude: z.string().optional(),
 });

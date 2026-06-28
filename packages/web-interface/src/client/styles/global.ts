@@ -916,6 +916,21 @@ label {
   border-radius: var(--radius-md);
   background: var(--surface);
 }
+.comparisonStatsControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.comparisonStatsControls label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-sm);
+}
+.comparisonStatsControls input {
+  min-width: 220px;
+}
 .fieldInvalid input,
 .fieldInvalid select,
 .fieldInvalid textarea {

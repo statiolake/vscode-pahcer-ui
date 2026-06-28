@@ -189,6 +189,9 @@ export function ControlPanel({
               <code>relScore</code> - 相対スコア (%)
             </li>
             <li>
+              <code>sec</code> - 実行時間 (秒)
+            </li>
+            <li>
               <code>msec</code> - 実行時間 (ミリ秒)
             </li>
             <li>
@@ -201,7 +204,7 @@ export function ControlPanel({
           <p style={{ marginTop: '0', marginBottom: '10px' }}>
             <strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>,{' '}
             <code>N^2</code>, <code>2*N</code>, <code>absScore/1000</code>,{' '}
-            <code>relScore*100</code>, <code>msec</code>, <code>log($iter)</code>
+            <code>relScore*100</code>, <code>sec</code>, <code>msec</code>, <code>log($iter)</code>
           </p>
           <p style={{ marginTop: '0', marginBottom: '10px' }}>
             <strong>標準エラー出力の変数:</strong> 標準エラー出力の先頭100行と末尾100行から{' '}

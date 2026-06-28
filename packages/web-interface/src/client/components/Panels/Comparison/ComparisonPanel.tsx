@@ -83,6 +83,9 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
   const lastValidSkipFailed = lastValidConfig?.skipFailed;
   const lastValidFilter = lastValidConfig?.filter;
 
+  const lastValidBestRankingInclude = lastValidConfig?.bestRankingInclude;
+  const lastValidBestRankingExclude = lastValidConfig?.bestRankingExclude;
+
   useEffect(() => {
     const data = props.data;
     if (
@@ -91,7 +94,9 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
       lastValidXAxis === undefined ||
       lastValidYAxis === undefined ||
       lastValidSkipFailed === undefined ||
-      lastValidFilter === undefined
+      lastValidFilter === undefined ||
+      lastValidBestRankingInclude === undefined ||
+      lastValidBestRankingExclude === undefined
     ) {
       return;
     }
@@ -102,6 +107,8 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
       yAxis: lastValidYAxis,
       skipFailed: lastValidSkipFailed,
       filter: lastValidFilter,
+      bestRankingInclude: lastValidBestRankingInclude,
+      bestRankingExclude: lastValidBestRankingExclude,
     };
     const timeout = window.setTimeout(() => {
       setReadModelInput((current) =>
@@ -117,6 +124,8 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
     return () => window.clearTimeout(timeout);
   }, [
     lastValidFeatureString,
+    lastValidBestRankingExclude,
+    lastValidBestRankingInclude,
     lastValidFilter,
     lastValidSkipFailed,
     lastValidXAxis,
@@ -131,6 +140,9 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
   const readModelSkipFailed = readModelInput?.options.skipFailed;
   const readModelFilter = readModelInput?.options.filter;
 
+  const readModelBestRankingInclude = readModelInput?.options.bestRankingInclude;
+  const readModelBestRankingExclude = readModelInput?.options.bestRankingExclude;
+
   const readModel = useMemo(() => {
     if (
       !readModelData ||
@@ -138,7 +150,9 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
       readModelXAxis === undefined ||
       readModelYAxis === undefined ||
       readModelSkipFailed === undefined ||
-      readModelFilter === undefined
+      readModelFilter === undefined ||
+      readModelBestRankingInclude === undefined ||
+      readModelBestRankingExclude === undefined
     ) {
       return null;
     }
@@ -149,6 +163,8 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
       yAxis: readModelYAxis,
       skipFailed: readModelSkipFailed,
       filter: readModelFilter,
+      bestRankingInclude: readModelBestRankingInclude,
+      bestRankingExclude: readModelBestRankingExclude,
     });
   }, [
     readModelData,
@@ -157,6 +173,8 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
     readModelSkipFailed,
     readModelXAxis,
     readModelYAxis,
+    readModelBestRankingInclude,
+    readModelBestRankingExclude,
     readModelService,
   ]);
 
@@ -222,6 +240,14 @@ export function ComparisonPanel(props: ComparisonPanelProps) {
           <StatsTable
             stats={activeReadModel.stats}
             showsFilteredCount={activeReadModelFilter.trim() !== ''}
+            bestRankingInclude={draftConfig.bestRankingInclude}
+            bestRankingExclude={draftConfig.bestRankingExclude}
+            onBestRankingIncludeChange={(bestRankingInclude) =>
+              updateDraftConfig({ bestRankingInclude })
+            }
+            onBestRankingExcludeChange={(bestRankingExclude) =>
+              updateDraftConfig({ bestRankingExclude })
+            }
           />
         </>
       )}
@@ -236,6 +262,8 @@ const DEFAULT_COMPARISON_CONFIG: ComparisonViewOptions = {
   chartType: 'line',
   skipFailed: true,
   filter: '',
+  bestRankingInclude: '',
+  bestRankingExclude: '',
 };
 
 const READ_MODEL_UPDATE_DELAY_MS = 120;
@@ -248,6 +276,8 @@ function toComparisonViewOptions(config: ComparisonData['config']): ComparisonVi
     chartType: config.chartType,
     skipFailed: config.skipFailed ?? true,
     filter: config.filter,
+    bestRankingInclude: config.bestRankingInclude ?? '',
+    bestRankingExclude: config.bestRankingExclude ?? '',
   };
 }
 
@@ -260,6 +290,8 @@ function toComparisonViewReadModelOptions(
     yAxis: options.yAxis,
     skipFailed: options.skipFailed,
     filter: options.filter,
+    bestRankingInclude: options.bestRankingInclude,
+    bestRankingExclude: options.bestRankingExclude,
   };
 }
 
@@ -277,7 +309,9 @@ function comparisonViewOptionsEqual(
     left.yAxis === right.yAxis &&
     left.chartType === right.chartType &&
     left.skipFailed === right.skipFailed &&
-    left.filter === right.filter
+    left.filter === right.filter &&
+    left.bestRankingInclude === right.bestRankingInclude &&
+    left.bestRankingExclude === right.bestRankingExclude
   );
 }
 
@@ -290,6 +324,8 @@ function comparisonViewReadModelOptionsEqual(
     left.xAxis === right.xAxis &&
     left.yAxis === right.yAxis &&
     left.skipFailed === right.skipFailed &&
-    left.filter === right.filter
+    left.filter === right.filter &&
+    left.bestRankingInclude === right.bestRankingInclude &&
+    left.bestRankingExclude === right.bestRankingExclude
   );
 }

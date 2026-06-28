@@ -1,3 +1,5 @@
+import { BestRankingCalculator } from '../../domain/services/bestRankingCalculator';
+import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
 import type {
   ComparisonChartPoint,
   ComparisonChartReadModel,
@@ -30,8 +32,6 @@ interface ComparisonDataIndex {
   seeds: number[];
   inputFeatureValuesBySeed: Map<number, string[]>;
   results: ComparisonResultIndex[];
-  bestScoreBySeed: Map<number, number>;
-  bestScoreCountBySeed: Map<number, number>;
 }
 
 type ExpressionEvaluator = (variables: Record<string, number[]>) => number[];
@@ -51,7 +51,7 @@ export class ComparisonViewReadModelService {
 
     return {
       chart: this.buildChart(index, options),
-      stats: this.calculateStats(index, options.featureString, options.filter),
+      stats: this.calculateStats(data, index, options),
       validation: this.validateOptions(options),
     };
   }
@@ -170,46 +170,10 @@ export class ComparisonViewReadModelService {
       };
     });
 
-    const bestScoreBySeed = new Map<number, number>();
-    const bestScoreCountBySeed = new Map<number, number>();
-    const isMinimization = data.objective === 'min';
-
-    for (const seed of data.seeds) {
-      let bestScore = 0;
-      let bestScoreCount = 0;
-      let foundValid = false;
-
-      for (const result of results) {
-        const score = result.casesBySeed.get(seed)?.score;
-        if (score === undefined || score <= 0) {
-          continue;
-        }
-
-        if (!foundValid) {
-          bestScore = score;
-          bestScoreCount = 1;
-          foundValid = true;
-          continue;
-        }
-
-        if (isMinimization ? score < bestScore : score > bestScore) {
-          bestScore = score;
-          bestScoreCount = 1;
-        } else if (score === bestScore) {
-          bestScoreCount++;
-        }
-      }
-
-      bestScoreBySeed.set(seed, bestScore);
-      bestScoreCountBySeed.set(seed, bestScoreCount);
-    }
-
     return {
       seeds: data.seeds,
       inputFeatureValuesBySeed,
       results,
-      bestScoreBySeed,
-      bestScoreCountBySeed,
     };
   }
 
@@ -272,6 +236,8 @@ export class ComparisonViewReadModelService {
                 seed: group[i].seed,
                 absScore: group[i].testCase.score,
                 relScore: group[i].testCase.relativeScore,
+                sec: group[i].testCase.executionTime,
+                msec: group[i].testCase.executionTime * 1000,
               },
             });
           }
@@ -295,17 +261,31 @@ export class ComparisonViewReadModelService {
   }
 
   private calculateStats(
+    data: ComparisonData,
     index: ComparisonDataIndex,
-    featuresStr: string,
-    filter: string,
+    options: ComparisonViewReadModelOptions,
   ): ComparisonStatsRow[] {
     const stats: ComparisonStatsRow[] = [];
-    const featureNames = parseFeatures(featuresStr);
-    const filterMatches = this.createFilterMatcher(filter);
+    const featureNames = parseFeatures(options.featureString);
+    const filterMatches = this.createFilterMatcher(options.filter);
+
+    const filteredRankingPool = BestRankingCalculator.filterByComment(
+      data.rankingPool,
+      options.bestRankingInclude,
+      options.bestRankingExclude,
+    );
+    const bestScores = BestScoreCalculator.calculate(
+      BestRankingCalculator.toFlatTestCases(filteredRankingPool),
+      data.objective,
+    );
+    const bestAchieverCounts = BestRankingCalculator.countBestAchieversPerSeed(
+      filteredRankingPool,
+      bestScores,
+    );
 
     for (const { result, casesBySeed, stderrBySeed } of index.results) {
       const filteredSeeds = index.seeds.filter((seed) => {
-        if (filter.trim() === '') {
+        if (options.filter.trim() === '') {
           return true;
         }
 
@@ -337,10 +317,10 @@ export class ComparisonViewReadModelService {
           scores.push(testCase.score);
           totalScore += testCase.score;
 
-          const bestScore = index.bestScoreBySeed.get(seed) ?? 0;
-          if (testCase.score === bestScore && bestScore > 0) {
+          const bestScore = bestScores.get(seed);
+          if (bestScore !== undefined && testCase.score === bestScore) {
             bestCount++;
-            if ((index.bestScoreCountBySeed.get(seed) ?? 0) === 1) {
+            if (bestAchieverCounts.get(seed) === 1) {
               uniqueBestCount++;
             }
           }
@@ -388,6 +368,7 @@ export class ComparisonViewReadModelService {
       seed: [seed],
       absScore: [testCase.score],
       relScore: [testCase.relativeScore],
+      sec: [testCase.executionTime],
       msec: [testCase.executionTime * 1000],
     };
 
@@ -407,6 +388,7 @@ export class ComparisonViewReadModelService {
       seed: group.map((d) => d.seed),
       absScore: group.map((d) => d.testCase.score),
       relScore: group.map((d) => d.testCase.relativeScore),
+      sec: group.map((d) => d.testCase.executionTime),
       msec: group.map((d) => d.testCase.executionTime * 1000),
     };
 

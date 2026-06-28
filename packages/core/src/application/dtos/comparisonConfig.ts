@@ -11,5 +11,7 @@ export class ComparisonConfig {
     public chartType: 'line' | 'scatter' = 'line',
     public skipFailed: boolean = true,
     public filter: string = '',
+    public bestRankingInclude: string = '',
+    public bestRankingExclude: string = '',
   ) {}
 }

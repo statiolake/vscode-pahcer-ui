@@ -17,6 +17,12 @@ export function ComparisonView({ initialData }: Props) {
   const [yAxis, setYAxis] = useState(initialData.config.yAxis);
   const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
   const [filter, setFilter] = useState(initialData.config.filter);
+  const [bestRankingInclude, setBestRankingInclude] = useState(
+    initialData.config.bestRankingInclude ?? '',
+  );
+  const [bestRankingExclude, setBestRankingExclude] = useState(
+    initialData.config.bestRankingExclude ?? '',
+  );
   const [skipFailed, setSkipFailed] = useState(initialData.config.skipFailed ?? true);
   const readModelService = useMemo(() => new ComparisonViewReadModelService(), []);
   const readModelOptions: ComparisonViewReadModelOptions = useMemo(
@@ -26,8 +32,10 @@ export function ComparisonView({ initialData }: Props) {
       yAxis,
       skipFailed,
       filter,
+      bestRankingInclude,
+      bestRankingExclude,
     }),
-    [featureString, xAxis, yAxis, skipFailed, filter],
+    [featureString, xAxis, yAxis, skipFailed, filter, bestRankingInclude, bestRankingExclude],
   );
   const readModel = useMemo(
     () => readModelService.build(data, readModelOptions),
@@ -40,13 +48,14 @@ export function ComparisonView({ initialData }: Props) {
       const message = event.data;
       if (message.command === 'updateData') {
         setData(message.data);
-        // Update config from new data
         setFeatureString(message.data.config.featureString);
         setXAxis(message.data.config.xAxis);
         setYAxis(message.data.config.yAxis);
         setChartType(message.data.config.chartType);
         setSkipFailed(message.data.config.skipFailed ?? true);
         setFilter(message.data.config.filter);
+        setBestRankingInclude(message.data.config.bestRankingInclude ?? '');
+        setBestRankingExclude(message.data.config.bestRankingExclude ?? '');
       }
     };
 
@@ -65,9 +74,20 @@ export function ComparisonView({ initialData }: Props) {
         chartType,
         skipFailed,
         filter,
+        bestRankingInclude,
+        bestRankingExclude,
       },
     });
-  }, [featureString, xAxis, yAxis, chartType, skipFailed, filter]);
+  }, [
+    featureString,
+    xAxis,
+    yAxis,
+    chartType,
+    skipFailed,
+    filter,
+    bestRankingInclude,
+    bestRankingExclude,
+  ]);
 
   return (
     <div style={{ padding: '20px' }}>
@@ -89,7 +109,14 @@ export function ComparisonView({ initialData }: Props) {
 
       <ComparisonChart chart={readModel.chart} chartType={chartType} />
 
-      <StatsTable stats={readModel.stats} showsFilteredCount={filter.trim() !== ''} />
+      <StatsTable
+        stats={readModel.stats}
+        showsFilteredCount={filter.trim() !== ''}
+        bestRankingInclude={bestRankingInclude}
+        bestRankingExclude={bestRankingExclude}
+        onBestRankingIncludeChange={setBestRankingInclude}
+        onBestRankingExcludeChange={setBestRankingExclude}
+      />
     </div>
   );
 }

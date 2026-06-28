@@ -29,6 +29,8 @@ export class ComparisonConfigRepository implements IComparisonConfigRepository {
         loaded.chartType,
         loaded.skipFailed,
         loaded.filter,
+        loaded.bestRankingInclude,
+        loaded.bestRankingExclude,
       );
     } catch (error) {
       if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {

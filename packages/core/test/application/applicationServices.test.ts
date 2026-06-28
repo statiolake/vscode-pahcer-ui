@@ -28,6 +28,8 @@ describe('application services', () => {
         chartType: 'line',
         skipFailed: true,
         filter: '',
+        bestRankingInclude: '',
+        bestRankingExclude: '',
       },
     );
     assert.equal(treeData.objective, 'max');
@@ -83,6 +85,8 @@ describe('application services', () => {
       yAxis: 'avg(absScore)',
       skipFailed: true,
       filter: '$width >= 10',
+      bestRankingInclude: '',
+      bestRankingExclude: '',
     });
 
     assert.deepEqual(readModel.validation, {
@@ -155,6 +159,24 @@ describe('application services', () => {
           },
         ],
         seeds: [0, 1],
+        rankingPool: [
+          {
+            id: 'e1',
+            comment: '',
+            cases: [
+              { seed: 0, score: 20 },
+              { seed: 1, score: 10 },
+            ],
+          },
+          {
+            id: 'e2',
+            comment: '',
+            cases: [
+              { seed: 0, score: 10 },
+              { seed: 1, score: 20 },
+            ],
+          },
+        ],
       },
       {
         featureString: 'N M',
@@ -162,11 +184,67 @@ describe('application services', () => {
         yAxis: 'absScore',
         skipFailed: false,
         filter: '',
+        bestRankingInclude: '',
+        bestRankingExclude: '',
       },
     );
 
     assert.equal(readModel.stats[0].bestCount, 1);
     assert.equal(readModel.stats[1].bestCount, 1);
+  });
+
+  it('counts #Best against all submissions in ranking pool, not only selected results', () => {
+    const readModel = new ComparisonViewReadModelService().build(
+      {
+        ...comparisonData(),
+        results: [comparisonData().results[0]],
+        rankingPool: [
+          {
+            id: 'e1',
+            comment: 'baseline',
+            cases: [
+              { seed: 0, score: 10 },
+              { seed: 2, score: 30 },
+            ],
+          },
+          {
+            id: 'e2',
+            comment: 'candidate',
+            cases: [
+              { seed: 0, score: 20 },
+              { seed: 2, score: 30 },
+            ],
+          },
+          {
+            id: 'e3',
+            comment: 'hidden',
+            cases: [{ seed: 0, score: 100 }],
+          },
+        ],
+      },
+      defaultOptions(),
+    );
+
+    assert.equal(readModel.stats[0].bestCount, 1);
+  });
+
+  it('filters ranking pool by comment when counting #Best', () => {
+    const readModel = new ComparisonViewReadModelService().build(
+      {
+        ...comparisonData(),
+        rankingPool: [
+          { id: 'e1', comment: 'keep', cases: [{ seed: 0, score: 10 }] },
+          { id: 'e2', comment: 'drop', cases: [{ seed: 0, score: 100 }] },
+        ],
+      },
+      {
+        ...defaultOptions(),
+        bestRankingExclude: 'drop',
+      },
+    );
+
+    assert.equal(readModel.stats[0].bestCount, 1);
+    assert.equal(readModel.stats[1].bestCount, 0);
   });
 });
 
@@ -177,6 +255,8 @@ function defaultOptions(): ComparisonViewReadModelOptions {
     yAxis: 'absScore',
     skipFailed: false,
     filter: '',
+    bestRankingInclude: '',
+    bestRankingExclude: '',
   };
 }
 
@@ -220,14 +300,27 @@ function comparisonData(): ComparisonData {
         ],
       },
     ],
-    config: {
-      featureString: 'N M',
-      xAxis: 'N',
-      yAxis: 'avg(absScore)',
-      chartType: 'line',
-      skipFailed: true,
-      filter: '',
-    },
+    config: new ComparisonConfig('N M', 'N', 'avg(absScore)', 'line', true, ''),
+    rankingPool: [
+      {
+        id: 'e1',
+        comment: '',
+        cases: [
+          { seed: 0, score: 10 },
+          { seed: 1, score: 0 },
+          { seed: 2, score: 30 },
+        ],
+      },
+      {
+        id: 'e2',
+        comment: '',
+        cases: [
+          { seed: 0, score: 20 },
+          { seed: 1, score: 5 },
+          { seed: 2, score: 30 },
+        ],
+      },
+    ],
     objective: 'max',
   };
 }
