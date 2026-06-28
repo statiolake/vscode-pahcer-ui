@@ -154,10 +154,14 @@
 - **X軸設定**:
   - `seed`: Seed番号
   - `N`, `M`, `K`等: Features設定で指定したパラメータ
-  - 式: `log(N)`, `N*M`, `sqrt(K)` 等の数式表現に対応
+  - `sec`, `msec`: 実行時間
+  - 式: `log(N)`, `N*M`, `log(msec)` 等の数式表現に対応
 - **Y軸設定**:
-  - `absolute`: 絶対スコア
-  - `relative`: 相対スコア（%）
+  - `absScore`: 絶対スコア
+  - `relScore`: 相対スコア（%）
+  - `sec`: 実行時間（秒）
+  - `msec`: 実行時間（ミリ秒）
+  - 集約関数: `avg(msec)`, `max(sec)` 等
 - **グラフタイプ**:
   - 折れ線グラフ（line）
   - 散布図（scatter）
