@@ -213,6 +213,7 @@ export class ComparisonViewController {
       inputData: inputDataObj,
       stderrData,
       config,
+      objective: pahcerConfig.objective,
     };
   }
 
