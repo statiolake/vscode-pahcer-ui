@@ -14,6 +14,11 @@ import {
 } from 'chart.js';
 import { useMemo, useState } from 'react';
 import { Line, Scatter } from 'react-chartjs-2';
+import {
+  buildChartVariables,
+  buildGroupChartVariables,
+  chartVariablesToScalars,
+} from '../../shared/utils/chartVariables';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
 import { postMessage } from '../../shared/utils/vscode';
@@ -286,23 +291,17 @@ function prepareChartData(
         if (!testCase) return null;
 
         const inputLine = inputData[seed] || '';
-        const variables: Record<string, number[]> = {};
-        variables.seed = [seed];
-        variables.absScore = [testCase.score];
-        variables.relScore = [testCase.relativeScore];
-        variables.msec = [testCase.executionTime * 1000]; // Convert seconds to milliseconds
-
-        // Parse features
-        const featureValues = parseFeatures(inputLine);
-        for (let i = 0; i < features.length && i < featureValues.length; i++) {
-          variables[features[i]] = [Number(featureValues[i]) || 0];
-        }
-
-        // Get stderr variables (with $ prefix)
-        const stderrVars = stderrData[result.id]?.[seed] || {};
-        for (const [varName, value] of Object.entries(stderrVars)) {
-          variables[`$${varName}`] = [value];
-        }
+        const variables = buildChartVariables({
+          caseData: {
+            seed,
+            score: testCase.score,
+            relativeScore: testCase.relativeScore,
+            executionTime: testCase.executionTime,
+          },
+          features,
+          inputLine,
+          stderrVars: stderrData[result.id]?.[seed] || {},
+        });
 
         // Apply filter if specified
         if (filter.trim() !== '') {
@@ -341,38 +340,20 @@ function prepareChartData(
     // Step 3: For each group, evaluate Y axis with arrays
     const chartData: ChartDataPoint[] = [];
     for (const [xValue, group] of groupedByX.entries()) {
-      // Build arrays for Y evaluation
-      const variables: Record<string, number[]> = {};
-      variables.seed = group.map((d) => d.seed);
-      variables.absScore = group.map((d) => d.testCase.score);
-      variables.relScore = group.map((d) => d.testCase.relativeScore);
-      variables.msec = group.map((d) => d.testCase.executionTime * 1000);
-
-      // Parse features for each group member
-      for (const featureName of features) {
-        variables[featureName] = group.map((d) => {
-          const featureValues = parseFeatures(d.inputLine);
-          const featureIndex = features.indexOf(featureName);
-          return Number(featureValues[featureIndex]) || 0;
-        });
-      }
-
-      // Collect all stderr variables from all group members
-      const allStderrVarNames = new Set<string>();
-      for (const d of group) {
-        const stderrVars = stderrData[result.id]?.[d.seed] || {};
-        for (const varName of Object.keys(stderrVars)) {
-          allStderrVarNames.add(varName);
-        }
-      }
-
-      // Build arrays for stderr variables
-      for (const varName of allStderrVarNames) {
-        variables[`$${varName}`] = group.map((d) => {
-          const stderrVars = stderrData[result.id]?.[d.seed] || {};
-          return stderrVars[varName] || 0;
-        });
-      }
+      const variables = buildGroupChartVariables({
+        group: group.map((d) => ({
+          seed: d.seed,
+          caseData: {
+            seed: d.seed,
+            score: d.testCase.score,
+            relativeScore: d.testCase.relativeScore,
+            executionTime: d.testCase.executionTime,
+          },
+          inputLine: d.inputLine,
+        })),
+        features,
+        getStderrVars: (seed) => stderrData[result.id]?.[seed] || {},
+      });
 
       try {
         const yResult = evaluateExpression(yAxis, variables);
@@ -385,12 +366,19 @@ function prepareChartData(
               y: yResult[i],
               resultId: result.id,
               seed: group[i].seed,
-              variables: {
-                seed: group[i].seed,
-                absScore: group[i].testCase.score,
-                relScore: group[i].testCase.relativeScore,
-              },
-              // No group field for non-aggregated points
+              variables: chartVariablesToScalars(
+                buildChartVariables({
+                  caseData: {
+                    seed: group[i].seed,
+                    score: group[i].testCase.score,
+                    relativeScore: group[i].testCase.relativeScore,
+                    executionTime: group[i].testCase.executionTime,
+                  },
+                  features,
+                  inputLine: group[i].inputLine,
+                  stderrVars: stderrData[result.id]?.[group[i].seed] || {},
+                }),
+              ),
             });
           }
         } else if (yResult.length === 1) {
@@ -402,23 +390,17 @@ function prepareChartData(
             seed: group[0].seed, // Representative seed (not used for single-seed navigation)
             variables: {}, // No specific variables for aggregated point
             group: group.map((g) => {
-              // Re-evaluate Y for each individual seed to show in popup
-              const singleVars: Record<string, number[]> = {};
-              singleVars.seed = [g.seed];
-              singleVars.absScore = [g.testCase.score];
-              singleVars.relScore = [g.testCase.relativeScore];
-              singleVars.msec = [g.testCase.executionTime * 1000];
-
-              for (const featureName of features) {
-                const featureValues = parseFeatures(g.inputLine);
-                const featureIndex = features.indexOf(featureName);
-                singleVars[featureName] = [Number(featureValues[featureIndex]) || 0];
-              }
-
-              const stderrVars = stderrData[result.id]?.[g.seed] || {};
-              for (const [varName, value] of Object.entries(stderrVars)) {
-                singleVars[`$${varName}`] = [value];
-              }
+              const singleVars = buildChartVariables({
+                caseData: {
+                  seed: g.seed,
+                  score: g.testCase.score,
+                  relativeScore: g.testCase.relativeScore,
+                  executionTime: g.testCase.executionTime,
+                },
+                features,
+                inputLine: g.inputLine,
+                stderrVars: stderrData[result.id]?.[g.seed] || {},
+              });
 
               try {
                 const singleY = evaluateExpression(yAxis, singleVars);

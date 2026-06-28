@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { buildChartVariables } from '../../shared/utils/chartVariables';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
 import type { ComparisonData, StatsRow } from '../types';
@@ -96,26 +97,20 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
       if (filter.trim() === '') return true;
 
       const inputLine = inputData[seed] || '';
-      const variables: Record<string, number[]> = {};
-      variables.seed = [seed];
-
       const testCase = result.cases.find((c) => c.seed === seed);
       if (!testCase) return false;
 
-      variables.absScore = [testCase.score];
-      variables.relScore = [testCase.relativeScore];
-      variables.msec = [testCase.executionTime * 1000];
-
-      const featureValues = parseFeatures(inputLine);
-      for (let i = 0; i < features.length && i < featureValues.length; i++) {
-        variables[features[i]] = [Number(featureValues[i]) || 0];
-      }
-
-      // Get stderr variables
-      const stderrVars = stderrData[result.id]?.[seed] || {};
-      for (const [varName, value] of Object.entries(stderrVars)) {
-        variables[`$${varName}`] = [value];
-      }
+      const variables = buildChartVariables({
+        caseData: {
+          seed,
+          score: testCase.score,
+          relativeScore: testCase.relativeScore,
+          executionTime: testCase.executionTime,
+        },
+        features,
+        inputLine,
+        stderrVars: stderrData[result.id]?.[seed] || {},
+      });
 
       try {
         const filterResult = evaluateExpression(filter, variables);
