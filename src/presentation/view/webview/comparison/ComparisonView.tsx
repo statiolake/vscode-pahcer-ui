@@ -16,6 +16,12 @@ export function ComparisonView({ initialData }: Props) {
   const [yAxis, setYAxis] = useState(initialData.config.yAxis);
   const [chartType, setChartType] = useState<'line' | 'scatter'>(initialData.config.chartType);
   const [filter, setFilter] = useState(initialData.config.filter);
+  const [bestRankingInclude, setBestRankingInclude] = useState(
+    initialData.config.bestRankingInclude ?? '',
+  );
+  const [bestRankingExclude, setBestRankingExclude] = useState(
+    initialData.config.bestRankingExclude ?? '',
+  );
   const [skipFailed, setSkipFailed] = useState(true);
 
   // Listen for data updates from extension
@@ -30,6 +36,8 @@ export function ComparisonView({ initialData }: Props) {
         setYAxis(message.data.config.yAxis);
         setChartType(message.data.config.chartType);
         setFilter(message.data.config.filter);
+        setBestRankingInclude(message.data.config.bestRankingInclude ?? '');
+        setBestRankingExclude(message.data.config.bestRankingExclude ?? '');
       }
     };
 
@@ -47,9 +55,11 @@ export function ComparisonView({ initialData }: Props) {
         yAxis,
         chartType,
         filter,
+        bestRankingInclude,
+        bestRankingExclude,
       },
     });
-  }, [featureString, xAxis, yAxis, chartType, filter]);
+  }, [featureString, xAxis, yAxis, chartType, filter, bestRankingInclude, bestRankingExclude]);
 
   return (
     <div style={{ padding: '20px' }}>
@@ -60,12 +70,16 @@ export function ComparisonView({ initialData }: Props) {
         chartType={chartType}
         skipFailed={skipFailed}
         filter={filter}
+        bestRankingInclude={bestRankingInclude}
+        bestRankingExclude={bestRankingExclude}
         onFeatureStringChange={setFeatureString}
         onXAxisChange={setXAxis}
         onYAxisChange={setYAxis}
         onChartTypeChange={setChartType}
         onSkipFailedChange={setSkipFailed}
         onFilterChange={setFilter}
+        onBestRankingIncludeChange={setBestRankingInclude}
+        onBestRankingExcludeChange={setBestRankingExclude}
       />
 
       <ComparisonChart
@@ -78,7 +92,13 @@ export function ComparisonView({ initialData }: Props) {
         filter={filter}
       />
 
-      <StatsTable data={data} featureString={featureString} filter={filter} />
+      <StatsTable
+        data={data}
+        featureString={featureString}
+        filter={filter}
+        bestRankingInclude={bestRankingInclude}
+        bestRankingExclude={bestRankingExclude}
+      />
     </div>
   );
 }
