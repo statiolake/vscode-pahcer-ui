@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { BestRankingCalculator } from '../../../../../domain/services/bestRankingCalculator';
 import { BestScoreCalculator } from '../../../../../domain/services/bestScoreCalculator';
+import { SubmissionRankCalculator } from '../../../../../domain/services/submissionRankCalculator';
 import { buildChartVariables } from '../../shared/utils/chartVariables';
 import { evaluateExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
-import type { ComparisonData, StatsRow } from '../types';
+import type { ComparisonData, ResultData, StatsRow } from '../types';
 
 interface Props {
   data: ComparisonData;
@@ -115,6 +116,7 @@ export function StatsTable({
             <th style={thStyle}>#Best</th>
             <th style={thStyle}>#Unique</th>
             <th style={thStyle}>#Fail</th>
+            {filter.trim() !== '' && <th style={thStyle}>ランク</th>}
             {filter.trim() !== '' && <th style={thStyle}>フィルタ後件数</th>}
           </tr>
         </thead>
@@ -129,6 +131,7 @@ export function StatsTable({
               <td style={cellStyle}>{stat.bestCount}</td>
               <td style={cellStyle}>{stat.uniqueBestCount}</td>
               <td style={cellStyle}>{stat.failCount}</td>
+              {filter.trim() !== '' && <td style={cellStyle}>{stat.rank ?? '-'}</td>}
               {filter.trim() !== '' && (
                 <td style={cellStyle}>
                   {stat.filteredCount}/{stat.totalCount}
@@ -152,6 +155,7 @@ function calculateStats(
   const stats: StatsRow[] = [];
   const { results, seeds, inputData, stderrData, rankingPool, objective } = data;
   const features = parseFeatures(featuresStr);
+  const hasFilter = filter.trim() !== '';
 
   const filteredRankingPool = BestRankingCalculator.filterByComment(
     rankingPool,
@@ -167,35 +171,25 @@ function calculateStats(
     bestScores,
   );
 
+  const representativeResult = results[0];
+  const globallyFilteredSeeds = hasFilter
+    ? filterSeeds(seeds, filter, features, inputData, stderrData, representativeResult)
+    : seeds;
+
+  const submissionRanks = hasFilter
+    ? SubmissionRankCalculator.rankByScores(
+        SubmissionRankCalculator.calculateFilteredTotalScores(
+          filteredRankingPool,
+          globallyFilteredSeeds,
+        ),
+        objective,
+      )
+    : undefined;
+
   for (const result of results) {
-    // Apply filter for this specific result
-    const filteredSeeds = seeds.filter((seed) => {
-      if (filter.trim() === '') return true;
-
-      const inputLine = inputData[seed] || '';
-      const testCase = result.cases.find((c) => c.seed === seed);
-      if (!testCase) return false;
-
-      const variables = buildChartVariables({
-        caseData: {
-          seed,
-          score: testCase.score,
-          relativeScore: testCase.relativeScore,
-          executionTime: testCase.executionTime,
-        },
-        features,
-        inputLine,
-        stderrVars: stderrData[result.id]?.[seed] || {},
-      });
-
-      try {
-        const filterResult = evaluateExpression(filter, variables);
-        return filterResult[0] === 1;
-      } catch (e) {
-        console.warn(`Filter evaluation failed for seed ${seed}:`, e);
-        return false;
-      }
-    });
+    const filteredSeeds = hasFilter
+      ? filterSeeds(seeds, filter, features, inputData, stderrData, result)
+      : seeds;
 
     // Calculate stats for this result with its filtered seeds
     const scores: number[] = [];
@@ -234,6 +228,7 @@ function calculateStats(
     const sd = Math.sqrt(variance);
 
     stats.push({
+      id: result.id,
       name: result.time,
       totalScore,
       mean: Math.round(mean),
@@ -243,8 +238,45 @@ function calculateStats(
       failCount,
       filteredCount: filteredSeeds.length,
       totalCount: seeds.length,
+      rank: submissionRanks?.get(result.id),
     });
   }
 
   return stats;
+}
+
+function filterSeeds(
+  seeds: number[],
+  filter: string,
+  features: string[],
+  inputData: Record<number, string>,
+  stderrData: Record<string, Record<number, Record<string, number>>>,
+  result: ResultData | undefined,
+): number[] {
+  return seeds.filter((seed) => {
+    const inputLine = inputData[seed] || '';
+    const testCase = result?.cases.find((c) => c.seed === seed);
+
+    const variables = buildChartVariables({
+      caseData: testCase
+        ? {
+            seed,
+            score: testCase.score,
+            relativeScore: testCase.relativeScore,
+            executionTime: testCase.executionTime,
+          }
+        : { seed, score: 0, relativeScore: 0, executionTime: 0 },
+      features,
+      inputLine,
+      stderrVars: result ? stderrData[result.id]?.[seed] || {} : {},
+    });
+
+    try {
+      const filterResult = evaluateExpression(filter, variables);
+      return filterResult[0] === 1;
+    } catch (e) {
+      console.warn(`Filter evaluation failed for seed ${seed}:`, e);
+      return false;
+    }
+  });
 }
