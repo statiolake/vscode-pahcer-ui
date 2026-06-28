@@ -86,8 +86,9 @@ export function StatsTable({ data, featureString, filter }: Props) {
 
 function calculateStats(data: ComparisonData, featuresStr: string, filter: string): StatsRow[] {
   const stats: StatsRow[] = [];
-  const { results, seeds, inputData, stderrData } = data;
+  const { results, seeds, inputData, stderrData, objective } = data;
   const features = parseFeatures(featuresStr);
+  const isMinimization = objective === 'min';
 
   for (const result of results) {
     // Apply filter for this specific result
@@ -126,16 +127,22 @@ function calculateStats(data: ComparisonData, featuresStr: string, filter: strin
     });
 
     // Calculate best scores for each filtered seed (across all results)
+    // Select the best direction based on the problem objective (max / min)
     const bests: Record<number, number> = {};
     for (const seed of filteredSeeds) {
-      let maxScore = 0;
+      let bestScore = 0;
+      let foundValid = false;
       for (const r of results) {
         const testCase = r.cases.find((c) => c.seed === seed);
-        if (testCase && testCase.score > maxScore) {
-          maxScore = testCase.score;
+        if (!testCase || testCase.score <= 0) continue;
+        if (!foundValid) {
+          bestScore = testCase.score;
+          foundValid = true;
+        } else if (isMinimization ? testCase.score < bestScore : testCase.score > bestScore) {
+          bestScore = testCase.score;
         }
       }
-      bests[seed] = maxScore;
+      bests[seed] = bestScore;
     }
 
     // Calculate stats for this result with its filtered seeds

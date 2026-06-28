@@ -25,6 +25,11 @@ export interface ComparisonData {
   inputData: Record<number, string>;
   stderrData: Record<string, Record<number, Record<string, number>>>; // resultId -> seed -> variables
   config: ComparisonConfig;
+  /**
+   * Optimization direction of the score ('max' = maximize, 'min' = minimize).
+   * Used to determine #Best / #Unique in the stats table.
+   */
+  objective: 'max' | 'min';
 }
 
 export interface ChartDataPoint {
