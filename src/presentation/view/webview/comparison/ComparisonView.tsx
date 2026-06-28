@@ -70,16 +70,12 @@ export function ComparisonView({ initialData }: Props) {
         chartType={chartType}
         skipFailed={skipFailed}
         filter={filter}
-        bestRankingInclude={bestRankingInclude}
-        bestRankingExclude={bestRankingExclude}
         onFeatureStringChange={setFeatureString}
         onXAxisChange={setXAxis}
         onYAxisChange={setYAxis}
         onChartTypeChange={setChartType}
         onSkipFailedChange={setSkipFailed}
         onFilterChange={setFilter}
-        onBestRankingIncludeChange={setBestRankingInclude}
-        onBestRankingExcludeChange={setBestRankingExclude}
       />
 
       <ComparisonChart
@@ -98,6 +94,8 @@ export function ComparisonView({ initialData }: Props) {
         filter={filter}
         bestRankingInclude={bestRankingInclude}
         bestRankingExclude={bestRankingExclude}
+        onBestRankingIncludeChange={setBestRankingInclude}
+        onBestRankingExcludeChange={setBestRankingExclude}
       />
     </div>
   );

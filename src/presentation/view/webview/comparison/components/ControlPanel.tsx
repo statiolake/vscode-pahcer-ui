@@ -8,16 +8,12 @@ interface Props {
   chartType: 'line' | 'scatter';
   skipFailed: boolean;
   filter: string;
-  bestRankingInclude: string;
-  bestRankingExclude: string;
   onFeatureStringChange: (value: string) => void;
   onXAxisChange: (value: string) => void;
   onYAxisChange: (value: string) => void;
   onChartTypeChange: (value: 'line' | 'scatter') => void;
   onSkipFailedChange: (value: boolean) => void;
   onFilterChange: (value: string) => void;
-  onBestRankingIncludeChange: (value: string) => void;
-  onBestRankingExcludeChange: (value: string) => void;
 }
 
 export function ControlPanel({
@@ -27,16 +23,12 @@ export function ControlPanel({
   chartType,
   skipFailed,
   filter,
-  bestRankingInclude,
-  bestRankingExclude,
   onFeatureStringChange,
   onXAxisChange,
   onYAxisChange,
   onChartTypeChange,
   onSkipFailedChange,
   onFilterChange,
-  onBestRankingIncludeChange,
-  onBestRankingExcludeChange,
 }: Props) {
   const features = parseFeatures(featureString);
   const variableNames = ['seed', 'absScore', 'relScore', ...features];
@@ -121,29 +113,6 @@ export function ControlPanel({
             placeholder="例: N >= 100"
             style={filterInputStyle}
             title={isFilterValid ? '' : '式が不正です'}
-          />
-        </label>
-      </div>
-      {/* Third row: Best ranking comment filters */}
-      <div style={{ ...controlsStyle, marginTop: '10px' }}>
-        <label style={labelStyle}>
-          Best対象:
-          <input
-            type="text"
-            value={bestRankingInclude}
-            onChange={(e) => onBestRankingIncludeChange(e.target.value)}
-            placeholder="コメント部分一致（空欄=全提出）"
-            style={{ ...inputStyle, width: '220px' }}
-          />
-        </label>
-        <label style={labelStyle}>
-          Best除外:
-          <input
-            type="text"
-            value={bestRankingExclude}
-            onChange={(e) => onBestRankingExcludeChange(e.target.value)}
-            placeholder="コメント部分一致"
-            style={{ ...inputStyle, width: '220px' }}
           />
         </label>
       </div>
@@ -269,19 +238,6 @@ export function ControlPanel({
             </li>
             <li>
               例: <code>N &gt;= 100</code>, <code>N == 50</code>, <code>N * M &lt;= 1000</code>
-            </li>
-          </ul>
-          <p style={{ marginTop: '0', marginBottom: '10px' }}>
-            <strong>Best対象 / Best除外:</strong> 統計の #Best / #Unique
-            判定に使う提出をコメントの部分一致で絞り込みます（比較対象の選択とは独立）
-          </p>
-          <ul style={{ marginTop: '5px', marginBottom: '10px', paddingLeft: '20px' }}>
-            <li>
-              <strong>Best対象:</strong>{' '}
-              空欄の場合は全提出が対象。指定時はコメントにその文字列を含む提出のみ
-            </li>
-            <li>
-              <strong>Best除外:</strong> コメントにその文字列を含む提出を Best 判定から除外
             </li>
           </ul>
           <p style={{ marginTop: '0', marginBottom: '5px' }}>
