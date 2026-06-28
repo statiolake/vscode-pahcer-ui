@@ -1,3 +1,4 @@
+import { BUILTIN_CHART_VARIABLES } from '../../shared/utils/chartVariables';
 import { isValidExpression } from '../../shared/utils/expression';
 import { parseFeatures } from '../../shared/utils/features';
 
@@ -31,7 +32,7 @@ export function ControlPanel({
   onFilterChange,
 }: Props) {
   const features = parseFeatures(featureString);
-  const variableNames = ['seed', 'absScore', 'relScore', ...features];
+  const variableNames = [...BUILTIN_CHART_VARIABLES, ...features];
 
   const sectionStyle = {
     marginBottom: '20px',
@@ -145,7 +146,7 @@ export function ControlPanel({
             type="text"
             value={yAxis}
             onChange={(e) => onYAxisChange(e.target.value)}
-            placeholder="例: absScore, relScore"
+            placeholder="例: absScore, relScore, msec"
             style={yAxisInputStyle}
             title={isYAxisValid ? '' : '式が不正です（未完成の括弧や演算子があります）'}
           />
@@ -194,6 +195,9 @@ export function ControlPanel({
             </li>
             <li>
               <code>relScore</code> - 相対スコア (%)
+            </li>
+            <li>
+              <code>sec</code> - 実行時間 (秒)
             </li>
             <li>
               <code>msec</code> - 実行時間 (ミリ秒)
@@ -253,8 +257,9 @@ export function ControlPanel({
           <p style={{ marginTop: '0', marginBottom: '10px' }}>
             <strong>式の例:</strong> <code>seed</code>, <code>N</code>, <code>log(N)</code>,{' '}
             <code>N^2</code>, <code>2*N</code>, <code>(N + M) / 2</code>, <code>absScore/1000</code>
-            , <code>avg(absScore)</code>, <code>max(relScore)</code>, <code>msec</code>,{' '}
-            <code>log($iter)</code>, <code>N &gt;= 100</code>
+            , <code>avg(absScore)</code>, <code>max(relScore)</code>, <code>sec</code>,{' '}
+            <code>msec</code>, <code>log(msec)</code>, <code>log($iter)</code>,{' '}
+            <code>N &gt;= 100</code>
           </p>
           <p style={{ marginTop: '0', marginBottom: '10px' }}>
             <strong>X軸・Y軸の動作:</strong>

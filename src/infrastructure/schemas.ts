@@ -53,4 +53,6 @@ export const UIConfigSchema = z.object({
   yAxis: z.string().optional(),
   chartType: z.enum(['line', 'scatter']).optional(),
   filter: z.string().optional(),
+  bestRankingInclude: z.string().optional(),
+  bestRankingExclude: z.string().optional(),
 });

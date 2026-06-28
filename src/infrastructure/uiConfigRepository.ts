@@ -33,6 +33,8 @@ export class UIConfigRepository implements IUIConfigRepository {
         loaded.yAxis,
         loaded.chartType,
         loaded.filter,
+        loaded.bestRankingInclude,
+        loaded.bestRankingExclude,
       );
     } catch (error) {
       // ファイルが見つからない場合のみデフォルト設定を返す

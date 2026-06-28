@@ -11,12 +11,20 @@ export interface ResultData {
   cases: TestCase[];
 }
 
+export interface RankingPoolEntry {
+  id: string;
+  comment: string;
+  cases: Array<{ seed: number; score: number }>;
+}
+
 export interface ComparisonConfig {
   featureString: string;
   xAxis: string;
   yAxis: string;
   chartType: 'line' | 'scatter';
   filter: string;
+  bestRankingInclude: string;
+  bestRankingExclude: string;
 }
 
 export interface ComparisonData {
@@ -24,12 +32,13 @@ export interface ComparisonData {
   seeds: number[];
   inputData: Record<number, string>;
   stderrData: Record<string, Record<number, Record<string, number>>>; // resultId -> seed -> variables
-  config: ComparisonConfig;
+  rankingPool: RankingPoolEntry[];
   /**
    * Optimization direction of the score ('max' = maximize, 'min' = minimize).
    * Used to determine #Best / #Unique in the stats table.
    */
   objective: 'max' | 'min';
+  config: ComparisonConfig;
 }
 
 export interface ChartDataPoint {
