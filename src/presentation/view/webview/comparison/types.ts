@@ -52,6 +52,7 @@ export interface ChartDataPoint {
 }
 
 export interface StatsRow {
+  id: string;
   name: string;
   totalScore: number;
   mean: number;
@@ -61,4 +62,8 @@ export interface StatsRow {
   failCount: number;
   filteredCount: number;
   totalCount: number;
+  /** 全テストケースにおける順位（rankingPool 内） */
+  rank?: number;
+  /** フィルター後テストケースにおける順位。選択提出間で seed 集合が一致しない場合は undefined */
+  subRank?: number;
 }
