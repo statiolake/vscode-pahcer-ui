@@ -62,6 +62,8 @@ export interface StatsRow {
   failCount: number;
   filteredCount: number;
   totalCount: number;
-  /** テストケースフィルター適用時のランク（rankingPool 内）。フィルター未指定時は undefined */
+  /** 全テストケースにおける順位（rankingPool 内） */
   rank?: number;
+  /** フィルター後テストケースにおける順位。選択提出間で seed 集合が一致しない場合は undefined */
+  subRank?: number;
 }
