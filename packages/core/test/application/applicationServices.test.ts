@@ -110,6 +110,7 @@ describe('application services', () => {
       ],
     );
     assert.deepEqual(readModel.stats[0], {
+      id: 'e1',
       name: 'base',
       totalScore: 40,
       mean: 20,
@@ -119,6 +120,8 @@ describe('application services', () => {
       failCount: 0,
       filteredCount: 2,
       totalCount: 3,
+      rank: 2,
+      subRank: 2,
     });
   });
 
@@ -245,6 +248,169 @@ describe('application services', () => {
 
     assert.equal(readModel.stats[0].bestCount, 1);
     assert.equal(readModel.stats[1].bestCount, 0);
+  });
+
+  it('assigns Rank from all seeds in ranking pool', () => {
+    const readModel = new ComparisonViewReadModelService().build(
+      {
+        ...comparisonData(),
+        rankingPool: [
+          {
+            id: 'e1',
+            comment: '',
+            cases: [
+              { seed: 0, score: 10 },
+              { seed: 2, score: 30 },
+            ],
+          },
+          {
+            id: 'e2',
+            comment: '',
+            cases: [
+              { seed: 0, score: 20 },
+              { seed: 2, score: 30 },
+            ],
+          },
+          {
+            id: 'e3',
+            comment: '',
+            cases: [
+              { seed: 0, score: 100 },
+              { seed: 2, score: 40 },
+            ],
+          },
+        ],
+      },
+      defaultOptions(),
+    );
+
+    assert.equal(readModel.stats.find((row) => row.id === 'e1')?.rank, 3);
+    assert.equal(readModel.stats.find((row) => row.id === 'e2')?.rank, 2);
+    assert.equal(readModel.stats.find((row) => row.id === 'e1')?.subRank, undefined);
+  });
+
+  it('assigns SubRank when filter yields identical seed sets across selected results', () => {
+    const readModel = new ComparisonViewReadModelService().build(
+      {
+        ...comparisonData(),
+        inputData: {
+          0: '100 10',
+          1: '50 5',
+          2: '2 30',
+        },
+        results: [
+          {
+            id: 'run-a',
+            time: 'Run A',
+            cases: [
+              { seed: 0, score: 100, relativeScore: 100, executionTime: 1 },
+              { seed: 1, score: 50, relativeScore: 100, executionTime: 1 },
+            ],
+          },
+          {
+            id: 'run-b',
+            time: 'Run B',
+            cases: [
+              { seed: 0, score: 80, relativeScore: 80, executionTime: 1 },
+              { seed: 1, score: 60, relativeScore: 120, executionTime: 1 },
+            ],
+          },
+        ],
+        seeds: [0, 1],
+        rankingPool: [
+          {
+            id: 'run-a',
+            comment: '',
+            cases: [
+              { seed: 0, score: 100 },
+              { seed: 1, score: 50 },
+            ],
+          },
+          {
+            id: 'run-b',
+            comment: '',
+            cases: [
+              { seed: 0, score: 80 },
+              { seed: 1, score: 60 },
+            ],
+          },
+          {
+            id: 'run-c',
+            comment: '',
+            cases: [
+              { seed: 0, score: 100 },
+              { seed: 1, score: 40 },
+            ],
+          },
+        ],
+      },
+      {
+        ...defaultOptions(),
+        featureString: 'N M',
+        filter: 'N >= 60',
+      },
+    );
+
+    const runA = readModel.stats.find((row) => row.id === 'run-a');
+    const runB = readModel.stats.find((row) => row.id === 'run-b');
+
+    assert.equal(runA?.filteredCount, 1);
+    assert.equal(runB?.filteredCount, 1);
+    assert.equal(runA?.subRank, 1);
+    assert.equal(runB?.subRank, 3);
+  });
+
+  it('omits SubRank when score-dependent filter yields different seed sets', () => {
+    const readModel = new ComparisonViewReadModelService().build(
+      {
+        ...comparisonData(),
+        results: [
+          {
+            id: 'run-a',
+            time: 'Run A',
+            cases: [
+              { seed: 0, score: 100, relativeScore: 100, executionTime: 1 },
+              { seed: 1, score: 10, relativeScore: 100, executionTime: 1 },
+            ],
+          },
+          {
+            id: 'run-b',
+            time: 'Run B',
+            cases: [
+              { seed: 0, score: 80, relativeScore: 80, executionTime: 1 },
+              { seed: 1, score: 90, relativeScore: 120, executionTime: 1 },
+            ],
+          },
+        ],
+        seeds: [0, 1],
+        rankingPool: [
+          {
+            id: 'run-a',
+            comment: '',
+            cases: [
+              { seed: 0, score: 100 },
+              { seed: 1, score: 10 },
+            ],
+          },
+          {
+            id: 'run-b',
+            comment: '',
+            cases: [
+              { seed: 0, score: 80 },
+              { seed: 1, score: 90 },
+            ],
+          },
+        ],
+      },
+      {
+        ...defaultOptions(),
+        filter: 'absScore >= 50',
+      },
+    );
+
+    assert.equal(readModel.stats.find((row) => row.id === 'run-a')?.subRank, undefined);
+    assert.equal(readModel.stats.find((row) => row.id === 'run-b')?.subRank, undefined);
+    assert.notEqual(readModel.stats.find((row) => row.id === 'run-a')?.rank, undefined);
   });
 });
 

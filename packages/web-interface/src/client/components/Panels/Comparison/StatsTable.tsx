@@ -45,6 +45,8 @@ export function StatsTable({
           <thead>
             <tr>
               <th>実行</th>
+              <th>Rank</th>
+              {showsFilteredCount && <th>SubRank</th>}
               <th>スコア合計</th>
               <th>Mean ± SD</th>
               <th>#Best</th>
@@ -55,8 +57,10 @@ export function StatsTable({
           </thead>
           <tbody>
             {stats.map((stat) => (
-              <tr key={stat.name}>
+              <tr key={stat.id}>
                 <td>{stat.name}</td>
+                <td>{stat.rank ?? '-'}</td>
+                {showsFilteredCount && <td>{stat.subRank ?? '-'}</td>}
                 <td>{stat.totalScore.toLocaleString()}</td>
                 <td>
                   {stat.mean.toLocaleString()} ± {stat.sd.toLocaleString()}

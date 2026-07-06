@@ -97,6 +97,8 @@ export function StatsTable({
         <thead>
           <tr>
             <th style={thStyle}>実行</th>
+            <th style={thStyle}>Rank</th>
+            {showsFilteredCount && <th style={thStyle}>SubRank</th>}
             <th style={thStyle}>スコア合計</th>
             <th style={thStyle}>Mean ± SD</th>
             <th style={thStyle}>#Best</th>
@@ -107,8 +109,10 @@ export function StatsTable({
         </thead>
         <tbody>
           {stats.map((stat) => (
-            <tr key={stat.name}>
+            <tr key={stat.id}>
               <td style={cellStyle}>{stat.name}</td>
+              <td style={cellStyle}>{stat.rank ?? '-'}</td>
+              {showsFilteredCount && <td style={cellStyle}>{stat.subRank ?? '-'}</td>}
               <td style={cellStyle}>{stat.totalScore.toLocaleString()}</td>
               <td style={cellStyle}>
                 {stat.mean.toLocaleString()} ± {stat.sd.toLocaleString()}

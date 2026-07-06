@@ -1,5 +1,6 @@
 import { BestRankingCalculator } from '../../domain/services/bestRankingCalculator';
 import { BestScoreCalculator } from '../../domain/services/bestScoreCalculator';
+import { SubmissionRankCalculator } from '../../domain/services/submissionRankCalculator';
 import type {
   ComparisonChartPoint,
   ComparisonChartReadModel,
@@ -283,6 +284,8 @@ export class ComparisonViewReadModelService {
       bestScores,
     );
 
+    const filteredSeedsPerResult: number[][] = [];
+
     for (const { result, casesBySeed, stderrBySeed } of index.results) {
       const filteredSeeds = index.seeds.filter((seed) => {
         if (options.filter.trim() === '') {
@@ -304,6 +307,7 @@ export class ComparisonViewReadModelService {
 
         return filterMatches(variables);
       });
+      filteredSeedsPerResult.push(filteredSeeds);
 
       const scores: number[] = [];
       let totalScore = 0;
@@ -336,6 +340,7 @@ export class ComparisonViewReadModelService {
           : 0;
 
       stats.push({
+        id: result.id,
         name: result.time,
         totalScore,
         mean: Math.round(mean),
@@ -348,7 +353,25 @@ export class ComparisonViewReadModelService {
       });
     }
 
-    return stats;
+    const hasFilter = options.filter.trim() !== '';
+    const rankById = SubmissionRankCalculator.rankByScores(
+      SubmissionRankCalculator.calculateTotalScores(filteredRankingPool, index.seeds),
+      data.objective,
+    );
+    const subRankById = hasFilter
+      ? SubmissionRankCalculator.computeRankMaps({
+          rankingPool: filteredRankingPool,
+          allSeeds: index.seeds,
+          filteredSeedsPerSelectedResult: filteredSeedsPerResult,
+          objective: data.objective,
+        }).subRank
+      : undefined;
+
+    return stats.map((row) => ({
+      ...row,
+      rank: rankById.get(row.id),
+      subRank: subRankById?.get(row.id),
+    }));
   }
 
   private buildVariables({
