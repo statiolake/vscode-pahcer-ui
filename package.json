@@ -6,6 +6,9 @@
   "publisher": "statiolake",
   "author": "statiolake",
   "license": "MIT",
+  "bin": {
+    "pahcer-ui": "./dist/pahcer-ui.js"
+  },
   "version": "0.5.0-beta.1",
   "engines": {
     "vscode": "^1.104.0"
@@ -262,8 +265,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
-    "compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js",
-    "build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
+    "compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js && node esbuild.web-interface.js && node esbuild.cli.js",
+    "build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production && node esbuild.web-interface.js --production && node esbuild.cli.js --production",
     "web:build": "node esbuild.web-interface.js --production",
     "web": "node esbuild.web-interface.js --production && node dist/web/server.js",
     "package": "vsce package --no-dependencies",

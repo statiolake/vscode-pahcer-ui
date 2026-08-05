@@ -246,38 +246,56 @@ export function App() {
     return requestId;
   }
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const nextStatus = await fetchJson<StatusResponse>('/api/status');
-      setStatus(nextStatus);
-      setPreferences(nextStatus.preferences);
-
-      if (nextStatus.status !== 'ready') {
-        setTreeData(null);
-        setSeeds([]);
-        setComparison(null);
-        return;
+  const reload = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (!options.silent) {
+        setLoading(true);
       }
+      setError(null);
+      try {
+        const nextStatus = await fetchJson<StatusResponse>('/api/status');
+        setStatus(nextStatus);
+        setPreferences(nextStatus.preferences);
 
-      const data = await fetchJson<TreeData>('/api/tree');
-      setTreeData(data);
-      setSelectedExecutionIds((current) =>
-        current.filter((id) => data.executions.some((execution) => execution.id === id)),
-      );
-      if (nextStatus.preferences.groupingMode === 'bySeed') {
-        setSeeds(await fetchJson<TreeSeedStats[]>('/api/seeds'));
+        if (nextStatus.status !== 'ready') {
+          setTreeData(null);
+          setSeeds([]);
+          setComparison(null);
+          return;
+        }
+
+        const data = await fetchJson<TreeData>('/api/tree');
+        setTreeData(data);
+        setSelectedExecutionIds((current) =>
+          current.filter((id) => data.executions.some((execution) => execution.id === id)),
+        );
+        if (nextStatus.preferences.groupingMode === 'bySeed') {
+          setSeeds(await fetchJson<TreeSeedStats[]>('/api/seeds'));
+        }
+      } catch (caught) {
+        if (!options.silent) {
+          reportError(caught);
+        }
+      } finally {
+        if (!options.silent) {
+          setLoading(false);
+        }
       }
-    } catch (caught) {
-      reportError(caught);
-    } finally {
-      setLoading(false);
-    }
-  }, [reportError]);
+    },
+    [reportError],
+  );
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void reload({ silent: true });
+      }
+    }, 3000);
+    return () => window.clearInterval(interval);
   }, [reload]);
 
   useEffect(() => {

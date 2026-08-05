@@ -37,8 +37,10 @@ import { WebAppConfig } from './infrastructure/webAppConfig';
 import { WebGitAdapter } from './infrastructure/webGitAdapter';
 import { WebPahcerAdapter } from './infrastructure/webPahcerAdapter';
 
-const workspaceRoot = process.env.PAHCER_WORKSPACE || process.cwd();
+const workspaceRoot = path.resolve(process.env.PAHCER_WORKSPACE || process.cwd());
 const port = Number(process.env.PORT || 3000);
+const host = process.env.PAHCER_UI_HOST || '127.0.0.1';
+const serverStatePath = process.env.PAHCER_UI_SERVER_STATE;
 const workspaceName = path.basename(workspaceRoot);
 
 function createUseCases() {
@@ -112,6 +114,11 @@ const server = createServer(async (request, response) => {
 
     if (request.method === 'GET' && requestUrl.pathname === '/app.js') {
       await sendClientScript(response);
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/health') {
+      sendJson(response, { ok: true, pid: process.pid, workspaceRoot });
       return;
     }
 
@@ -335,7 +342,10 @@ const server = createServer(async (request, response) => {
         sendJson(response, { error: 'Not found' }, 404);
         return;
       }
-      response.writeHead(200, { 'cache-control': 'no-store' });
+      response.writeHead(200, {
+        'content-type': visualizerResourceContentType(fileName),
+        'cache-control': 'no-store',
+      });
       response.end(await fs.readFile(useCases.visualizer.getResourcePath(fileName)));
       return;
     }
@@ -347,10 +357,77 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(port, () => {
-  console.log(`Pahcer Web interface: http://localhost:${port}`);
+server.on('error', (error) => {
+  console.error(`Pahcer UIサーバーの起動に失敗しました: ${error.message}`);
+  process.exitCode = 1;
+});
+
+server.listen(port, host, async () => {
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Pahcer UIサーバーのlisten先を取得できませんでした');
+  }
+
+  const displayHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;
+  const url = `http://${displayHost}:${address.port}`;
+  await writeServerState({
+    pid: process.pid,
+    port: address.port,
+    host,
+    url,
+    workspaceRoot,
+    startedAt: new Date().toISOString(),
+  });
+  console.log(`Pahcer Web interface: ${url}`);
   console.log(`Workspace: ${workspaceRoot}`);
 });
+
+let isShuttingDown = false;
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    if (isShuttingDown) {
+      return;
+    }
+    isShuttingDown = true;
+    server.close(async () => {
+      await removeServerState();
+      process.exit(0);
+    });
+  });
+}
+
+async function writeServerState(state: {
+  pid: number;
+  port: number;
+  host: string;
+  url: string;
+  workspaceRoot: string;
+  startedAt: string;
+}): Promise<void> {
+  if (!serverStatePath) {
+    return;
+  }
+  await fs.mkdir(path.dirname(serverStatePath), { recursive: true });
+  const temporaryPath = `${serverStatePath}.${process.pid}.tmp`;
+  await fs.writeFile(temporaryPath, JSON.stringify(state, null, 2), 'utf-8');
+  await fs.rename(temporaryPath, serverStatePath);
+}
+
+async function removeServerState(): Promise<void> {
+  if (!serverStatePath) {
+    return;
+  }
+
+  try {
+    const content = await fs.readFile(serverStatePath, 'utf-8');
+    const state = JSON.parse(content) as { pid?: unknown };
+    if (state.pid === process.pid) {
+      await fs.unlink(serverStatePath);
+    }
+  } catch {
+    // サーバー終了時の状態ファイル削除は best effort とする
+  }
+}
 
 function sendHtml(response: ServerResponse): void {
   response.writeHead(200, {
@@ -385,6 +462,33 @@ function sendJson(response: ServerResponse, data: unknown, status = 200): void {
     'cache-control': 'no-store',
   });
   response.end(JSON.stringify(data));
+}
+
+function visualizerResourceContentType(fileName: string): string {
+  switch (path.extname(fileName).toLowerCase()) {
+    case '.wasm':
+      return 'application/wasm';
+    case '.js':
+    case '.mjs':
+      return 'text/javascript; charset=utf-8';
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.gif':
+      return 'image/gif';
+    default:
+      return 'application/octet-stream';
+  }
 }
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
