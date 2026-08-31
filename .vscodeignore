@@ -4,8 +4,13 @@
 # Note: vsce uses gitignore-style globs where `*` does NOT match dotfiles or
 # recurse into subdirectories (shell glob semantics). Use `**` to match
 # everything recursively.
+#
+# Because later patterns win, the deny rules at the bottom of this file are the
+# final word: nothing re-included above can leak a secret back in.
 
 # === Ignore everything recursively ===
+# This already covers src/packages, tsconfig*, biome.json, eslint.config.mjs,
+# esbuild*.js, .github/**, .vscode/**, node_modules/**, .gitignore, tests, etc.
 **
 
 # === Essential metadata ===
@@ -15,6 +20,36 @@
 !CHANGELOG.md
 
 # === Built extension bundles ===
-# Only the exact files produced by esbuild (see esbuild.js / esbuild.webview.js).
-# Source maps, stale outputs, and dist/web/ or dist/test/ leftovers are excluded.
-!dist/**/*.js
+# Exactly the files the extension loads at runtime:
+#   - dist/extension.js               main entry point (package.json "main")
+#   - dist/{comparison,runOptions,initialization}.js  webview bundles, loaded
+#     via vscode.Uri.joinPath(extensionUri, 'dist', '<name>.js')
+# Everything else under dist/ is deliberately left out:
+#   - dist/pahcer-ui.js  standalone CLI (npm "bin", unused by the extension)
+#   - dist/web/**        standalone web interface server + client
+#   - dist/test/**       compiled test bundles
+# All dependencies (react, react-dom, react-chartjs-2, chart.js, dayjs, zod)
+# are inlined by esbuild, so `vsce package --no-dependencies` is correct.
+!dist/extension.js
+!dist/comparison.js
+!dist/runOptions.js
+!dist/initialization.js
+
+# === Never ship source maps ===
+**/*.map
+
+# === Never ship secrets or build artifacts (final word: keep last) ===
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.crt
+**/*.cer
+**/.npmrc
+**/.ovsx-token
+**/.vsce-token
+**/*.vsix

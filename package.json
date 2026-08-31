@@ -9,7 +9,7 @@
   "bin": {
     "pahcer-ui": "./dist/pahcer-ui.js"
   },
-  "version": "0.5.0-beta.1",
+  "version": "0.5.0-beta.2",
   "engines": {
     "vscode": "^1.104.0"
   },
@@ -267,17 +267,22 @@
     "vscode:prepublish": "npm run build",
     "compile": "npm run check-types && npm run lint && node esbuild.js && node esbuild.webview.js && node esbuild.web-interface.js && node esbuild.cli.js",
     "build": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production && node esbuild.web-interface.js --production && node esbuild.cli.js --production",
+    "cli": "node esbuild.cli.js --production && node dist/pahcer-ui.js",
     "web:build": "node esbuild.web-interface.js --production",
     "web": "node esbuild.web-interface.js --production && node dist/web/server.js",
     "package": "vsce package --no-dependencies",
     "package:pre-release": "vsce package --no-dependencies --pre-release",
-    "publish": "vsce publish",
-    "publish:pre-release": "vsce publish --pre-release",
+    "publish": "npm run publish:vsce && npm run publish:ovsx",
+    "publish:pre-release": "npm run publish:vsce:pre-release && npm run publish:ovsx:pre-release",
     "test": "node esbuild.tests.js --run",
     "check-types": "tsc --noEmit",
     "lint": "eslint packages && biome check .",
     "format": "biome check --write . && biome format --write .",
-    "format:unsafe": "biome check --write --unsafe . && biome format --write ."
+    "format:unsafe": "biome check --write --unsafe . && biome format --write .",
+    "publish:vsce": "vsce publish --no-dependencies",
+    "publish:ovsx": "ovsx publish --no-dependencies",
+    "publish:vsce:pre-release": "vsce publish --pre-release --no-dependencies",
+    "publish:ovsx:pre-release": "ovsx publish --pre-release --no-dependencies"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
@@ -295,6 +300,7 @@
     "esbuild": "^0.25.10",
     "eslint": "^9.36.0",
     "npm-run-all": "^4.1.5",
+    "ovsx": "^1.1.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
