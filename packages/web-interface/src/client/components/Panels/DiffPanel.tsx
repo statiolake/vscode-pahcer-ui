@@ -2,7 +2,6 @@ import type { DiffView } from '../../types';
 import { diffStatusLabel } from '../../utils/labels';
 import { CodeBlock } from '../common/CodeBlock';
 import { EmptyState } from '../common/EmptyState';
-import { IconChevronRight } from '../Tree/icons';
 
 type DiffPanelProps = {
   diff: DiffView | null;
@@ -29,21 +28,22 @@ export function DiffPanel(props: DiffPanelProps) {
   }
   return (
     <div className="panelContent diffList">
-      {props.diff.files.map((file, index) => {
+      {props.diff.files.map((file) => {
         const { added, removed } = diffCounts(file.patch);
 
         return (
-          <details className="diffFile" key={file.file} open={index < 3}>
-            <summary>
-              <IconChevronRight className="chevronIcon" />
-              <span>{file.file}</span>
+          <section className="diffFile" key={file.file}>
+            <header className="diffFileHeader">
+              <span className="diffFileName" title={file.file}>
+                {file.file}
+              </span>
               <span className="diffStats">
                 {added > 0 && <span className="diffAdded">+{added}</span>}
                 {removed > 0 && <span className="diffRemoved">−{removed}</span>}
               </span>
-            </summary>
-            <CodeBlock title="Patch" subtitle={file.file} content={file.patch} language="diff" />
-          </details>
+            </header>
+            <CodeBlock content={file.patch} language="diff" scrollMode="flow" showHeader={false} />
+          </section>
         );
       })}
     </div>

@@ -25,20 +25,12 @@ export class VisualizerAdapter implements IVisualizerAdapter {
    */
   async getCachedHtmlFileName(): Promise<string | null> {
     if (!(await exists(this.visualizerDir))) {
-      console.log(`[VisualizerAdapter] Cache directory does not exist: ${this.visualizerDir}`);
       return null;
     }
 
     const files = await fs.readdir(this.visualizerDir);
-    console.log(`[VisualizerAdapter] Files in cache directory:`, files);
 
-    const htmlFile = files.find((f) => f.endsWith('.html'));
-    if (htmlFile) {
-      console.log(`[VisualizerAdapter] Found cached HTML file: ${htmlFile}`);
-    } else {
-      console.log(`[VisualizerAdapter] No HTML file found in cache`);
-    }
-    return htmlFile || null;
+    return files.find((f) => f.endsWith('.html')) || null;
   }
 
   /**
@@ -47,19 +39,15 @@ export class VisualizerAdapter implements IVisualizerAdapter {
   async download(url: string): Promise<string> {
     // Ensure visualizer directory exists
     await ensureDir(this.visualizerDir);
-    console.log(`[VisualizerAdapter] Created directory: ${this.visualizerDir}`);
 
     // Remove query parameters for file operations
     const urlObj = new URL(url);
     const cleanUrl = `${urlObj.origin}${urlObj.pathname}`;
 
-    console.log(`[VisualizerAdapter] Starting download from: ${cleanUrl}`);
-
     // Download main HTML with recursion
     const htmlFileName = path.basename(urlObj.pathname);
     await this.downloadResourceRecursive(cleanUrl, 0);
 
-    console.log(`[VisualizerAdapter] Download completed`);
     return htmlFileName;
   }
 
@@ -106,9 +94,6 @@ export class VisualizerAdapter implements IVisualizerAdapter {
   private async downloadResourceRecursive(url: string, depth: number): Promise<void> {
     // 深さチェック
     if (depth > this.MAX_DEPTH) {
-      console.log(
-        `[VisualizerAdapter] Max recursion depth (${this.MAX_DEPTH}) reached, stopping recursion`,
-      );
       return;
     }
 
@@ -119,15 +104,12 @@ export class VisualizerAdapter implements IVisualizerAdapter {
 
     // すでにダウンロード済みならスキップ
     if (await exists(filePath)) {
-      console.log(`[VisualizerAdapter] File already exists, skipping: ${fileName}`);
       return;
     }
 
     // ファイルをダウンロード
-    console.log(`[VisualizerAdapter] Downloading: ${url} (depth: ${depth})`);
     const content = await this.fetchUrl(url);
     await fs.writeFile(filePath, content);
-    console.log(`[VisualizerAdapter] Saved: ${fileName} (size: ${content.length} bytes)`);
 
     if (fileName.endsWith('.html')) {
       // HTMLファイルの場合：依存ファイルを抽出して再帰ダウンロード
@@ -180,14 +162,8 @@ export class VisualizerAdapter implements IVisualizerAdapter {
     }
 
     if (dependencies.size === 0) {
-      console.log(`[VisualizerAdapter] No dependencies found in HTML`);
       return;
     }
-
-    console.log(
-      `[VisualizerAdapter] Found ${dependencies.size} dependencies in HTML:`,
-      Array.from(dependencies),
-    );
 
     // 各依存ファイルをダウンロード
     for (const dep of dependencies) {
@@ -226,14 +202,8 @@ export class VisualizerAdapter implements IVisualizerAdapter {
     }
 
     if (dependencies.size === 0) {
-      console.log(`[VisualizerAdapter] No imports found in JS file`);
       return;
     }
-
-    console.log(
-      `[VisualizerAdapter] Found ${dependencies.size} imports in JS file:`,
-      Array.from(dependencies),
-    );
 
     // 各インポートファイルをダウンロード
     for (const dep of dependencies) {
@@ -258,15 +228,11 @@ export class VisualizerAdapter implements IVisualizerAdapter {
   ): Promise<void> {
     const wasmFileName = fileName.replace('.js', '_bg.wasm');
     const wasmUrl = `${baseUrlObj.origin}${baseDir}/${wasmFileName}`;
-    console.log(`[VisualizerAdapter] Checking for WASM file: ${wasmFileName}`);
 
     try {
       const wasmPath = path.join(this.visualizerDir, wasmFileName);
       const wasmContent = await this.fetchUrlBinary(wasmUrl);
       await fs.writeFile(wasmPath, wasmContent);
-      console.log(
-        `[VisualizerAdapter] WASM file downloaded: ${wasmFileName} (size: ${wasmContent.length} bytes)`,
-      );
     } catch (e) {
       console.warn(
         `[VisualizerAdapter] WASM file not found: ${wasmFileName}`,
@@ -286,7 +252,6 @@ export class VisualizerAdapter implements IVisualizerAdapter {
 
     // 外部URLはスキップ
     if (dep.startsWith('//') || dep.startsWith('http://') || dep.startsWith('https://')) {
-      console.log(`[VisualizerAdapter] Skipping external URL: ${dep}`);
       return null;
     }
 
@@ -303,11 +268,8 @@ export class VisualizerAdapter implements IVisualizerAdapter {
     return new Promise((resolve, reject) => {
       https
         .get(url, (res) => {
-          console.log(`[VisualizerAdapter] HTTP response for ${url}: ${res.statusCode}`);
-
           if (res.statusCode === 301 || res.statusCode === 302) {
             if (res.headers.location) {
-              console.log(`[VisualizerAdapter] Redirecting to: ${res.headers.location}`);
               return this.fetchUrl(res.headers.location).then(resolve).catch(reject);
             }
           }
@@ -341,11 +303,8 @@ export class VisualizerAdapter implements IVisualizerAdapter {
     return new Promise((resolve, reject) => {
       https
         .get(url, (res) => {
-          console.log(`[VisualizerAdapter] HTTP response for ${url}: ${res.statusCode}`);
-
           if (res.statusCode === 301 || res.statusCode === 302) {
             if (res.headers.location) {
-              console.log(`[VisualizerAdapter] Redirecting to: ${res.headers.location}`);
               return this.fetchUrlBinary(res.headers.location).then(resolve).catch(reject);
             }
           }

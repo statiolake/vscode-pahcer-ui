@@ -110,14 +110,19 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-2) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
   position: relative;
   z-index: var(--z-sticky);
   backdrop-filter: blur(var(--blur-sm));
 }
 .commandBarCenter { flex: 1 1 auto; min-width: var(--space-5); }
-.brand { display: grid; min-width: 0; gap: var(--size-hairline); }
+.brand {
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
 .brand strong { font-size: var(--fs-lg); line-height: var(--lh-tight); }
 .brand span {
   color: var(--muted);
@@ -125,7 +130,7 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 52vw;
+  max-width: 40vw;
 }
 .topBarActions {
   display: inline-flex;
@@ -410,8 +415,8 @@ main {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(var(--width-sidebar-min), var(--width-sidebar-max)) minmax(0, 1fr);
-  padding: var(--space-3);
-  gap: var(--space-3);
+  padding: var(--space-2);
+  gap: var(--space-2);
   overflow: hidden;
 }
 .sideBar, .mainPanel {
@@ -423,16 +428,6 @@ main {
   overflow: hidden;
 }
 .sideBar { display: flex; flex-direction: column; }
-.resultHeader {
-  min-height: var(--control-lg);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-}
 .panelHeader p {
   margin: var(--space-1) 0 0;
   color: var(--muted);
@@ -444,7 +439,7 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -477,7 +472,7 @@ main {
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   font-weight: 500;
 }
 .panelTabs button:hover:not([aria-disabled="true"]):not(.active) {
@@ -500,28 +495,31 @@ main {
 .tree {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   list-style: none;
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--space-1);
 }
 .treeGroup {
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
-  padding: var(--space-1);
+  padding: 0;
 }
 .treeGroup + .treeGroup { margin-top: var(--space-1); }
 .treeGroup:hover {
   background: var(--surface-muted);
-  border-color: var(--line);
+  border-color: transparent;
 }
+.treeGroup:hover .treeRow { background: transparent; }
 .treeGroup:has(:focus-visible) {
   border-color: var(--line);
 }
 .executionTreeGroup {
   --execution-commit-lane-x: calc(
-    var(--space-1) + var(--space-2) + var(--size-icon-md) + var(--space-2) +
-    var(--size-icon-sm) + var(--space-2) + (var(--size-icon-sm) / 2)
+    var(--space-1) + var(--size-icon-md) + var(--space-1) + var(--size-icon-sm) +
+    var(--space-1) + (var(--size-icon-sm) / 2)
   );
   --execution-commit-row-center-y: calc(var(--space-1) + (var(--control-md) / 2));
   --execution-commit-dot-size: 10px;
@@ -540,7 +538,7 @@ main {
   position: absolute;
   left: var(--execution-commit-lane-x);
   top: var(--execution-commit-row-center-y);
-  z-index: 3;
+  z-index: 2;
   width: var(--execution-commit-dot-size);
   height: var(--execution-commit-dot-size);
   transform: translate(-50%, -50%);
@@ -563,7 +561,7 @@ main {
   content: "";
   position: absolute;
   left: var(--execution-commit-lane-x);
-  z-index: 2;
+  z-index: 0;
   width: var(--size-tree-line);
   transform: translateX(-50%);
   background: var(--execution-commit-dot-color);
@@ -590,12 +588,12 @@ main {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   text-align: left;
   border: 0;
   border-left: var(--size-tree-line) solid transparent;
   background: transparent;
-  padding: 2px var(--space-2) 2px calc(var(--space-2) - var(--size-tree-line));
+  padding: 1px var(--space-1) 1px calc(var(--space-1) - var(--size-tree-line));
   border-radius: var(--radius-md);
   color: var(--text);
 }
@@ -741,7 +739,7 @@ button.treeLabel:hover {
   margin: 0;
   margin-left: var(--control-md);
   border-left: 1px solid var(--line);
-  padding: var(--space-1) 0 var(--space-1) var(--space-2);
+  padding: var(--space-1) 0 var(--space-1) var(--space-1);
 }
 .summaryRow {
   margin: var(--space-1) 0 var(--space-1);
@@ -755,12 +753,19 @@ button.treeLabel:hover {
   font-weight: 500;
 }
 .mainPanel { min-width: 0; display: flex; flex-direction: column; }
+.panelView {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.panelViewHidden { display: none; }
 .panelTabs {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: 0 var(--space-2);
   min-height: var(--control-lg);
   border-bottom: 1px solid var(--line);
   background: var(--surface);
@@ -779,8 +784,10 @@ button.treeLabel:hover {
 .panelContent {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
-  padding: var(--space-4);
+  overflow-x: auto;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  padding: var(--space-3);
 }
 .panelContent.narrow { max-width: var(--width-panel-narrow); }
 .panelHeader {
@@ -788,7 +795,7 @@ button.treeLabel:hover {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-3);
 }
 .panelHeader > div { min-width: 0; }
 h2, h3 { margin: 0; letter-spacing: 0; }
@@ -804,7 +811,7 @@ label {
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   max-width: var(--width-form);
   margin-top: var(--space-4);
 }
@@ -910,8 +917,8 @@ label {
   margin-top: var(--space-1);
 }
 .comparisonStatsSection {
-  margin-bottom: var(--space-4);
-  padding: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-1);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -996,7 +1003,7 @@ label {
 .comparisonChart {
   position: relative;
   height: var(--height-chart);
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
 }
 .comparisonPopupBackdrop {
   position: fixed;
@@ -1093,7 +1100,7 @@ label {
 .comparisonStatsTable td {
   text-align: left;
   border-bottom: 1px solid var(--line);
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   font-size: var(--fs-md);
 }
 .comparisonStatsTable th {
@@ -1127,7 +1134,7 @@ fieldset.toggleGroup > legend.srOnly {
   margin: 0;
   padding: 0;
 }
-.panelContent > .toggleGroup { margin: 0 0 var(--space-4); }
+.panelContent > .toggleGroup { margin: 0 0 var(--space-2); }
 .toggleGroup button {
   min-height: var(--control-md);
   display: inline-flex;
@@ -1212,6 +1219,10 @@ fieldset.toggleGroup > legend.srOnly {
   line-height: var(--lh-base);
   white-space: pre;
 }
+.codeBlock pre.flow {
+  max-height: none;
+  overflow: visible;
+}
 .codeBlock pre.wrap {
   white-space: pre-wrap;
   word-break: break-word;
@@ -1246,36 +1257,30 @@ fieldset.toggleGroup > legend.srOnly {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  overflow: hidden;
 }
-.diffFile summary {
+.diffFileHeader {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
   min-height: var(--control-lg);
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  list-style: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: var(--surface-muted);
   color: var(--text);
   font-weight: 650;
   overflow-wrap: anywhere;
 }
-.diffFile summary::-webkit-details-marker { display: none; }
-.diffFile summary > .chevronIcon {
-  flex: 0 0 auto;
-  transition: transform 160ms ease;
-}
-.diffFile summary > span:first-of-type {
+.diffFileName {
   flex: 1 1 auto;
   min-width: 0;
-}
-.diffFile[open] summary {
-  border-bottom: 1px solid var(--line);
-}
-.diffFile[open] summary > .chevronIcon {
-  transform: rotate(90deg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .diffFile .codeBlock {
   margin: 0;
@@ -1324,11 +1329,24 @@ fieldset.toggleGroup > legend.srOnly {
   font-weight: 400;
 }
 .visualizerPanel {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+.visualizerPending {
+  position: absolute;
+  top: calc(var(--control-lg) + var(--space-2));
+  right: var(--space-2);
+  z-index: 1;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-translucent);
+  color: var(--accent-text);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-xs);
 }
 .visualizerToolbar {
   min-height: var(--control-lg);

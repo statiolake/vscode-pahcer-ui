@@ -39,7 +39,7 @@ export const designTokens = `
   --control-md: 28px;
   --control-base: 32px;
   --control-lg: 40px;
-  --bar-base: 52px;
+  --bar-base: 44px;
   --size-hairline: 1px;
   --size-focus-ring: 2px;
   --size-accent-line: 4px;
@@ -55,12 +55,12 @@ export const designTokens = `
   --width-toast: 360px;
   --width-source-select: 460px;
   --width-modal: 480px;
-  --width-sidebar-min: 320px;
-  --width-sidebar-max: 400px;
+  --width-sidebar-min: 260px;
+  --width-sidebar-max: 360px;
   --width-sort-control: 180px;
-  --height-chart: clamp(320px, 55vh, 600px);
+  --height-chart: clamp(260px, 42vh, 480px);
   --height-popup: 300px;
-  --height-empty: 160px;
+  --height-empty: 120px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;

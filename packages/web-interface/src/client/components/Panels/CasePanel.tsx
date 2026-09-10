@@ -8,6 +8,7 @@ import { EmptyState } from '../common/EmptyState';
 
 type CasePanelProps = {
   selectedCase: SelectedCase;
+  initialKind?: CaseFileKind;
   fileView: FileView | null;
   pendingKind: CaseFileKind | null;
   loadError: { kind: CaseFileKind; message: string } | null;
@@ -17,7 +18,7 @@ type CasePanelProps = {
 const caseFileKinds: CaseFileKind[] = ['input', 'output', 'error'];
 
 export function CasePanel(props: CasePanelProps) {
-  const [selectedKind, setSelectedKind] = useState<CaseFileKind>('input');
+  const [selectedKind, setSelectedKind] = useState<CaseFileKind>(props.initialKind ?? 'input');
   const activeFile = useMemo(() => {
     if (
       props.fileView?.kind !== selectedKind ||
@@ -32,9 +33,10 @@ export function CasePanel(props: CasePanelProps) {
   // ケースが変わったら入力を自動ロード
   // biome-ignore lint/correctness/useExhaustiveDependencies: onOpenFile は親で安定参照
   useEffect(() => {
-    setSelectedKind('input');
-    props.onOpenFile('input');
-  }, [props.selectedCase.executionId, props.selectedCase.seed]);
+    const initialKind = props.initialKind ?? 'input';
+    setSelectedKind(initialKind);
+    props.onOpenFile(initialKind);
+  }, [props.initialKind, props.selectedCase.executionId, props.selectedCase.seed]);
 
   function selectKind(kind: CaseFileKind) {
     setSelectedKind(kind);

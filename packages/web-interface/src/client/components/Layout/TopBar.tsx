@@ -12,11 +12,14 @@ type TopBarProps = {
 };
 
 export function TopBar(props: TopBarProps) {
+  const workspaceName =
+    props.workspaceRoot.split(/[\\/]/).filter(Boolean).pop() || props.workspaceRoot;
+
   return (
     <header className="commandBar">
       <div className="brand">
         <strong>Pahcer</strong>
-        <span>{props.workspaceRoot}</span>
+        <span title={props.workspaceRoot}>{workspaceName}</span>
       </div>
       <div className="commandBarCenter" aria-hidden="true" />
       <div className="topBarActions">

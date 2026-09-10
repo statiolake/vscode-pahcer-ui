@@ -9,7 +9,7 @@ import type { ITestCaseSummaryQueryService } from '../../src/application/querySe
 import type { IComparisonConfigRepository } from '../../src/application/repositories/IComparisonConfigRepository';
 import type { IExecutionRepository } from '../../src/domain/interfaces/IExecutionRepository';
 import type { IFileAnalyzer } from '../../src/domain/interfaces/IFileAnalyzer';
-import type { IGitAdapter } from '../../src/domain/interfaces/IGitAdapter';
+import type { DiffFile, IGitAdapter } from '../../src/domain/interfaces/IGitAdapter';
 import type { IGitignoreAdapter } from '../../src/domain/interfaces/IGitignoreAdapter';
 import type { IInOutFilesAdapter } from '../../src/domain/interfaces/IInOutFilesAdapter';
 import type { IPahcerAdapter } from '../../src/domain/interfaces/IPahcerAdapter';
@@ -226,6 +226,7 @@ export class FakeGitAdapter implements IGitAdapter {
   }> = [];
   sourceFiles = new Map<string, string[]>();
   fileContents = new Map<string, string>();
+  diffFiles = new Map<string, DiffFile[]>();
   isRepository = true;
   commitError?: Error;
 
@@ -256,6 +257,10 @@ export class FakeGitAdapter implements IGitAdapter {
 
   async getFileContentAtCommit(commitHash: string, filePath: string): Promise<string> {
     return this.fileContents.get(`${commitHash}:${filePath}`) ?? '';
+  }
+
+  async getDiffFiles(olderCommitHash: string, newerCommitHash: string): Promise<DiffFile[]> {
+    return this.diffFiles.get(`${olderCommitHash}..${newerCommitHash}`) ?? [];
   }
 }
 

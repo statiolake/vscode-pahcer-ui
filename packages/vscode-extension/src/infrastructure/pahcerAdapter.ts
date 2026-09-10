@@ -1,8 +1,8 @@
-import { execSync } from 'node:child_process';
 import type { IPahcerAdapter } from '@pahcer/core/domain/interfaces/IPahcerAdapter';
 import type { IPahcerConfigRepository } from '@pahcer/core/domain/interfaces/IPahcerConfigRepository';
 import type { PahcerConfig } from '@pahcer/core/domain/models/configFile';
-import { type PahcerRunOptions, PahcerStatus } from '@pahcer/core/domain/models/pahcerStatus';
+import type { PahcerRunOptions, PahcerStatus } from '@pahcer/core/domain/models/pahcerStatus';
+import { resolvePahcerStatus } from '@pahcer/node-adapters/infrastructure/pahcerStatus';
 import * as vscode from 'vscode';
 import { VSCodeFileOperationError } from './exceptions';
 
@@ -26,17 +26,7 @@ export class PahcerAdapter implements IPahcerAdapter {
    * pahcerのインストール・初期化状態を確認
    */
   async checkStatus(): Promise<PahcerStatus> {
-    // Check if pahcer is installed
-    if (!this.isPahcerInstalled()) {
-      return PahcerStatus.NotInstalled;
-    }
-
-    // Check if pahcer is initialized (pahcer_config.toml exists)
-    if (!(await this.isInitialized())) {
-      return PahcerStatus.NotInitialized;
-    }
-
-    return PahcerStatus.Ready;
+    return resolvePahcerStatus(this.pahcerConfigRepository, this.workspaceRoot);
   }
 
   /**
@@ -123,30 +113,5 @@ export class PahcerAdapter implements IPahcerAdapter {
         }
       });
     });
-  }
-
-  /**
-   * pahcerコマンドがインストールされているかチェック
-   */
-  private isPahcerInstalled(): boolean {
-    try {
-      execSync('pahcer --version', { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * pahcerが初期化されているかチェック（pahcer_config.tomlが正常に読み込めるか確認）
-   */
-  private async isInitialized(): Promise<boolean> {
-    try {
-      const config = await this.pahcerConfigRepository.findById('normal');
-      // Repository は見つからない場合 undefined を返す
-      return config !== undefined;
-    } catch {
-      return false;
-    }
   }
 }

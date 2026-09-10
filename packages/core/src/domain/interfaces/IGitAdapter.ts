@@ -9,6 +9,14 @@
  * ユースケースロジック（設定判定、メッセージ表示）は提供しません。
  * これらは CommitResultsUseCase で処理されます。
  */
+/**
+ * 1 ファイル分の差分（unified diff 形式のパッチ付き）
+ */
+export interface DiffFile {
+  file: string;
+  patch: string;
+}
+
 export interface IGitAdapter {
   /**
    * すべての変更をステージングしてコミット
@@ -51,4 +59,13 @@ export interface IGitAdapter {
    * @returns ファイル内容
    */
   getFileContentAtCommit(commitHash: string, filePath: string): Promise<string>;
+
+  /**
+   * 指定した 2 つのコミット間の差分をパッチとして取得
+   *
+   * 表示は行わないため、VS Code 以外の環境（CLI・Web UI）でも利用できます。
+   * @param olderCommitHash 古いコミットハッシュ
+   * @param newerCommitHash 新しいコミットハッシュ
+   */
+  getDiffFiles(olderCommitHash: string, newerCommitHash: string): Promise<DiffFile[]>;
 }

@@ -15,6 +15,7 @@ type SeedTreeProps = {
   onOpenSeed: (seed: number) => void;
   onToggleExecution: (executionId: string) => void;
   onSelectCase: (executionId: string, seed: number) => void;
+  onMissingOutput: (seed: number) => void;
 };
 
 export function SeedTree(props: SeedTreeProps) {
@@ -77,7 +78,11 @@ export function SeedTree(props: SeedTreeProps) {
                         <button
                           type="button"
                           className="treeLabel"
-                          onClick={() => props.onSelectCase(execution.execution.id, seed.seed)}
+                          onClick={() =>
+                            execution.testCase.foundOutput
+                              ? props.onSelectCase(execution.execution.id, seed.seed)
+                              : props.onMissingOutput(seed.seed)
+                          }
                           aria-label={rowLabel}
                         >
                           {seedExecutionLabel(execution)}

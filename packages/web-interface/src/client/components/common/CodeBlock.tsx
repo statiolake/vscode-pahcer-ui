@@ -9,6 +9,8 @@ type CodeBlockProps = {
   language?: string;
   maxHeight?: number;
   defaultWrap?: boolean;
+  scrollMode?: 'contained' | 'flow';
+  showHeader?: boolean;
 };
 
 export function CodeBlock({
@@ -18,6 +20,8 @@ export function CodeBlock({
   language,
   maxHeight,
   defaultWrap = false,
+  scrollMode = 'contained',
+  showHeader = true,
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [wrap, setWrap] = useState(defaultWrap);
@@ -48,34 +52,44 @@ export function CodeBlock({
 
   return (
     <section className="codeBlock">
-      <div className="codeBlockHeader">
-        {title ? <h3 className="codeBlockTitle">{title}</h3> : <span className="codeBlockTitle" />}
-        <div className="codeBlockActions">
-          <IconButton
-            icon={copied ? <IconCheck color="success" /> : <IconCopy />}
-            label={copyLabel}
-            size="sm"
-            variant="ghost"
-            active={copied}
-            onClick={() => void copyContent()}
-          />
-          <IconButton
-            icon={<IconWrap />}
-            label="折り返しを切替"
-            size="sm"
-            variant="ghost"
-            active={wrap}
-            onClick={() => setWrap((current) => !current)}
-          />
+      {showHeader && (
+        <div className="codeBlockHeader">
+          {title ? (
+            <h3 className="codeBlockTitle">{title}</h3>
+          ) : (
+            <span className="codeBlockTitle" />
+          )}
+          <div className="codeBlockActions">
+            <IconButton
+              icon={copied ? <IconCheck color="success" /> : <IconCopy />}
+              label={copyLabel}
+              size="sm"
+              variant="ghost"
+              active={copied}
+              onClick={() => void copyContent()}
+            />
+            <IconButton
+              icon={<IconWrap />}
+              label="折り返しを切替"
+              size="sm"
+              variant="ghost"
+              active={wrap}
+              onClick={() => setWrap((current) => !current)}
+            />
+          </div>
         </div>
-      </div>
+      )}
       {subtitle && (
         <div className="codeBlockSubtitle" title={subtitle}>
           {subtitle}
         </div>
       )}
       <pre
-        className={[wrap ? 'wrap' : '', language === 'diff' ? 'diffPre' : '']
+        className={[
+          wrap ? 'wrap' : '',
+          language === 'diff' ? 'diffPre' : '',
+          scrollMode === 'flow' ? 'flow' : '',
+        ]
           .filter(Boolean)
           .join(' ')}
         style={maxHeight ? { maxHeight } : undefined}

@@ -6,8 +6,9 @@ import type {
   GroupingMode,
   SeedSortOrder,
 } from '@pahcer/core/application/dtos/pahcerUIState';
+import { asErrnoException } from '../util/lang';
 
-export interface WebPreferences {
+export interface PahcerUIPreferences {
   gitIntegration: boolean | null;
   groupingMode: GroupingMode;
   executionSortOrder: ExecutionSortOrder;
@@ -15,7 +16,7 @@ export interface WebPreferences {
   visualizerZoomLevel: number;
 }
 
-const DEFAULT_PREFERENCES: WebPreferences = {
+const DEFAULT_PREFERENCES: PahcerUIPreferences = {
   gitIntegration: null,
   groupingMode: 'byExecution',
   executionSortOrder: 'seedAsc',
@@ -23,7 +24,7 @@ const DEFAULT_PREFERENCES: WebPreferences = {
   visualizerZoomLevel: 1,
 };
 
-export class WebAppConfig implements IGitIntegrationConfig {
+export class PahcerUIConfig implements IGitIntegrationConfig {
   private readonly configPath: string;
 
   constructor(workspaceRoot: string) {
@@ -38,31 +39,40 @@ export class WebAppConfig implements IGitIntegrationConfig {
     await this.update({ gitIntegration: enabled });
   }
 
-  async preferences(): Promise<WebPreferences> {
+  async preferences(): Promise<PahcerUIPreferences> {
     return this.read();
   }
 
-  async updatePreferences(preferences: Partial<WebPreferences>): Promise<WebPreferences> {
+  async updatePreferences(preferences: Partial<PahcerUIPreferences>): Promise<PahcerUIPreferences> {
     return this.update(preferences);
   }
 
-  private async update(preferences: Partial<WebPreferences>): Promise<WebPreferences> {
+  private async update(preferences: Partial<PahcerUIPreferences>): Promise<PahcerUIPreferences> {
     const next = this.normalize({ ...(await this.read()), ...preferences });
     await fs.mkdir(path.dirname(this.configPath), { recursive: true });
     await fs.writeFile(this.configPath, JSON.stringify(next, null, 2), 'utf-8');
     return next;
   }
 
-  private async read(): Promise<WebPreferences> {
+  private async read(): Promise<PahcerUIPreferences> {
+    let content: string;
     try {
-      return this.normalize(JSON.parse(await fs.readFile(this.configPath, 'utf-8')));
-    } catch {
+      content = await fs.readFile(this.configPath, 'utf-8');
+    } catch (error) {
+      // Only "the config file has not been created yet" falls back to defaults.
+      // Any other failure (permission, I/O) must surface: silently returning
+      // defaults would overwrite the user's settings on the next update().
+      if (!(error instanceof Error) || asErrnoException(error).code !== 'ENOENT') {
+        throw error;
+      }
       return DEFAULT_PREFERENCES;
     }
+
+    return this.normalize(JSON.parse(content));
   }
 
-  private normalize(value: unknown): WebPreferences {
-    const input = value && typeof value === 'object' ? (value as Partial<WebPreferences>) : {};
+  private normalize(value: unknown): PahcerUIPreferences {
+    const input = value && typeof value === 'object' ? (value as Partial<PahcerUIPreferences>) : {};
     return {
       gitIntegration:
         typeof input.gitIntegration === 'boolean' || input.gitIntegration === null

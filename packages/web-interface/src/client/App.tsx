@@ -4,6 +4,11 @@ import type {
   TreeSeedExecution,
   TreeSeedStats,
 } from '@pahcer/core/application/dtos/pahcerTreeData';
+import {
+  buildPahcerUIPath,
+  type PahcerUIRoute,
+  parsePahcerUIPath,
+} from '@pahcer/core/application/dtos/pahcerUIRoute';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { fetchJson } from './api';
@@ -43,7 +48,7 @@ import type {
   TreeData,
   WebPreferences,
 } from './types';
-import { toErrorMessage } from './utils/format';
+import { formatSeed, toErrorMessage } from './utils/format';
 import { caseFileKindLabel, panelLabel } from './utils/labels';
 
 type VisualizerRequest = {
@@ -97,6 +102,7 @@ export function App() {
   const [openSeed, setOpenSeed] = useState<number | null>(null);
   const [seedExecutions, setSeedExecutions] = useState<TreeSeedExecution[]>([]);
   const [selectedCase, setSelectedCase] = useState<SelectedCase | null>(null);
+  const [selectedCaseFileKind, setSelectedCaseFileKind] = useState<CaseFileKind>('input');
   const [comparison, setComparison] = useState<ComparisonData | null>(null);
   const [fileView, setFileView] = useState<FileView | null>(null);
   const [caseFilePending, setCaseFilePending] = useState<RequestState<CaseFileTarget> | null>(null);
@@ -145,6 +151,9 @@ export function App() {
   const sourceFileRequestIdRef = useRef(0);
   const lastSourceFileByExecutionIdRef = useRef(new Map<string, string>());
   const visualizerRequestIdRef = useRef(0);
+  const visualizerFrameRef = useRef<HTMLIFrameElement>(null);
+  const visualizerHtmlFileNameRef = useRef<string | null>(null);
+  const deepLinkAppliedRef = useRef(false);
 
   const mode = preferences?.groupingMode ?? 'byExecution';
 
@@ -181,7 +190,16 @@ export function App() {
       const id = toastIdRef.current + 1;
       toastIdRef.current = id;
 
-      setToasts((current) => [...current, { id, variant, message, closing: false }]);
+      setToasts((current) =>
+        // エラートーストは利用者が閉じるまで残るため、同じ内容が繰り返し報告されても
+        // 積み上がらないようにする（3秒ごとの自動更新の失敗などで発生する）
+        variant === 'error' &&
+        current.some(
+          (toast) => !toast.closing && toast.variant === 'error' && toast.message === message,
+        )
+          ? current
+          : [...current, { id, variant, message, closing: false }],
+      );
       if (variant !== 'error') {
         window.setTimeout(() => dismissToast(id), 5000);
       }
@@ -250,8 +268,10 @@ export function App() {
     async (options: { silent?: boolean } = {}) => {
       if (!options.silent) {
         setLoading(true);
+        // 表示中のエラーを消すのは利用者の操作によるリロードのときだけ。
+        // 3秒ごとの自動更新がエラー表示を消してしまわないようにする
+        setError(null);
       }
-      setError(null);
       try {
         const nextStatus = await fetchJson<StatusResponse>('/api/status');
         setStatus(nextStatus);
@@ -273,9 +293,9 @@ export function App() {
           setSeeds(await fetchJson<TreeSeedStats[]>('/api/seeds'));
         }
       } catch (caught) {
-        if (!options.silent) {
-          reportError(caught);
-        }
+        // 自動更新の失敗も握りつぶさずに報告する（同一メッセージのトーストは
+        // showToast 側で重複排除される）
+        reportError(caught);
       } finally {
         if (!options.silent) {
           setLoading(false);
@@ -440,10 +460,18 @@ export function App() {
   }
 
   function toggleSelectedExecution(executionId: string) {
-    setSelectedExecutionIds((current) =>
-      current.includes(executionId)
+    setActivePanel('comparison');
+    setSelectedExecutionIds((current) => {
+      return current.includes(executionId)
         ? current.filter((id) => id !== executionId)
-        : [...current, executionId],
+        : [...current, executionId];
+    });
+  }
+
+  function showResultsNotFoundError(seed: number) {
+    showToast(
+      'error',
+      `Seed ${formatSeed(seed)} の結果が見つからないため、ビジュアライザを開けません。`,
     );
   }
 
@@ -451,9 +479,17 @@ export function App() {
     setLoading(true);
     setError(null);
     try {
+      let runOptions = options;
+      if (options.enableGitIntegration === undefined && preferences?.gitIntegration === null) {
+        const enableGitIntegration = window.confirm(
+          'Pahcer UIでGit統合を有効にしますか？\n\n有効にすると、テスト実行前にワークスペースの変更を自動的にコミットし、実行結果の差分を確認できます。',
+        );
+        await updatePreferences({ gitIntegration: enableGitIntegration });
+        runOptions = { ...options, enableGitIntegration };
+      }
       const result = await fetchJson<{ messages: string[] }>('/api/run', {
         method: 'POST',
-        body: JSON.stringify(options),
+        body: JSON.stringify(runOptions),
       });
       for (const message of result.messages) {
         showToast('info', message);
@@ -526,44 +562,47 @@ export function App() {
     }
   }
 
-  const loadDiffForCurrentSelection = useCallback(async () => {
-    const executionIds = selectedExecutionIds.slice();
-    if (executionIds.length !== 2) {
-      return;
-    }
-
-    const requestId = nextUiActionRequestId();
-    diffRequestIdRef.current = requestId;
-    setDiffPending({ requestId, executionIds });
-    setDiffError(null);
-
-    const isCurrentRequest = () =>
-      diffRequestIdRef.current === requestId &&
-      sameExecutionIds(selectedExecutionIdsRef.current, executionIds);
-
-    try {
-      const diff = await runUiAction(
-        '差分の読み込み',
-        () =>
-          fetchJson<DiffView>(
-            `/api/diff?executionIds=${executionIds.map(encodeURIComponent).join(',')}`,
-          ),
-        {
-          shouldReportError: isCurrentRequest,
-          onError: (message) => setDiffError({ executionIds, message }),
-        },
-      );
-      if (!isCurrentRequest() || !diff) {
+  const loadDiffForCurrentSelection = useCallback(
+    async (requestedExecutionIds: string[] = selectedExecutionIds) => {
+      const executionIds = requestedExecutionIds.slice();
+      if (executionIds.length !== 2) {
         return;
       }
+
+      const requestId = nextUiActionRequestId();
+      diffRequestIdRef.current = requestId;
+      setDiffPending({ requestId, executionIds });
       setDiffError(null);
-      setDiffView({ ...diff, executionIds });
-    } finally {
-      if (diffRequestIdRef.current === requestId) {
-        setDiffPending(null);
+
+      const isCurrentRequest = () =>
+        diffRequestIdRef.current === requestId &&
+        sameExecutionIds(selectedExecutionIdsRef.current, executionIds);
+
+      try {
+        const diff = await runUiAction(
+          '差分の読み込み',
+          () =>
+            fetchJson<DiffView>(
+              `/api/diff?executionIds=${executionIds.map(encodeURIComponent).join(',')}`,
+            ),
+          {
+            shouldReportError: isCurrentRequest,
+            onError: (message) => setDiffError({ executionIds, message }),
+          },
+        );
+        if (!isCurrentRequest() || !diff) {
+          return;
+        }
+        setDiffError(null);
+        setDiffView({ ...diff, executionIds });
+      } finally {
+        if (diffRequestIdRef.current === requestId) {
+          setDiffPending(null);
+        }
       }
-    }
-  }, [nextUiActionRequestId, runUiAction, selectedExecutionIds]);
+    },
+    [nextUiActionRequestId, runUiAction, selectedExecutionIds],
+  );
 
   async function prepareSource(executionId: string) {
     const requestId = nextUiActionRequestId();
@@ -652,17 +691,44 @@ export function App() {
     void loadSourceFile(executionId, file);
   }
 
+  const postVisualizerRequest = useCallback((request: VisualizerRequest) => {
+    visualizerFrameRef.current?.contentWindow?.postMessage(
+      {
+        type: 'pahcer:updateTestCase',
+        seed: request.seed,
+        executionId: request.executionId,
+      },
+      window.location.origin,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!visualizerSrc || !visualizerRequest) {
+      return;
+    }
+    postVisualizerRequest(visualizerRequest);
+  }, [postVisualizerRequest, visualizerRequest, visualizerSrc]);
+
   function showVisualizerFrame(request: VisualizerRequest, htmlFileName: string) {
-    const query = new URLSearchParams({
-      seed: String(request.seed),
-      executionId: request.executionId,
-      htmlFileName,
-    });
+    if (!visualizerSrc || visualizerHtmlFileNameRef.current !== htmlFileName) {
+      const query = new URLSearchParams({
+        seed: String(request.seed),
+        executionId: request.executionId,
+        htmlFileName,
+      });
+      visualizerHtmlFileNameRef.current = htmlFileName;
+      setVisualizerSrc(`/api/visualizer/frame?${query}`);
+    }
     setVisualizerRequest(request);
-    setVisualizerSrc(`/api/visualizer/frame?${query}`);
     setVisualizerError(null);
     setActivePanel('visualizer');
   }
+
+  const handleVisualizerFrameLoad = useCallback(() => {
+    if (visualizerRequest) {
+      postVisualizerRequest(visualizerRequest);
+    }
+  }, [postVisualizerRequest, visualizerRequest]);
 
   async function openVisualizer(seed: number, executionId: string) {
     const request = { seed, executionId };
@@ -754,6 +820,14 @@ export function App() {
   }
 
   const selectedCount = selectedExecutionIds.length;
+  const selectedExecutions =
+    treeData?.executionStatsList.filter((stats) =>
+      selectedExecutionIds.includes(stats.execution.id),
+    ) ?? [];
+  const canShowDiff =
+    selectedCount === 2 &&
+    selectedExecutions.length === 2 &&
+    selectedExecutions.every((stats) => Boolean(stats.execution.commitHash));
   const selectedExecution = treeData?.executionStatsList.find(
     (stats) => stats.execution.id === selectedExecutionIds[selectedExecutionIds.length - 1],
   )?.execution;
@@ -841,7 +915,10 @@ export function App() {
         case 'source':
           return hasSelectedExecution ? undefined : '実行を選択してください';
         case 'diff':
-          return selectedCount === 2 ? undefined : '実行を 2 件選択してください';
+          if (selectedCount !== 2) {
+            return '実行を 2 件選択してください';
+          }
+          return canShowDiff ? undefined : '2 件の実行にコミットハッシュが必要です';
         case 'visualizer':
           return hasVisualizer
             ? undefined
@@ -851,7 +928,7 @@ export function App() {
           return undefined;
       }
     },
-    [hasSelectedCase, hasSelectedExecution, hasVisualizer, selectedCount],
+    [canShowDiff, hasSelectedCase, hasSelectedExecution, hasVisualizer, selectedCount],
   );
 
   const activatePanelTab = useCallback(
@@ -895,6 +972,97 @@ export function App() {
     }
   }, [activePanel, getPanelDisabledReason]);
 
+  // Apply a CLI-generated browser link once after the initial tree is ready.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deep links are intentionally applied once
+  useEffect(() => {
+    if (deepLinkAppliedRef.current || status?.status !== 'ready' || !treeData) {
+      return;
+    }
+
+    deepLinkAppliedRef.current = true;
+    const route = readPahcerUIRoute();
+    if (route.kind === 'home') {
+      return;
+    }
+
+    const executionExists = (executionId: string) =>
+      treeData.executions.some((execution) => execution.id === executionId);
+
+    if (route.kind === 'execution' && executionExists(route.executionId)) {
+      void openExecution(route.executionId);
+      return;
+    }
+
+    if (route.kind === 'source' && executionExists(route.executionId)) {
+      selectedExecutionIdsRef.current = [route.executionId];
+      setSelectedExecutionIds([route.executionId]);
+      void openExecution(route.executionId);
+      setActivePanel('source');
+      return;
+    }
+
+    if (route.kind === 'case' || route.kind === 'visualizer') {
+      if (!executionExists(route.executionId)) {
+        return;
+      }
+      void openExecution(route.executionId);
+      setSelectedCase({ executionId: route.executionId, seed: route.seed });
+      setSelectedCaseFileKind(route.kind === 'case' ? (route.fileKind ?? 'input') : 'input');
+      if (route.kind === 'visualizer') {
+        void openVisualizer(route.seed, route.executionId);
+      } else {
+        setActivePanel('case');
+      }
+      return;
+    }
+
+    if (route.kind === 'comparison' || route.kind === 'diff') {
+      const executionIds = route.executionIds.filter(executionExists);
+      if (executionIds.length === 0) {
+        return;
+      }
+      selectedExecutionIdsRef.current = executionIds;
+      setSelectedExecutionIds(executionIds);
+      setActivePanel(route.kind);
+      if (route.kind === 'diff' && executionIds.length === 2) {
+        void loadDiffForCurrentSelection(executionIds);
+      }
+    }
+  }, [status?.status, treeData]);
+
+  const routeSyncReadyRef = useRef(false);
+  useEffect(() => {
+    if (status?.status !== 'ready' || !treeData || !deepLinkAppliedRef.current) {
+      return;
+    }
+    if (!routeSyncReadyRef.current) {
+      routeSyncReadyRef.current = true;
+      return;
+    }
+
+    const route = routeForUiState({
+      activePanel,
+      openExecutionId,
+      selectedExecutionIds,
+      selectedCase,
+      selectedCaseFileKind,
+      visualizerRequest,
+    });
+    const nextPath = buildPahcerUIPath(route);
+    if (window.location.pathname !== nextPath || window.location.search) {
+      window.history.replaceState(window.history.state, '', nextPath);
+    }
+  }, [
+    activePanel,
+    openExecutionId,
+    selectedCase,
+    selectedCaseFileKind,
+    selectedExecutionIds,
+    status?.status,
+    treeData,
+    visualizerRequest,
+  ]);
+
   const visualizerExecutionTitle = visualizerRequest
     ? findExecutionShortTitle(treeData, visualizerRequest.executionId)
     : undefined;
@@ -904,6 +1072,10 @@ export function App() {
         ...(visualizerExecutionTitle ? { execution: visualizerExecutionTitle } : {}),
       }
     : undefined;
+  const visualizerExternalSrc =
+    visualizerSrc && visualizerRequest
+      ? buildVisualizerCaseUrl(visualizerSrc, visualizerRequest)
+      : visualizerSrc;
 
   return (
     <main data-last-error={error ? 'present' : undefined}>
@@ -975,8 +1147,10 @@ export function App() {
                 selectedExecutionIds={selectedExecutionIds}
                 onToggleExecution={toggleSelectedExecution}
                 onOpenExecution={(executionId) => void openExecution(executionId)}
+                onMissingOutput={showResultsNotFoundError}
                 onSelectCase={(executionId, seed) => {
                   setSelectedCase({ executionId, seed });
+                  setSelectedCaseFileKind('input');
                   void openVisualizer(seed, executionId);
                 }}
                 onSaveComment={(executionId, comment) => void saveComment(executionId, comment)}
@@ -989,8 +1163,10 @@ export function App() {
                 selectedExecutionIds={selectedExecutionIds}
                 onOpenSeed={(seed) => void openSeedExecutions(seed)}
                 onToggleExecution={toggleSelectedExecution}
+                onMissingOutput={showResultsNotFoundError}
                 onSelectCase={(executionId, seed) => {
                   setSelectedCase({ executionId, seed });
+                  setSelectedCaseFileKind('input');
                   void openVisualizer(seed, executionId);
                 }}
               />
@@ -1042,12 +1218,14 @@ export function App() {
               <CasePanel
                 key={`${selectedCase.executionId}:${selectedCase.seed}`}
                 selectedCase={selectedCase}
+                initialKind={selectedCaseFileKind}
                 fileView={fileView}
                 pendingKind={caseFilePendingKind}
                 loadError={caseFileLoadError}
-                onOpenFile={(kind) =>
-                  void openCaseFile(kind, selectedCase.executionId, selectedCase.seed)
-                }
+                onOpenFile={(kind) => {
+                  setSelectedCaseFileKind(kind);
+                  void openCaseFile(kind, selectedCase.executionId, selectedCase.seed);
+                }}
               />
             )}
             {activePanel === 'case' && !selectedCase && (
@@ -1083,20 +1261,119 @@ export function App() {
               <EmptyState text="実行を選択してください" />
             )}
 
-            {activePanel === 'visualizer' && (
+            <div
+              className={activePanel === 'visualizer' ? 'panelView' : 'panelViewHidden'}
+              aria-hidden={activePanel === 'visualizer' ? undefined : true}
+            >
               <VisualizerPanel
                 src={visualizerSrc}
+                externalSrc={visualizerExternalSrc}
                 pending={visualizerPending !== null}
                 loadError={visualizerError}
                 title={visualizerTitle}
+                frameRef={visualizerFrameRef}
+                onFrameLoad={handleVisualizerFrameLoad}
                 onResetVisualizer={resetVisualizer}
               />
-            )}
+            </div>
           </section>
         </section>
       )}
     </main>
   );
+}
+
+function readPahcerUIRoute(): PahcerUIRoute {
+  const pathRoute = parsePahcerUIPath(window.location.pathname);
+  if (pathRoute && pathRoute.kind !== 'home') {
+    return pathRoute;
+  }
+
+  const legacyRoute = parseLegacyQueryRoute(new URLSearchParams(window.location.search));
+  return legacyRoute ?? pathRoute ?? { kind: 'home' };
+}
+
+function parseLegacyQueryRoute(query: URLSearchParams): PahcerUIRoute | undefined {
+  const view = query.get('view');
+  const executionId = query.get('executionId') || '';
+  if (view === 'execution' && executionId) {
+    return { kind: 'execution', executionId };
+  }
+  if (view === 'source' && executionId) {
+    return { kind: 'source', executionId };
+  }
+  if (view === 'case' || view === 'visualizer') {
+    const seed = Number(query.get('seed'));
+    if (!executionId || !Number.isInteger(seed) || seed < 0) {
+      return undefined;
+    }
+    const fileKind = query.get('fileKind');
+    if (view === 'visualizer') {
+      return { kind: 'visualizer', executionId, seed };
+    }
+    return {
+      kind: 'case',
+      executionId,
+      seed,
+      ...(fileKind === 'input' || fileKind === 'output' || fileKind === 'error'
+        ? { fileKind }
+        : {}),
+    };
+  }
+  if (view === 'comparison' || view === 'diff') {
+    const executionIds = (query.get('executionIds') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (executionIds.length > 0) {
+      return { kind: view, executionIds };
+    }
+  }
+  return undefined;
+}
+
+function routeForUiState(state: {
+  activePanel: Panel;
+  openExecutionId: string | null;
+  selectedExecutionIds: string[];
+  selectedCase: SelectedCase | null;
+  selectedCaseFileKind: CaseFileKind;
+  visualizerRequest: VisualizerRequest | null;
+}): PahcerUIRoute {
+  if (state.activePanel === 'visualizer') {
+    const request = state.visualizerRequest ?? state.selectedCase;
+    if (request) {
+      return { kind: 'visualizer', executionId: request.executionId, seed: request.seed };
+    }
+  }
+
+  if (state.activePanel === 'case' && state.selectedCase) {
+    return {
+      kind: 'case',
+      executionId: state.selectedCase.executionId,
+      seed: state.selectedCase.seed,
+      fileKind: state.selectedCaseFileKind,
+    };
+  }
+
+  const selectedExecutionId = state.selectedExecutionIds[state.selectedExecutionIds.length - 1];
+  if (state.activePanel === 'source' && selectedExecutionId) {
+    return { kind: 'source', executionId: selectedExecutionId };
+  }
+
+  if (state.activePanel === 'diff' && state.selectedExecutionIds.length > 0) {
+    return { kind: 'diff', executionIds: state.selectedExecutionIds };
+  }
+
+  if (state.selectedExecutionIds.length > 0) {
+    return { kind: 'comparison', executionIds: state.selectedExecutionIds };
+  }
+
+  if (state.openExecutionId) {
+    return { kind: 'execution', executionId: state.openExecutionId };
+  }
+
+  return { kind: 'home' };
 }
 
 function findExecutionShortTitle(
@@ -1108,6 +1385,13 @@ function findExecutionShortTitle(
 
 function shortExecutionId(executionId: string): string {
   return executionId.length > 8 ? executionId.slice(0, 8) : executionId;
+}
+
+function buildVisualizerCaseUrl(src: string, request: VisualizerRequest): string {
+  const url = new URL(src, window.location.href);
+  url.searchParams.set('seed', String(request.seed));
+  url.searchParams.set('executionId', request.executionId);
+  return url.toString();
 }
 
 function selectPreparedSourceFile(

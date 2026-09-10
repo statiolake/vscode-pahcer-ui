@@ -2,40 +2,14 @@ import * as fs from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import * as path from 'node:path';
 import { URL } from 'node:url';
-import { CheckPahcerStatusUseCase } from '@pahcer/core/application/checkPahcerStatusUseCase';
-import { CommitResultsUseCase } from '@pahcer/core/application/commitResultsUseCase';
-import { CopySourceAtExecutionUseCase } from '@pahcer/core/application/copySourceAtExecutionUseCase';
 import { ComparisonConfig } from '@pahcer/core/application/dtos/comparisonConfig';
 import type {
   ExecutionSortOrder,
   SeedSortOrder,
 } from '@pahcer/core/application/dtos/pahcerUIState';
-import { InitializeUseCase } from '@pahcer/core/application/initializeUseCase';
-import { LoadComparisonDataUseCase } from '@pahcer/core/application/loadComparisonDataUseCase';
-import { LoadPahcerTreeDataUseCase } from '@pahcer/core/application/loadPahcerTreeDataUseCase';
-import {
-  type CaseFileKind,
-  OpenCaseFileUseCase,
-} from '@pahcer/core/application/openCaseFileUseCase';
-import { RunPahcerUseCase } from '@pahcer/core/application/runPahcerUseCase';
-import { ShowExecutionDiffUseCase } from '@pahcer/core/application/showExecutionDiffUseCase';
-import { UpdateExecutionCommentUseCase } from '@pahcer/core/application/updateExecutionCommentUseCase';
-import { VisualizerUseCase } from '@pahcer/core/application/visualizerUseCase';
-import type { Execution } from '@pahcer/core/domain/models/execution';
+import type { CaseFileKind } from '@pahcer/core/application/openCaseFileUseCase';
 import { PahcerRunOptions } from '@pahcer/core/domain/models/pahcerStatus';
-import { ComparisonConfigRepository } from '@pahcer/node-adapters/infrastructure/comparisonConfigRepository';
-import { ExecutionRepository } from '@pahcer/node-adapters/infrastructure/executionRepository';
-import { FileAnalyzer } from '@pahcer/node-adapters/infrastructure/fileAnalyzer';
-import { GitignoreAdapter } from '@pahcer/node-adapters/infrastructure/gitignoreAdapter';
-import { InOutFilesAdapter } from '@pahcer/node-adapters/infrastructure/inOutFilesAdapter';
-import { PahcerConfigRepository } from '@pahcer/node-adapters/infrastructure/pahcerConfigRepository';
-import { TestCaseRepository } from '@pahcer/node-adapters/infrastructure/testCaseRepository';
-import { TestCaseSummaryQueryService } from '@pahcer/node-adapters/infrastructure/testCaseSummaryQueryService';
-import { TesterDownloader } from '@pahcer/node-adapters/infrastructure/testerDownloader';
-import { VisualizerAdapter } from '@pahcer/node-adapters/infrastructure/visualizerAdapter';
-import { WebAppConfig } from './infrastructure/webAppConfig';
-import { WebGitAdapter } from './infrastructure/webGitAdapter';
-import { WebPahcerAdapter } from './infrastructure/webPahcerAdapter';
+import { createPahcerRuntime } from '@pahcer/node-adapters/infrastructure/pahcerRuntime';
 
 const workspaceRoot = path.resolve(process.env.PAHCER_WORKSPACE || process.cwd());
 const port = Number(process.env.PORT || 3000);
@@ -43,65 +17,7 @@ const host = process.env.PAHCER_UI_HOST || '127.0.0.1';
 const serverStatePath = process.env.PAHCER_UI_SERVER_STATE;
 const workspaceName = path.basename(workspaceRoot);
 
-function createUseCases() {
-  const executionRepository = new ExecutionRepository(workspaceRoot);
-  const inOutFilesAdapter = new InOutFilesAdapter(workspaceRoot);
-  const testCaseRepository = new TestCaseRepository(inOutFilesAdapter, workspaceRoot);
-  const testCaseSummaryQueryService = new TestCaseSummaryQueryService(workspaceRoot);
-  const comparisonConfigRepository = new ComparisonConfigRepository(workspaceRoot);
-  const pahcerConfigRepository = new PahcerConfigRepository(workspaceRoot);
-  const appConfig = new WebAppConfig(workspaceRoot);
-  const gitAdapter = new WebGitAdapter(workspaceRoot);
-  const pahcerAdapter = new WebPahcerAdapter(pahcerConfigRepository, workspaceRoot);
-  const commitResults = new CommitResultsUseCase(gitAdapter, appConfig);
-
-  return {
-    appConfig,
-    executionRepository,
-    gitAdapter,
-    status: new CheckPahcerStatusUseCase(pahcerAdapter),
-    initialize: new InitializeUseCase(
-      new TesterDownloader(workspaceRoot),
-      new GitignoreAdapter(workspaceRoot),
-      pahcerAdapter,
-      pahcerConfigRepository,
-      workspaceName,
-    ),
-    run: new RunPahcerUseCase(
-      pahcerAdapter,
-      commitResults,
-      inOutFilesAdapter,
-      new FileAnalyzer(),
-      executionRepository,
-      testCaseRepository,
-      pahcerConfigRepository,
-    ),
-    tree: new LoadPahcerTreeDataUseCase(
-      executionRepository,
-      testCaseRepository,
-      testCaseSummaryQueryService,
-      pahcerConfigRepository,
-    ),
-    comparison: new LoadComparisonDataUseCase(
-      executionRepository,
-      testCaseRepository,
-      testCaseSummaryQueryService,
-      comparisonConfigRepository,
-      pahcerConfigRepository,
-    ),
-    updateComment: new UpdateExecutionCommentUseCase(executionRepository),
-    openCaseFile: new OpenCaseFileUseCase(inOutFilesAdapter),
-    copySource: new CopySourceAtExecutionUseCase(executionRepository, gitAdapter),
-    diff: new ShowExecutionDiffUseCase(executionRepository, gitAdapter),
-    visualizer: new VisualizerUseCase(
-      inOutFilesAdapter,
-      executionRepository,
-      new VisualizerAdapter(workspaceRoot),
-    ),
-  };
-}
-
-const useCases = createUseCases();
+const useCases = createPahcerRuntime(workspaceRoot);
 
 const server = createServer(async (request, response) => {
   try {
@@ -114,6 +30,11 @@ const server = createServer(async (request, response) => {
 
     if (request.method === 'GET' && requestUrl.pathname === '/app.js') {
       await sendClientScript(response);
+      return;
+    }
+
+    if (request.method === 'GET' && isWebDocumentPath(requestUrl.pathname)) {
+      sendHtml(response);
       return;
     }
 
@@ -271,32 +192,32 @@ const server = createServer(async (request, response) => {
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/diff') {
       const executionIds = readExecutionIds(requestUrl);
-      const result = await useCases.diff.showDiff(executionIds);
+      const result = await useCases.diff.loadDiffFiles(executionIds);
       if (result.status !== 'shown') {
         sendJson(response, result);
         return;
       }
-      const executions = await Promise.all(
-        executionIds.map((executionId) => useCases.executionRepository.findById(executionId)),
-      );
-      const sorted = executions
-        .filter(hasCommitHash)
-        .sort((a, b) => a.startTime.valueOf() - b.startTime.valueOf());
-      const older = sorted[0];
-      const newer = sorted[1];
-      if (!older || !newer) {
-        sendJson(response, { status: 'missingCommitHash' });
-        return;
-      }
-      sendJson(response, {
-        status: 'shown',
-        files: await useCases.gitAdapter.getDiffFiles(older.commitHash, newer.commitHash),
-      });
+      sendJson(response, { status: 'shown', files: result.files });
       return;
     }
 
     if (request.method === 'GET' && requestUrl.pathname === '/api/visualizer/status') {
       sendJson(response, { htmlFileName: await useCases.visualizer.getCachedHtmlFileName() });
+      return;
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/visualizer/data') {
+      const seed = Number(requestUrl.searchParams.get('seed'));
+      const executionId = requestUrl.searchParams.get('executionId') || '';
+      if (!Number.isInteger(seed) || seed < 0 || !executionId) {
+        sendJson(response, { error: 'A valid seed and execution id are required.' }, 400);
+        return;
+      }
+      sendJson(response, {
+        seed,
+        executionId,
+        ...(await useCases.visualizer.loadCaseData(seed, executionId)),
+      });
       return;
     }
 
@@ -418,15 +339,34 @@ async function removeServerState(): Promise<void> {
     return;
   }
 
+  // 別プロセスがすでに状態ファイルを置き換え／削除している場合のみ許容する。
+  // それ以外の失敗（権限など）は握りつぶさずに投げる。
+  let content: string;
   try {
-    const content = await fs.readFile(serverStatePath, 'utf-8');
-    const state = JSON.parse(content) as { pid?: unknown };
-    if (state.pid === process.pid) {
-      await fs.unlink(serverStatePath);
+    content = await fs.readFile(serverStatePath, 'utf-8');
+  } catch (error) {
+    if (!isErrnoCode(error, 'ENOENT')) {
+      throw error;
     }
-  } catch {
-    // サーバー終了時の状態ファイル削除は best effort とする
+    return;
   }
+
+  const state = JSON.parse(content) as { pid?: unknown };
+  if (state.pid !== process.pid) {
+    return;
+  }
+
+  try {
+    await fs.unlink(serverStatePath);
+  } catch (error) {
+    if (!isErrnoCode(error, 'ENOENT')) {
+      throw error;
+    }
+  }
+}
+
+function isErrnoCode(error: unknown, code: string): boolean {
+  return error instanceof Error && (error as NodeJS.ErrnoException).code === code;
 }
 
 function sendHtml(response: ServerResponse): void {
@@ -446,6 +386,10 @@ function sendHtml(response: ServerResponse): void {
     <script src="/app.js"></script>
   </body>
 </html>`);
+}
+
+function isWebDocumentPath(pathname: string): boolean {
+  return /^\/(?:executions|comparison|diff)(?:\/|$)/.test(pathname);
 }
 
 async function sendClientScript(response: ServerResponse): Promise<void> {
@@ -505,10 +449,17 @@ async function readObject(request: IncomingMessage): Promise<Record<string, unkn
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+/**
+ * ファイル内容を読み込む。まだ存在しない場合のみ空文字列を返し、
+ * それ以外の読み込み失敗はそのまま投げてリクエストのエラーとして表面化させる。
+ */
 async function readTextIfExists(filePath: string): Promise<string> {
   try {
     return await fs.readFile(filePath, 'utf-8');
-  } catch {
+  } catch (error) {
+    if (!isErrnoCode(error, 'ENOENT')) {
+      throw error;
+    }
     return '';
   }
 }
@@ -577,12 +528,6 @@ function optionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function hasCommitHash(execution: Execution | undefined): execution is Execution & {
-  commitHash: string;
-} {
-  return typeof execution?.commitHash === 'string' && execution.commitHash.length > 0;
-}
-
 function rewriteVisualizerResourcePaths(html: string): string {
   return html
     .replace(/src=["']\.\/([^"']+)["']/g, (_match, fileName: string) => {
@@ -607,37 +552,68 @@ function injectVisualizerData(
 window.PAHCER_SEED = ${JSON.stringify(seed)};
 window.PAHCER_INPUT = ${JSON.stringify(input)};
 window.PAHCER_OUTPUT = ${JSON.stringify(output)};
-window.addEventListener('DOMContentLoaded', () => {
+function updateTestCaseData(nextSeed, nextInput, nextOutput) {
+  window.PAHCER_SEED = nextSeed;
+  window.PAHCER_INPUT = nextInput;
+  window.PAHCER_OUTPUT = nextOutput;
   const seedInput = document.getElementById('seed');
   const inputTextarea = document.getElementById('input');
   const outputTextarea = document.getElementById('output');
   if (seedInput) {
-    seedInput.value = String(window.PAHCER_SEED);
+    seedInput.value = String(nextSeed);
     seedInput.dispatchEvent(new Event('input', { bubbles: true }));
   }
   if (inputTextarea) {
-    inputTextarea.value = window.PAHCER_INPUT || '';
+    inputTextarea.value = nextInput || '';
     inputTextarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
   if (outputTextarea) {
-    outputTextarea.value = window.PAHCER_OUTPUT || '';
+    outputTextarea.value = nextOutput || '';
     outputTextarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
+}
+async function loadTestCaseData(message) {
+  const query = new URLSearchParams({
+    seed: String(message.seed),
+    executionId: message.executionId
+  });
+  const response = await fetch('/api/visualizer/data?' + query.toString());
+  if (!response.ok) {
+    throw new Error('Failed to load visualizer case data');
+  }
+  const data = await response.json();
+  updateTestCaseData(data.seed, data.input, data.output);
+}
+window.addEventListener('message', (event) => {
+  if (event.source !== window.parent || event.data?.type !== 'pahcer:updateTestCase') {
+    return;
+  }
+  void loadTestCaseData(event.data).catch((error) => {
+    console.error('[pahcer] Failed to update the visualizer test case', error);
+  });
+});
+window.addEventListener('DOMContentLoaded', () => {
+  updateTestCaseData(window.PAHCER_SEED, window.PAHCER_INPUT, window.PAHCER_OUTPUT);
   let zoomLevel = ${JSON.stringify(initialZoomLevel)};
   const controls = document.createElement('div');
-  controls.style.cssText = 'position:fixed;top:10px;right:10px;z-index:10000;background:rgba(30,30,30,.85);color:white;padding:6px;border-radius:4px;font-family:sans-serif;display:flex;gap:4px;align-items:center';
+  controls.id = 'pahcer-zoom-controls';
+  controls.style.cssText = 'position:fixed;top:10px;right:10px;z-index:10000;background:rgba(30,30,30,.85);color:white;padding:6px;border-radius:4px;font-family:sans-serif;display:flex;gap:4px;align-items:center;box-sizing:border-box';
   const display = document.createElement('span');
-  display.style.cssText = 'min-width:44px;text-align:center;font-size:12px';
+  display.style.cssText = 'min-width:44px;text-align:center;font-size:12px;box-sizing:border-box';
+  const contentWrapper = document.createElement('div');
+  contentWrapper.id = 'pahcer-content-wrapper';
+  contentWrapper.style.transformOrigin = 'top left';
   const apply = () => {
-    document.body.style.transformOrigin = 'top left';
-    document.body.style.transform = 'scale(' + zoomLevel + ')';
-    document.body.style.width = (100 / zoomLevel) + '%';
+    contentWrapper.style.transform = 'scale(' + zoomLevel + ')';
+    contentWrapper.style.width = (100 / zoomLevel) + '%';
     display.textContent = Math.round(zoomLevel * 100) + '%';
     fetch('/api/preferences', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ visualizerZoomLevel: zoomLevel })
-    }).catch(() => {});
+    }).catch((error) => {
+      console.error('[pahcer] Failed to save the visualizer zoom level', error);
+    });
   };
   for (const item of [['-', -0.1], ['+', 0.1], ['100%', 0]]) {
     const button = document.createElement('button');
@@ -651,6 +627,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (item[0] === '-') controls.appendChild(display);
   }
   document.body.appendChild(controls);
+  for (const child of Array.from(document.body.children)) {
+    if (child !== controls) {
+      contentWrapper.appendChild(child);
+    }
+  }
+  document.body.insertBefore(contentWrapper, controls);
   apply();
 });
 </script>`;

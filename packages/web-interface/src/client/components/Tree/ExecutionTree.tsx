@@ -21,6 +21,7 @@ type ExecutionTreeProps = {
   onToggleExecution: (executionId: string) => void;
   onOpenExecution: (executionId: string) => void;
   onSelectCase: (executionId: string, seed: number) => void;
+  onMissingOutput: (seed: number) => void;
   onSaveComment: (executionId: string, comment: string) => void;
 };
 
@@ -143,6 +144,7 @@ export function ExecutionTree(props: ExecutionTreeProps) {
                       testCase={testCase}
                       relativeScore={relativeScore}
                       onSelect={() => props.onSelectCase(testCase.executionId, testCase.seed)}
+                      onMissingOutput={() => props.onMissingOutput(testCase.seed)}
                     />
                   ))}
                 </ul>
@@ -210,7 +212,7 @@ function executionStatusKind(stats: TreeExecutionStats): ExecutionStatusKind {
 
 function executionIcon(stats: TreeExecutionStats) {
   if (stats.execution.commitHash) {
-    return null;
+    return <span className="executionStatusIcon" aria-hidden="true" />;
   }
 
   if (stats.waSeeds.length === 0) {

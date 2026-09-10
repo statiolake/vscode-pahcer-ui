@@ -40,9 +40,6 @@ export function SideBar(props: SideBarProps) {
 
   return (
     <aside className="sideBar">
-      <div className="resultHeader">
-        <span className="sectionLabel">RESULTS</span>
-      </div>
       <div className="treeToolbar">
         <fieldset className="toggleGroup">
           <legend className="srOnly">表示モード</legend>

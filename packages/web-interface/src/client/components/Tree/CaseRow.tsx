@@ -7,6 +7,7 @@ type CaseRowProps = {
   testCase: TreeTestCase;
   relativeScore: number;
   onSelect: () => void;
+  onMissingOutput: () => void;
 };
 
 export function CaseRow(props: CaseRowProps) {
@@ -21,7 +22,7 @@ export function CaseRow(props: CaseRowProps) {
       <button
         type="button"
         className={failed ? 'treeRow caseRow failed' : 'treeRow caseRow'}
-        onClick={props.onSelect}
+        onClick={props.testCase.foundOutput ? props.onSelect : props.onMissingOutput}
         title={props.testCase.errorMessage || undefined}
         aria-label={`${rowLabel} - ${executionTime}`}
       >

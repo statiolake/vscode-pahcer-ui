@@ -30,7 +30,7 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
   const [startSeedInput, setStartSeedInput] = useState('');
   const [endSeedInput, setEndSeedInput] = useState('');
   const [freezeBestScores, setFreezeBestScores] = useState(false);
-  const [enableGitIntegration, setEnableGitIntegration] = useState(false);
+  const [enableGitIntegration, setEnableGitIntegration] = useState<boolean | undefined>(undefined);
 
   const startSeedParseResult = parseSeedInput(startSeedInput);
   const endSeedParseResult = parseSeedInput(endSeedInput);
@@ -130,7 +130,7 @@ export function RunOptionsPanel(props: RunOptionsPanelProps) {
             <input
               id={enableGitIntegrationId}
               type="checkbox"
-              checked={enableGitIntegration}
+              checked={enableGitIntegration === true}
               onChange={(event) => setEnableGitIntegration(event.target.checked)}
             />
             <label htmlFor={enableGitIntegrationId}>Git 連携を使う</label>
