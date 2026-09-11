@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
-import { promises as fs } from 'node:fs';
+import { promises as fs, constants as fsConstants } from 'node:fs';
 import * as http from 'node:http';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { stdin as input, stdout as output } from 'node:process';
 import { createInterface } from 'node:readline/promises';
@@ -55,8 +56,17 @@ interface CliOptions {
 
 interface ParsedCommand {
   command: string;
+  /** False when the user gave no subcommand at all (`pahcer-ui`, `pahcer-ui -C <ws>`). */
+  commandSpecified: boolean;
   positionals: string[];
   options: CliOptions;
+}
+
+/** Result of {@link ensureServer}: whether this process is the server's owner. */
+interface EnsuredServer {
+  state: ServerState;
+  /** True when this call started the server, so the caller is responsible for stopping it. */
+  started: boolean;
 }
 
 class CliError extends Error {}
@@ -72,6 +82,7 @@ const COMMANDS = new Set([
   'url',
   'stop',
   'restart',
+  'tui',
   'run',
   'results',
   'tree',
@@ -97,11 +108,24 @@ const SERVER_LOCK_FILE = path.join('.pahcer-ui', 'server.lock');
  */
 const SERVER_LOG_FILE = path.join('.pahcer-ui', 'server.log');
 
+/** Terminal browser used by the TUI mode. It must run in the foreground on this terminal. */
+const TERMINAL_BROWSER_COMMAND = 'terminal-browser';
+
+const TERMINAL_BROWSER_INSTALL_HINT =
+  'Install it with `brew install terminal-browser` or `curl -fsSL https://terminal-browser.sh/install | bash`';
+
+/** Signals forwarded to the terminal browser so it can shut itself down cleanly. */
+const FORWARDED_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+
 async function main(): Promise<void> {
   const parsed = parseCommand(process.argv.slice(2));
 
-  if (parsed.command === 'help' || parsed.command === '--help' || parsed.command === '-h') {
-    printHelp();
+  if (parsed.command === 'help') {
+    if (parsed.commandSpecified) {
+      printHelp();
+      return;
+    }
+    await defaultCommand(parsed.options);
     return;
   }
 
@@ -121,7 +145,7 @@ async function main(): Promise<void> {
       return;
     case 'start':
     case 'server': {
-      const state = await ensureServer(workspaceRoot, parsed.options);
+      const { state } = await ensureServer(workspaceRoot, parsed.options);
       printServerState(state, parsed.options.format);
       return;
     }
@@ -142,6 +166,9 @@ async function main(): Promise<void> {
     case 'restart':
       await stopServer(workspaceRoot, true);
       await openBrowserView(workspaceRoot, parsed.options, { kind: 'home' });
+      return;
+    case 'tui':
+      await tuiCommand(workspaceRoot, parsed.positionals, parsed.options);
       return;
     case 'run':
       await runCommand(workspaceRoot, parsed.options);
@@ -313,7 +340,7 @@ function parseCommand(args: string[]): ParsedCommand {
     throw new CliError(`Unknown subcommand: ${command}\n\n${helpText()}`);
   }
 
-  return { command, positionals, options };
+  return { command, commandSpecified, positionals, options };
 }
 
 async function resolveWorkspaceRoot(command: string, workspacePath?: string): Promise<string> {
@@ -804,7 +831,7 @@ async function openBrowserView(
   options: CliOptions,
   view: PahcerUIRoute,
 ): Promise<void> {
-  const state = await ensureServer(workspaceRoot, options);
+  const { state } = await ensureServer(workspaceRoot, options);
   const url = buildBrowserUrl(state.url, view);
   if (options.format === 'json') {
     printJson({ url, workspaceRoot, pid: state.pid });
@@ -814,6 +841,116 @@ async function openBrowserView(
   if (!options.noOpen) {
     await openBrowser(url);
   }
+}
+
+/**
+ * `pahcer-ui` with no subcommand: the TUI when a terminal browser is available,
+ * the help text otherwise.
+ */
+async function defaultCommand(options: CliOptions): Promise<void> {
+  if (!(await hasTerminalBrowser())) {
+    printHelp();
+    console.log(
+      `Tip: install ${TERMINAL_BROWSER_COMMAND} to run \`pahcer-ui\` as a TUI in this terminal. ${TERMINAL_BROWSER_INSTALL_HINT}`,
+    );
+    return;
+  }
+
+  const workspaceRoot = await resolveWorkspaceRoot('tui', options.workspacePath);
+  await tuiCommand(workspaceRoot, [], options);
+}
+
+/**
+ * Open the Web UI in a terminal browser running in the foreground of this terminal.
+ *
+ * A server this process started is owned by this process and stopped once the
+ * terminal browser exits; a server that was already running belongs to whoever
+ * started it and is left alone.
+ */
+async function tuiCommand(
+  workspaceRoot: string,
+  positionals: string[],
+  options: CliOptions,
+): Promise<void> {
+  const target = positionals[0] ?? 'home';
+  const view = parseBrowserView(target, positionals.slice(1));
+
+  const { state, started } = await ensureServer(workspaceRoot, options);
+  // stdout stays clean for the TUI, so this goes to stderr.
+  console.error(
+    started
+      ? `Started the Pahcer UI server: ${state.url}`
+      : `Reusing the running Pahcer UI server: ${state.url}`,
+  );
+
+  try {
+    process.exitCode = await runTerminalBrowser(buildBrowserUrl(state.url, view));
+  } finally {
+    if (started) {
+      await stopServer(workspaceRoot, true);
+    }
+  }
+}
+
+/**
+ * Run the terminal browser in the foreground and resolve with its exit code.
+ *
+ * Signals aimed at this process are forwarded to the child, which then exits and
+ * lets the caller run its cleanup.
+ */
+function runTerminalBrowser(url: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    const child = spawn(TERMINAL_BROWSER_COMMAND, ['open', url], { stdio: 'inherit' });
+
+    const handlers = FORWARDED_SIGNALS.map((signal) => {
+      const handler = () => {
+        if (child.exitCode === null && child.signalCode === null) {
+          child.kill(signal);
+        }
+      };
+      process.on(signal, handler);
+      return { signal, handler };
+    });
+    const removeHandlers = () => {
+      for (const { signal, handler } of handlers) {
+        process.off(signal, handler);
+      }
+    };
+
+    child.once('error', (error: NodeJS.ErrnoException) => {
+      removeHandlers();
+      if (error.code === 'ENOENT') {
+        reject(
+          new CliError(
+            `${TERMINAL_BROWSER_COMMAND} is not installed. ${TERMINAL_BROWSER_INSTALL_HINT}`,
+          ),
+        );
+        return;
+      }
+      reject(error);
+    });
+
+    child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
+      removeHandlers();
+      resolve(code ?? (signal ? 128 + (os.constants.signals[signal] ?? 0) : 0));
+    });
+  });
+}
+
+/** Whether the terminal browser is an executable on PATH. */
+async function hasTerminalBrowser(): Promise<boolean> {
+  const directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  for (const directory of directories) {
+    const candidate = path.join(directory, TERMINAL_BROWSER_COMMAND);
+    const executable = await fs.access(candidate, fsConstants.X_OK).then(
+      () => true,
+      () => false,
+    );
+    if (executable) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function buildBrowserUrl(baseUrl: string, view: PahcerUIRoute): string {
@@ -839,10 +976,10 @@ async function showStatus(workspaceRoot: string, format: OutputFormat): Promise<
   printValue(result, format, `Pahcer: ${result.pahcer}\nServer: ${result.server.status}`);
 }
 
-async function ensureServer(workspaceRoot: string, options: CliOptions): Promise<ServerState> {
+async function ensureServer(workspaceRoot: string, options: CliOptions): Promise<EnsuredServer> {
   const current = await readHealthyState(workspaceRoot);
   if (current) {
-    return current;
+    return { state: current, started: false };
   }
 
   await fs.mkdir(path.join(workspaceRoot, '.pahcer-ui'), { recursive: true });
@@ -850,7 +987,7 @@ async function ensureServer(workspaceRoot: string, options: CliOptions): Promise
   if (!lockFile) {
     const state = await waitForHealthyState(workspaceRoot);
     if (state) {
-      return state;
+      return { state, started: false };
     }
     throw new CliError('Timed out waiting for another Pahcer UI server to start.');
   }
@@ -858,7 +995,7 @@ async function ensureServer(workspaceRoot: string, options: CliOptions): Promise
   try {
     const lockedCurrent = await readHealthyState(workspaceRoot);
     if (lockedCurrent) {
-      return lockedCurrent;
+      return { state: lockedCurrent, started: false };
     }
 
     await removeServerState(workspaceRoot);
@@ -893,7 +1030,7 @@ async function ensureServer(workspaceRoot: string, options: CliOptions): Promise
     if (state.pid !== child.pid) {
       throw new CliError('The started Pahcer UI server PID could not be verified.');
     }
-    return state;
+    return { state, started: true };
   } finally {
     await lockFile.close();
     await removeFileIfExists(path.join(workspaceRoot, SERVER_LOCK_FILE));
@@ -1401,6 +1538,12 @@ Server lifecycle:
   url                          Print the running Web server URL
   stop                         Stop the Web server
   restart                      Restart the Web server and open the browser
+
+Terminal UI (requires terminal-browser and a kitty-graphics-capable terminal):
+  tui                          Open the Web UI home page in terminal-browser
+  tui <view-target> [...]      Open a specific view (same arguments as "view")
+                               Running pahcer-ui with no subcommand does the
+                               same when terminal-browser is installed.
 
 Run options:
   --start-seed <n>             Override the start seed

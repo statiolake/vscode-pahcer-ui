@@ -50,7 +50,7 @@ AtCoder Heuristic Contest (AHC) のローカルテスト並列実行ツール「
 
 `pahcer-ui` は `pahcer_config.toml` を含むディレクトリをワークスペースのルートとして検出します。現在のディレクトリから親方向に探索するため、ワークスペース内のどのディレクトリからでも実行できます。対象を明示する場合は `--workspace` または `-C` を使います。
 
-CLI は操作単位のサブコマンドで構成されています。Web UI サーバーを起動・再利用するのはブラウザ系コマンド (`open` / `view` / `start` / `restart`) だけで、`run` / `results` / `cases` / `case` / `comment` / `source` / `diff` / `visualizer` / `preferences` / `group` / `sort` はターミナル内で完結します。
+CLI は操作単位のサブコマンドで構成されています。Web UI サーバーを起動・再利用するのはブラウザ系コマンド (`open` / `view` / `start` / `restart` / `tui`) だけで、`run` / `results` / `cases` / `case` / `comment` / `source` / `diff` / `visualizer` / `preferences` / `group` / `sort` はターミナル内で完結します。
 
 開発中は `npm link` を使わず、`npm run cli -- ...` で CLI をビルドして実行できます。これは `cargo run` に近い使い方です。
 
@@ -116,6 +116,24 @@ pahcer-ui view comparison <execution-a> <execution-b>
 pahcer-ui view diff <execution-a> <execution-b>
 pahcer-ui view source <execution-id>
 ```
+
+```bash
+# ターミナル内で TUI として開く (terminal-browser を前景で起動)
+pahcer-ui tui
+
+# view と同じ引数で特定の画面を開く
+pahcer-ui tui execution <execution-id>
+pahcer-ui tui visualizer <execution-id> <seed>
+
+# サブコマンドを省略した場合も TUI が開く
+pahcer-ui
+```
+
+`tui` は Web UI サーバーを起動・再利用したうえで、同じターミナルで [terminal-browser](https://github.com/zenbu-labs/terminal-browser) を前景で起動します。終了は terminal-browser 側の Ctrl+Q です。`tui` 実行時にサーバーを新規起動した場合は terminal-browser の終了時に自動で停止し、すでに起動済みのサーバーを再利用した場合はそのまま残します。terminal-browser の終了コードはそのまま `pahcer-ui` の終了コードになります。
+
+サブコマンドを省略した `pahcer-ui` は、`terminal-browser` が PATH にあれば `pahcer-ui tui` と同じ動作をします。見つからない場合はヘルプとインストール案内を表示して終了します。
+
+前提として、`terminal-browser` のインストールと kitty graphics protocol に対応したターミナル (kitty / WezTerm / Ghostty など) が必要です。対応環境は macOS と Linux です。
 
 `open` と `view ...` に `--no-open` を付けると、ブラウザを起動せずに URL の表示だけを行います (サーバーは起動・再利用されます)。使えるサブコマンドとオプションの一覧は `pahcer-ui help` で確認できます。
 
